@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+if command -v python3 >/dev/null 2>&1; then
+    python3 tools/repository_hygiene.py --staged
+else
+    python tools/repository_hygiene.py --staged
+fi

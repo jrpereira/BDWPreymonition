@@ -1,0 +1,22 @@
+{
+  "module": "Premonition",
+  "version_file": "Scripts/main.lua",
+  "version_pattern": "local VERSION\\s*=\\s*\"([^\"]+)\"",
+  "metadata_version_file": "mod_settings.ini",
+  "files": {
+    "Scripts/main.lua": "Scripts/main.lua",
+    "Scripts/config.lua": "Scripts/config.lua",
+    "Scripts/runtime.lua": "Scripts/runtime.lua",
+    "Scripts/animation.lua": "Scripts/animation.lua",
+    "Scripts/events.lua": "Scripts/events.lua",
+    "Scripts/feature.lua": "Scripts/feature.lua",
+    "Scripts/ue_adapter.lua": "Scripts/ue_adapter.lua",
+    "Scripts/dmm_api.lua": "Scripts/dmm_api.lua",
+    "Scripts/premonition.lua": "Scripts/premonition.lua",
+    "enabled.txt": "enabled.txt",
+    "mod_settings.ini": "mod_settings.ini",
+    "README.md": "README.md",
+    "CHANGELOG.md": "CHANGELOG.md",
+    "config.example.ini": "distribution/config.ini"
+  }
+}
