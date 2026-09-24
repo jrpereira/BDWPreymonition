@@ -2,7 +2,7 @@
 
 The manifest uses `[Mod]` identity plus `[Setting.Id]` entries
 mapping numeric toggles into `[General]` in `config.ini`. DMM handles preview,
-dirty state, Apply and persistence. Subscribe once to `Premonition` using the
+dirty state, Apply and persistence. Subscribe once to `Preymonition` using the
 vendored `dmm_api.lua`; read the committed file on the game thread after a
 notification. Repeated notifications coalesce; unchanged settings are a no-op.
 Malformed Apply content preserves the previous valid runtime state.
@@ -20,7 +20,7 @@ See `FEATURE.md` for the hook, world-selection, and animation contract.
 
 ## Optional TE template
 
-The installable template entry point is `Premonition/Scripts/premonition.lua`.
-TE registers that path externally; Premonition does not auto-register it.
-Keep its `Premonition` collection identity, `npc.attacks` category, and
+The installable template entry point is `Preymonition/Scripts/preymonition.lua`.
+TE registers that path externally; Preymonition does not auto-register it.
+Keep its `Preymonition` collection identity, `npc.attacks` category, and
 disabled-by-default selector setting when changing the contract.

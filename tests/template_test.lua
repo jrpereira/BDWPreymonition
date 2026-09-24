@@ -1,9 +1,9 @@
-local template = dofile('Scripts/premonition.lua')
+local template = dofile('Scripts/preymonition.lua')
 
-assert(template.collection == 'Premonition')
+assert(template.collection == 'Preymonition')
 assert(template.category == 'npc.attacks')
 assert(type(template.settings) == 'table')
-assert(template.settings.enabled == false, 'Premonition template must default to disabled')
+assert(template.settings.enabled == false, 'Preymonition template must default to disabled')
 assert(type(template.attach) == 'function')
 assert(type(template.render) == 'function')
 assert(type(template.detach) == 'function')

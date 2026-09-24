@@ -166,7 +166,7 @@ function M.new(log, Animation, Events, adapter)
         if not ok then
             local stopped, stop_error = pcall(function() self:stop() end)
             local suffix = stopped and '' or '; cleanup failed: ' .. tostring(stop_error)
-            error('Premonition startup failed: ' .. tostring(error_message) .. suffix)
+            error('Preymonition startup failed: ' .. tostring(error_message) .. suffix)
         end
         return true
     end

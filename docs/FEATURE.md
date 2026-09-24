@@ -1,6 +1,6 @@
 # Directional cue behavior
 
-Premonition listens to three native game functions:
+Preymonition listens to three native game functions:
 
 - `CombatTargetIndicatorBase:UpdateIconTypeToMatchObservedStubState` detects a cue.
 - `CombatTargetIndicatorBase:NotifyIndicatorCleared` performs the ordinary hide.

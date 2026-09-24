@@ -12,6 +12,6 @@
 - Update the arrow when the attack direction changes, including repeated attacks
   from the same direction.
 - Fade the cue when combat ends and remove it when the mod is switched off.
-- Add Enable Premonition and Debug logging settings in Dawnwalker Mod Menu.
+- Add Enable Preymonition and Debug logging settings in Dawnwalker Mod Menu.
 
 In-game warning delivery, animation, and performance remain unverified.

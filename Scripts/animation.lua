@@ -1,4 +1,4 @@
--- Pure animation timeline for the Premonition HUD.
+-- Pure animation timeline for the Preymonition HUD.
 local M = {}
 
 local function clamp(value)

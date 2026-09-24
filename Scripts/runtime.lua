@@ -1,4 +1,4 @@
--- Own Premonition's event hooks, HUD widgets, and settings lifecycle.
+-- Own Preymonition's event hooks, HUD widgets, and settings lifecycle.
 return function(log, scripts, api)
     assert(type(scripts) == 'string', 'Scripts path is required')
     local Animation = dofile(scripts .. '/animation.lua')

@@ -22,13 +22,13 @@ class PackageTests(unittest.TestCase):
             archive=package_manifest.build(ROOT,Path(tmp))
             with ZipFile(archive) as bundle:
                 paths=set(bundle.namelist())
-                self.assertIn('Premonition/Scripts/main.lua',paths)
+                self.assertIn('Preymonition/Scripts/main.lua',paths)
                 for name in ['animation.lua','events.lua','feature.lua','ue_adapter.lua']:
-                    self.assertIn('Premonition/Scripts/'+name, paths)
-                self.assertIn('Premonition/Scripts/premonition.lua', paths)
-                self.assertNotIn('Premonition/templates/premonition.lua', paths)
-                self.assertIn('Premonition/config.example.ini',paths)
-                self.assertNotIn('Premonition/config.ini',paths)
+                    self.assertIn('Preymonition/Scripts/'+name, paths)
+                self.assertIn('Preymonition/Scripts/preymonition.lua', paths)
+                self.assertNotIn('Preymonition/templates/preymonition.lua', paths)
+                self.assertIn('Preymonition/config.example.ini',paths)
+                self.assertNotIn('Preymonition/config.ini',paths)
                 self.assertFalse(any('/tests/' in p or '/.git/' in p for p in paths))
                 self.assertFalse(any('tools' in [part.casefold() for part in Path(p).parts[:-1]] for p in paths))
 

@@ -2,8 +2,8 @@ local INDICATOR_CLASS =
     '/Game/_Dawnwalker/UI/_Unified/Combat/WBP_CombatTargetIndicator.WBP_CombatTargetIndicator_C'
 
 local template = {
-    collection = 'Premonition',
-    name = 'Premonition attacks',
+    collection = 'Preymonition',
+    name = 'Preymonition attacks',
     version = '0.1.1',
     description = 'Directional warning for incoming enemy attacks',
     category = 'npc.attacks',
@@ -28,9 +28,9 @@ local DESTROY_ORDER = {
     'BottomArrow',
     'LeftArrow',
     'RightArrow',
-    'PremonitionAnimatedArrows',
-    'PremonitionAnimatedBackground',
-    'Premonition',
+    'PreymonitionAnimatedArrows',
+    'PreymonitionAnimatedBackground',
+    'Preymonition',
 }
 
 local function highlighted(service, source)
@@ -51,7 +51,7 @@ local function transition_attack(service, state, source)
     local selected = highlighted(service, source)
     if not selected then return end
 
-    local background = state.PremonitionAnimatedBackground
+    local background = state.PreymonitionAnimatedBackground
     if service:valid(source.Reticle) then
         background:SetBrush(source.Reticle.Brush)
         local brush = background.Background
@@ -61,7 +61,7 @@ local function transition_attack(service, state, source)
         background:SetBrushColor({ R = 1, G = 1, B = 1, A = 0.20 })
     end
 
-    service:transition(state.Premonition, 'RenderOpacity', 0.5, 0.10)
+    service:transition(state.Preymonition, 'RenderOpacity', 0.5, 0.10)
     for _, direction in ipairs(DIRECTIONS) do
         local image = state.arrows[direction.source]
         local native = source[direction.source]
@@ -84,7 +84,7 @@ local function transition_attack(service, state, source)
 end
 
 function template:attach(service, hud, configuration, previous)
-    if previous and service:valid(previous.Premonition) then return previous end
+    if previous and service:valid(previous.Preymonition) then return previous end
     if previous then self:detach(service, previous, 'reattach') end
 
     local tree = hud and hud.WidgetTree or nil
@@ -100,12 +100,12 @@ function template:attach(service, hud, configuration, previous)
     end
 
     local ok, error_message = pcall(function()
-        local box = create('/Script/UMG.SizeBox', 'Premonition')
-        local background = create('/Script/UMG.Border', 'PremonitionAnimatedBackground')
-        local arrows = create('/Script/UMG.Overlay', 'PremonitionAnimatedArrows')
-        state.Premonition = box
-        state.PremonitionAnimatedBackground = background
-        state.PremonitionAnimatedArrows = arrows
+        local box = create('/Script/UMG.SizeBox', 'Preymonition')
+        local background = create('/Script/UMG.Border', 'PreymonitionAnimatedBackground')
+        local arrows = create('/Script/UMG.Overlay', 'PreymonitionAnimatedArrows')
+        state.Preymonition = box
+        state.PreymonitionAnimatedBackground = background
+        state.PreymonitionAnimatedArrows = arrows
 
         local viewport = service:viewportSize(hud)
         local viewport_scale = service:viewportScale(hud)
@@ -177,12 +177,12 @@ function template:detach(service, state, _)
     state.detached = true
 
 
-    if state.Premonition then
-        service:cancelTransitions(state.Premonition)
+    if state.Preymonition then
+        service:cancelTransitions(state.Preymonition)
         for _, image in pairs(state.arrows or {}) do service:cancelTransitions(image) end
-        if service:valid(state.Premonition) then
-            state.Premonition:SetRenderOpacity(0)
-            state.Premonition:RemoveFromParent()
+        if service:valid(state.Preymonition) then
+            state.Preymonition:SetRenderOpacity(0)
+            state.Preymonition:RemoveFromParent()
         end
     end
 
@@ -194,9 +194,9 @@ function template:detach(service, state, _)
 
     state.arrows = {}
     state.links = {}
-    state.Premonition = nil
-    state.PremonitionAnimatedBackground = nil
-    state.PremonitionAnimatedArrows = nil
+    state.Preymonition = nil
+    state.PreymonitionAnimatedBackground = nil
+    state.PreymonitionAnimatedArrows = nil
     state.hud = nil
     return true
 end

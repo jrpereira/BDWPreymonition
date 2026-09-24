@@ -1,4 +1,4 @@
--- UE4SS/UMG adapter for Premonition. Normal animation work never scans objects.
+-- UE4SS/UMG adapter for Preymonition. Normal animation work never scans objects.
 local M = {}
 
 local ARROWS = { 'TopArrow', 'BottomArrow', 'LeftArrow', 'RightArrow' }
@@ -96,7 +96,7 @@ function M.new(log, api)
         if #candidates == 1 then adapter.ambiguous_logged = false; return candidates[1] end
         if #candidates > 1 and not adapter.ambiguous_logged then
             adapter.ambiguous_logged = true
-            log('Premonition skipped an ambiguous active HUD selection')
+            log('Preymonition skipped an ambiguous active HUD selection')
         end
         return nil
     end
@@ -203,11 +203,11 @@ function M.new(log, api)
         local ok, error_message = pcall(function()
             local tree = hud.WidgetTree
             assert(tree and valid(tree.RootWidget), 'Active HUD has no valid root widget')
-            ui.box = construct('/Script/UMG.SizeBox', tree, 'PremonitionRuntime' .. suffix)
-            ui.background = construct('/Script/UMG.Border', tree, 'PremonitionBackground' .. suffix)
-            ui.overlay = construct('/Script/UMG.Overlay', tree, 'PremonitionArrows' .. suffix)
+            ui.box = construct('/Script/UMG.SizeBox', tree, 'PreymonitionRuntime' .. suffix)
+            ui.background = construct('/Script/UMG.Border', tree, 'PreymonitionBackground' .. suffix)
+            ui.overlay = construct('/Script/UMG.Overlay', tree, 'PreymonitionArrows' .. suffix)
             for index, key in ipairs(ARROWS) do
-                local image = construct('/Script/UMG.Image', tree, 'Premonition' .. key .. suffix)
+                local image = construct('/Script/UMG.Image', tree, 'Preymonition' .. key .. suffix)
                 local slot = ui.overlay:AddChildToOverlay(image)
                 slot:SetHorizontalAlignment(0)
                 slot:SetVerticalAlignment(0)
@@ -231,11 +231,11 @@ function M.new(log, api)
     end
 
     function adapter.apply(ui, state)
-        assert(adapter.valid_ui(ui), 'Premonition UI is no longer valid')
+        assert(adapter.valid_ui(ui), 'Preymonition UI is no longer valid')
         ui.box:SetRenderOpacity(state.opacity)
         for index, arrow in ipairs(state.arrows) do
             local image = ui.images[index]
-            assert(valid(image), 'Premonition arrow is no longer valid')
+            assert(valid(image), 'Preymonition arrow is no longer valid')
             image:SetRenderOpacity(arrow.opacity)
             image:SetRenderScale({ X = arrow.scale, Y = arrow.scale })
         end
@@ -290,7 +290,7 @@ function M.new(log, api)
                 local path_value = full_name(object)
                 if path_value then callback(path_value) end
             end)
-            if not copied then log('Premonition hook context failed: ' .. tostring(error_message)) end
+            if not copied then log('Preymonition hook context failed: ' .. tostring(error_message)) end
         end)
         if not ok then error('Hook registration failed for ' .. path .. ': ' .. tostring(pre)) end
         return { path = path, pre = pre, post = post }

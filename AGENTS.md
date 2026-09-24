@@ -1,4 +1,4 @@
-# Premonition development
+# Preymonition development
 
 This is a UE4SS Lua mod using Dawnwalker Mod Menu. Keep runtime code in Scripts,
 tests in tests, tooling in tools and public documentation in docs. Keep personal

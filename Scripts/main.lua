@@ -1,6 +1,6 @@
--- Premonition: directional attack cue HUD for The Blood of Dawnwalker.
+-- Preymonition: directional attack cue HUD for The Blood of Dawnwalker.
 local VERSION = "0.1.1"
-local function log(message) print('[Premonition] '..tostring(message)..'\n') end
+local function log(message) print('[Preymonition] '..tostring(message)..'\n') end
 local source = debug.getinfo(1, 'S').source:gsub('^@', '')
 local scripts = assert(source:match('^(.*)[/\\][^/\\]+$'), 'Cannot resolve Scripts folder')
 local moddir = scripts == 'Scripts' and '.' or assert(scripts:match('^(.*)[/\\]Scripts$'), 'Unexpected mod layout')
@@ -12,12 +12,12 @@ local function read_config()
 end
 local Config = dofile(scripts..'/config.lua')
 local runtime = dofile(scripts..'/runtime.lua')(log, scripts)
-local previous = rawget(_G, 'PremonitionRuntime')
+local previous = rawget(_G, 'PreymonitionRuntime')
 if previous and type(previous.stop) == 'function' then
     local stopped, reason = pcall(function() previous:stop() end)
-    if not stopped then error('Cannot replace the previous Premonition runtime: ' .. tostring(reason)) end
+    if not stopped then error('Cannot replace the previous Preymonition runtime: ' .. tostring(reason)) end
 end
-_G.PremonitionRuntime = runtime
+_G.PreymonitionRuntime = runtime
 local ok, initial = pcall(Config.parse, read_config())
 if not ok then log('Invalid startup config; using defaults: '..tostring(initial)); initial = Config.parse(nil) end
 runtime:apply(initial)
@@ -26,7 +26,7 @@ local pending = false
 local subscribed, failure = pcall(function()
     assert(type(ExecuteInGameThread) == 'function', 'UE4SS game-thread dispatch unavailable')
     local api = dofile(scripts..'/dmm_api.lua')
-    api.subscribe('Premonition', function()
+    api.subscribe('Preymonition', function()
         if pending then return end
         pending = true
         local queued, why = pcall(ExecuteInGameThread, function()
