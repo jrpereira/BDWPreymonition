@@ -1,5 +1,5 @@
 -- Premonition: directional attack cue HUD for The Blood of Dawnwalker.
-local VERSION = "0.1.0"
+local VERSION = "0.1.1"
 local function log(message) print('[Premonition] '..tostring(message)..'\n') end
 local source = debug.getinfo(1, 'S').source:gsub('^@', '')
 local scripts = assert(source:match('^(.*)[/\\][^/\\]+$'), 'Cannot resolve Scripts folder')

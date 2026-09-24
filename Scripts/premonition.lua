@@ -4,7 +4,7 @@ local INDICATOR_CLASS =
 local template = {
     collection = 'Premonition',
     name = 'Premonition attacks',
-    version = '0.1.0',
+    version = '0.1.1',
     description = 'Directional warning for incoming enemy attacks',
     category = 'npc.attacks',
     settings = { enabled = false },

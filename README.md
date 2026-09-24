@@ -1,66 +1,63 @@
 # Premonition
 
-UE4SS Lua mod for **The Blood of Dawnwalker** that repeats the current attacker's
-directional shield cue at the bottom center of the HUD. Dawnwalker Mod Menu owns
-its settings page. Version: `0.1.0`.
+Keep incoming attack directions in sight with animated cues near the bottom center of your screen. Repeats the game’s directional shield indicator so you can spend less time hunting for the warning—and more time getting hit in the face like a pro that saw it coming.
 
-## Requirements and installation
+## What it does
 
-- UE4SS and Dawnwalker Mod Menu (DMM).
-- Live Apply uses the DMM settings-notification v1 API.
-  An older DMM without this API may save settings but requires a game restart to
-  apply them. Startup logs report subscription failures when detectable.
+Premonition repeats the current attacker's directional warning near the bottom
+center of the screen. Animated arrows highlight the direction shown by the
+original shield cue, then fade when combat ends.
 
-Build with `python tools/package.py`, then extract the archive's `Premonition/`
-folder into `ue4ss/Mods/`. In the mod settings page, change Enabled or Debug logging
-and choose Apply. DMM owns `config.ini`; startup uses safe defaults if it is missing.
-`config.example.ini` is a reference only. Preserve an existing `config.ini` on upgrade.
+It makes the warning easier to keep in view. Blocking, dodging, and taking the
+credit remain your responsibility.
 
-Premonition has no dependency on another gameplay mod, ModMenuDecorator, either
-bridge mod, or any diagnostic helper. It uses native UE4SS hooks directly.
+## Requirements
 
-## Behavior
+- **UE4SS for your Dawnwalker game version.** See the loader links in the
+  [Dawnwalker Mod Menu requirements](https://www.nexusmods.com/thebloodofdawnwalker/mods/271).
+- [Dawnwalker Mod Menu](https://www.nexusmods.com/thebloodofdawnwalker/mods/271)
+  for the settings page.
 
-When a visible combat indicator highlights a direction, Premonition creates a
-bottom-center square sized to 20% of the shorter viewport dimension. The native
-shield is a 20%-opacity background with 18px padding. The matching dark-red arrow
-grows from 50% to 100% over 300ms, then settles at 80% over 200ms. Replaced arrows
-fade and shrink over 100ms. Clearing the source retains the container at 50%; combat
-end fades it to zero over 200ms and resets the arrows.
+Premonition does not require ModCoreSettings, ModCoreControls, ModCoreTemplates,
+or UE4SSLuaEventBridge.
 
-Events are deferred from native hooks onto the game thread through a bounded queue.
-One 16ms callback runs only while animation work exists. There is no gameplay poll,
-idle timer, global scan during animation, or diagnostic bridge dependency.
+## Installation
 
-## Development
+1. Close the game completely. Extract the mod download so its `Premonition`
+   folder sits directly inside the game's `ue4ss/Mods` folder.
+2. Download any missing dependencies above and install them with the game closed.
+   Follow each download's instructions if it includes the full game-folder path.
+   UE4SS itself does not install inside `Mods`.
+3. Ensure the mods are enabled in your UE4SS setup or mod manager, then restart
+   the game. Avoid an extra nested `Premonition/Premonition` folder.
 
-- `Scripts/main.lua`: startup and one Apply subscription.
-- `Scripts/config.lua`: validated file-backed settings.
-- `Scripts/runtime.lua`: settings and feature lifecycle ownership.
-- `Scripts/animation.lua`: deterministic animation timeline.
-- `Scripts/events.lua`: bounded native-event queue.
-- `Scripts/feature.lua`: hook, stale-callback, and scheduler coordination.
-- `Scripts/ue_adapter.lua`: UE4SS hooks, active-world selection, and UMG ownership.
-- `Scripts/dmm_api.lua`: vendored DMM notification protocol helper.
-- `Scripts/premonition.lua`: TE-compatible attack-notification template, disabled by default and not auto-registered.
-- `mod_settings.ini`: DMM page declaration; keep version and defaults aligned.
-- `tests/`: offline runtime and package regressions.
-- `tools/`: package allowlist and repository safeguards.
-- `dist/`: generated ZIP/checksum output, excluded from Git.
+## Settings
 
-Run every `tests/*_test.lua` file with Lua 5.4, then run
-`python -m unittest discover -s tests -p "test_*.py" -v`.
-CI also compiles runtime, template, and test Lua files. Run `python tools/bootstrap.py` to enable local Git
-guards. Release branches `release/vSEMVER` run checks and publish GitHub assets
-when this project is connected to a repository.
+Open **Mod Settings → Premonition**, change a setting, and choose **Apply**.
 
-Settings are read once on startup and after committed Apply events. Previewing a
-menu setting does not mutate runtime state. Disabling the mod unregisters its hooks,
-cancels pending callbacks, and removes its owned widget.
+| Setting | Recommended choice |
+|---|---|
+| **Enable Premonition** | **On** to display the extra attack cue; **Off** to remove it. |
+| **Debug logging** | Leave **Off** unless troubleshooting. It records configuration changes. |
 
-Offline tests do not prove native hook delivery, rendered placement, animation
-smoothness, or combat performance. Before release, test all four directions,
-same-direction attacks, source replacement, clear/combat-end ordering, death/reload,
-pause, and resolution changes in game.
+Premonition starts enabled. On a supported menu version, Apply updates it during
+play. With older versions of Dawnwalker Mod Menu, restart the game after saving.
 
-GitHub repository name: BDWPremonition (owner: jrpereira). The mod identity and source folder remain Premonition.
+## If the cue does not appear
+
+- Confirm **Enable Premonition** is On and choose Apply.
+- Check during combat while the game's original indicator shows an attack direction.
+- Confirm UE4SS and Dawnwalker Mod Menu are enabled, then restart the game.
+- If another mod changes the original attack indicator, try disabling that mod
+  to check for a conflict.
+
+This version is awaiting in-game verification of warning delivery and animation.
+
+## Updating or removing
+
+Close the game before updating and keep your existing saved settings. Do not
+replace them with example defaults. To stop the extra cue, turn the mod Off and
+Apply. To uninstall, close the game, disable or remove the `Premonition` folder,
+and restart. Keep dependencies used by other mods.
+
+See the [changelog](CHANGELOG.md) for changes.

@@ -1,9 +1,17 @@
 # Changelog
 
+## 0.1.1
+
+- Add a combined player guide with installation, settings, and troubleshooting.
+- Add project metadata and dependency links. Gameplay behavior is unchanged.
+
 ## 0.1.0
 
-- Add the bottom-center directional attack cue using the native shield and arrow artwork.
-- Drive detection, clearing, and combat-end behavior from native hooks without gameplay polling.
-- Add bounded deferred-event handling, a single active animation scheduler, stale-callback protection, HUD replacement cleanup, and deterministic animation/controller tests.
-- Bundle the TE-compatible attack template with a disabled-by-default selector setting; registration remains external.
-- Retain DMM settings, explicit packaging, CI, and repository safeguards. Live native event delivery, rendering, and performance still require gameplay acceptance.
+- Add an animated attack-direction cue near the bottom center of the screen,
+  using the game's shield and arrow artwork.
+- Update the arrow when the attack direction changes, including repeated attacks
+  from the same direction.
+- Fade the cue when combat ends and remove it when the mod is switched off.
+- Add Enable Premonition and Debug logging settings in Dawnwalker Mod Menu.
+
+In-game warning delivery, animation, and performance remain unverified.
