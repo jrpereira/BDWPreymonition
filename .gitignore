@@ -1,0 +1,7 @@
+/config.ini
+/dist/
+/work/
+*.log
+*.zip
+*.bak
+__pycache__/
