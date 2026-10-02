@@ -6,7 +6,7 @@ assert(template.category=='player.notifications' and template.name=='Preymonitio
 assert(template.objects.hud and template.objects.cue and template.render==nil)
 assert(type(template.loaded)=='function' and type(template.attach)=='function')
 
-local category=dofile('Preymonition/tests/fixtures/player_notifications.lua')
+local category=dofile('ModCoreTemplates/Scripts/categories/player_notifications.lua')
 local graph=require('mc.selectors').compile(category.objects)
 local projected=require('mc.selectors').project(graph,template.objects)
 assert(projected.byName.hud_root,'cue layer must pull in its HUD root dependency')

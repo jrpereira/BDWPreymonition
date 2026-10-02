@@ -25,6 +25,6 @@ artwork may require revisiting this heuristic.
 Animation uses real elapsed time and absolute phase deadlines. One deferred frame
 is pending per cue and none remain once it settles.
 
-Offline tests cover registration, menu generation against a proposed category,
+Offline tests cover registration, menu generation against MCT's category,
 the animation timeline, the event queue and the session against fake UE objects.
 They do not establish live hook delivery, HUD discovery, placement or cadence.
