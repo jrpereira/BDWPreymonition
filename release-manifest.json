@@ -1,0 +1,18 @@
+{
+  "module": "9_ModCore_Preymonition",
+  "version_file": "mod.json",
+  "version_pattern": "\"version\"\\s*:\\s*\"([^\"]+)\"",
+  "files": {
+    "mod.json": "mod.json",
+    "enabled.txt": "enabled.txt",
+    "Scripts/main.lua": "Scripts/main.lua",
+    "Scripts/mc_preymonition.lua": "Scripts/mc_preymonition.lua",
+    "Scripts/preymonition/animation.lua": "Scripts/preymonition/animation.lua",
+    "Scripts/preymonition/cue.lua": "Scripts/preymonition/cue.lua",
+    "Scripts/preymonition/events.lua": "Scripts/preymonition/events.lua",
+    "Scripts/preymonition/session.lua": "Scripts/preymonition/session.lua",
+    "README.md": "README.md",
+    "CHANGELOG.md": "CHANGELOG.md",
+    "FEATURE.md": "docs/FEATURE.md"
+  }
+}
