@@ -25,13 +25,13 @@ credit remain your responsibility.
 
 ## Installation
 
-1. Close the game completely. Extract the mod download so its `_ModCore_X_Preymonition`
+1. Close the game completely. Extract the mod download so its `9_ModCore_Preymonition`
    folder sits directly inside the game's `ue4ss/Mods` folder.
 2. Download any missing dependencies above and install them with the game closed.
    Follow each download's instructions if it includes the full game-folder path.
    UE4SS itself does not install inside `Mods`.
 3. Ensure the mods are enabled in your UE4SS setup or mod manager, then restart
-   the game. Avoid an extra nested `_ModCore_X_Preymonition/_ModCore_X_Preymonition` folder.
+   the game. Avoid an extra nested `9_ModCore_Preymonition/9_ModCore_Preymonition` folder.
 
 ## Settings
 
@@ -58,7 +58,7 @@ This version is awaiting in-game verification of warning delivery and animation.
 
 Close the game before updating and keep your existing saved settings. Do not
 replace them with example defaults. To stop the extra cue, turn it off in ModCore
-Templates and Apply. To uninstall, close the game, disable or remove the `_ModCore_X_Preymonition` folder,
+Templates and Apply. To uninstall, close the game, disable or remove the `9_ModCore_Preymonition` folder,
 and restart. Keep dependencies used by other mods.
 
 See the [changelog](CHANGELOG.md) for changes.

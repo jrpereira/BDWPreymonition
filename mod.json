@@ -3,7 +3,7 @@
   "id": "Preymonition",
   "name": "Preymonition",
   "author": "Jorge Pereira (kell)",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Keep incoming attack directions in sight with animated cues near the bottom center of your screen. Repeats the game’s directional shield indicator so you can spend less time hunting for the warning—and more time getting hit in the face like a pro that saw it coming.",
   "dependencies": [
     {

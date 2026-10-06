@@ -12,7 +12,7 @@ local projected=require('mc.selectors').project(graph,template.objects)
 assert(projected.byName.hud_root,'cue layer must pull in its HUD root dependency')
 assert(projected.byName.cue.create==true)
 
-local path='_ModCore_X_Preymonition/Scripts/mc_preymonition.lua'
+local path='9_ModCore_Preymonition/Scripts/mc_preymonition.lua'
 local model=require('mc.menu_model').build({category},{template},{path})
 local menu=require('mc.menu').generate(model.registry)
 local page=assert(menu.providers['ModCoreTemplates.module.Preymonition'])

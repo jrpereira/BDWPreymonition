@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Rename the installed mod folder to `9_ModCore_Preymonition`.
+
 ## 0.2.0
 
 - Rebuild Preymonition as a ModCoreTemplates notification template. MCT now
