@@ -3,15 +3,16 @@
 *You see them coming. They won't.*
 
 Keep incoming attack directions in sight in **The Blood of Dawnwalker**, with
-animated cues near the bottom center of your screen. Spend less time hunting for
+animated cues just below the center of your screen. Spend less time hunting for
 the warning—and more time getting hit in the face like a pro that saw it coming.
 
 ## What it does
 
-Preymonition adds a shield cue near the bottom center of the screen without
-replacing the game's original warning. Animated arrows repeat the direction
-shown by the original shield cue, including repeated attacks from the same
-direction. The extra cue fades when combat ends.
+Preymonition adds an arrow cue just below the center of the screen without
+replacing the game's original warning. When an attack comes, an arrow flashes in
+from its direction and turns red when the attack becomes critical. It vanishes
+once the attack lands or is deflected, so an empty cue means nothing is incoming.
+Unblockable attacks show a skull. The cue fades when combat ends.
 
 It makes the warning easier to keep in view. Blocking, dodging, and taking the
 credit remain your responsibility.
@@ -38,11 +39,20 @@ credit remain your responsibility.
 ## Settings
 
 Open **Mod Settings → Preymonition**, set **Preymonition** to **Yes**, and choose
-**Apply**. Adjust **Size** on the same page and choose **Apply** after changing it.
+**Apply**. Adjust the settings under **Visuals** on the same page and choose
+**Apply** after changing them. Percentages scale the standard look; 100% leaves it
+unchanged.
 
 | Setting | Choices |
 |---|---|
 | **Size** | Small, **Standard**, or Large. |
+| **Show background shield** | **Off** or On: a faint shield behind the arrows. |
+| **Arrow Movement** | 50%–200% (**100%**): how far arrows travel. |
+| **Arrow Size** | 50%–200% (**100%**). |
+| **Show trailing glow** | Off or **On**: a flash where an arrow appears. |
+| **Play sound** (arrows) | **None**, Parry, Time, or Focus, when an arrow appears. |
+| **Unblockable size** | 50%–200% (**100%**): the skull's size. |
+| **Play sound** (unblockable) | **None**, Time, Focus, or Death, when the skull appears. |
 
 ## If the cue does not appear
 
@@ -52,8 +62,6 @@ Open **Mod Settings → Preymonition**, set **Preymonition** to **Yes**, and cho
   enabled, then restart the game.
 - If another mod changes the original attack indicator, try disabling that mod
   to check for a conflict.
-
-This version is awaiting in-game verification of warning delivery and animation.
 
 ## Updating or removing
 

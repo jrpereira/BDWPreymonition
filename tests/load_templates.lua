@@ -9,7 +9,8 @@ return function()
     dofile('Preymonition/Scripts/main.lua')
     local definitions={}
     for _,entry in ipairs(entries) do
-        local definition=Defaults.apply(assert(loadfile(entry.path))())
+        -- Load the template as MCT does, with its folder appended to package.path.
+        local definition=Defaults.apply(require('mc.bootstrap').executeTemplate(entry.path))
         definitions[#definitions+1]=Metadata.apply(definition,entry.path)
     end
     return definitions,entries

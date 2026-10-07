@@ -1,6 +1,15 @@
 -- Pure animation timeline for the Preymonition cue.
 local M = {}
 
+-- An attack's arrow: shown at full opacity and its REST size, it grows to
+-- GROWN while travelling outward over TRAVEL seconds.
+local REST, GROWN, TRAVEL = 1.5, 2, 0.2
+-- A critical arrow jumps to this size and holds it until the attack resolves.
+local CRITICAL = 2.5
+-- The flash where an arrow appears fades out while growing to FLASH_GROWN,
+-- over the arrow's travel.
+local FLASH_GROWN = 1.5
+
 local function clamp(value)
     return math.max(0, math.min(1, value))
 end
@@ -10,9 +19,12 @@ function M.new(env)
         'Animation requires now and apply callbacks')
     local state = {
         opacity = 0, arrows = {}, tracks = {}, last = nil, ended = false,
+        -- index names the arrow the flash belongs to; nil before the first.
+        flash = { opacity = 0, scale = 1, index = nil },
         finished_keys = {}, finished_jobs = {},
     }
-    for index = 1, 4 do state.arrows[index] = { opacity = 0, scale = 0.5 } end
+    -- offset is the share of the arrow's outward travel, 0 at rest to 1.
+    for index = 1, 4 do state.arrows[index] = { opacity = 0, scale = REST, offset = 0 } end
 
     local function track(key, object, field, phases, after)
         state.tracks[key] = { object = object, field = field, phases = phases, after = after }
@@ -20,6 +32,13 @@ function M.new(env)
 
     local function phase(from, target, start, duration)
         return { from = from, target = target, start = start, duration = duration }
+    end
+
+    -- Puts an arrow out at once, back at rest.
+    local function vanish(index)
+        local arrow = state.arrows[index]
+        for _, field in ipairs({ 'opacity', 'scale', 'offset' }) do state.tracks[field .. index] = nil end
+        arrow.opacity, arrow.scale, arrow.offset = 0, REST, 0
     end
 
     function state:has_jobs()
@@ -66,6 +85,8 @@ function M.new(env)
         return self:has_jobs()
     end
 
+    -- An attack: its arrow shows at once at full opacity and size, then grows
+    -- and travels outward. Any other arrow goes at once.
     function state:show(index, identity)
         assert(self.arrows[index], 'Invalid arrow index')
         if self.last == identity then return false end
@@ -78,61 +99,58 @@ function M.new(env)
         if self.opacity < 0.5 or (container and container.phases[#container.phases].target < 0.5) then
             track('container', self, 'opacity', { phase(self.opacity, 0.5, timestamp, 0.1) })
         end
-
-        for current, arrow in ipairs(self.arrows) do
-            self.tracks['opacity' .. current] = nil
-            self.tracks['scale' .. current] = nil
-            if current ~= index and (arrow.opacity > 0 or arrow.scale ~= 0.5) then
-                track('opacity' .. current, arrow, 'opacity', { phase(arrow.opacity, 0, timestamp, 0.1) })
-                track('scale' .. current, arrow, 'scale', { phase(arrow.scale, 0.5, timestamp, 0.1) })
-            end
-        end
-
+        for current = 1, #self.arrows do vanish(current) end
         local selected = self.arrows[index]
-        local restart = selected.opacity > 0 or selected.scale ~= 0.5
-        if restart then
-            track('opacity' .. index, selected, 'opacity', {
-                phase(selected.opacity, 0, timestamp, 0.1),
-                phase(0, 1, timestamp + 0.1, 0.3),
-            })
-            track('scale' .. index, selected, 'scale', {
-                phase(selected.scale, 0.5, timestamp, 0.1),
-                phase(0.5, 1, timestamp + 0.1, 0.3),
-                phase(1, 0.8, timestamp + 0.4, 0.2),
-            })
-        else
-            selected.opacity = 0
-            selected.scale = 0.5
-            track('opacity' .. index, selected, 'opacity', {
-                phase(0, 1, timestamp, 0.3),
-            })
-            track('scale' .. index, selected, 'scale', {
-                phase(0.5, 1, timestamp, 0.3),
-                phase(1, 0.8, timestamp + 0.3, 0.2),
-            })
-        end
+        selected.opacity = 1
+        local flash = self.flash
+        flash.index, flash.opacity, flash.scale = index, 1, 1
+        track('flashOpacity', flash, 'opacity', { phase(1, 0, timestamp, TRAVEL) })
+        track('flashScale', flash, 'scale', { phase(1, FLASH_GROWN, timestamp, TRAVEL) })
+        track('scale' .. index, selected, 'scale', { phase(REST, GROWN, timestamp, TRAVEL) })
+        track('offset' .. index, selected, 'offset', { phase(0, 1, timestamp, TRAVEL) })
         env.apply(self)
         return true
     end
 
+    -- The attack went critical: the arrow jumps to its critical size and holds
+    -- it until the attack resolves. Its travel carries on if unfinished.
+    function state:critical(index)
+        local arrow = assert(self.arrows[index], 'Invalid arrow index')
+        self:step()
+        self.tracks['opacity' .. index] = nil
+        self.tracks['scale' .. index] = nil
+        arrow.opacity, arrow.scale = 1, CRITICAL
+        env.apply(self)
+        return true
+    end
+
+    -- Combat started: fade the idle cue in without lighting an arrow.
+    function state:engage()
+        self:step()
+        self.ended = false
+        local container = self.tracks.container
+        if self.opacity >= 0.5 and not (container and container.phases[#container.phases].target < 0.5) then
+            return false
+        end
+        track('container', self, 'opacity', { phase(self.opacity, 0.5, env.now(), 0.2) })
+        env.apply(self)
+        return true
+    end
+
+    -- The attack resolved: every arrow goes at once and the idle cue stays. At
+    -- combat end the cue itself also fades out over a second.
     function state:hide(combat_end)
         if not combat_end and self.ended then return false end
         self:step()
-        local timestamp = env.now()
         self.last = nil
+        for index = 1, #self.arrows do vanish(index) end
         if combat_end then
             self.ended = true
-            self.tracks = {}
+            self.tracks.flashOpacity, self.tracks.flashScale = nil, nil
+            self.flash.opacity = 0
+            track('container', self, 'opacity', { phase(self.opacity, 0, env.now(), 1) })
         end
-        track('container', self, 'opacity', {
-            phase(self.opacity, combat_end and 0 or 0.5, timestamp, 0.2),
-        }, combat_end and function()
-            for _, arrow in ipairs(self.arrows) do
-                arrow.opacity = 0
-                arrow.scale = 0.5
-            end
-            env.apply(self)
-        end or nil)
+        env.apply(self)
         return true
     end
 

@@ -2,15 +2,13 @@
 
 [i]You see them coming. They won't.[/i]
 
-Keep incoming attack directions in sight with animated cues near the bottom center of your screen. Spend less time hunting for the warning—and more time getting hit in the face like a pro that saw it coming.
+Keep incoming attack directions in sight with animated cues just below the center of your screen. Spend less time hunting for the warning—and more time getting hit in the face like a pro that saw it coming.
 
 [b]What it does[/b]
 
-Preymonition adds a shield cue near the bottom center of the screen. Animated arrows repeat the attack direction shown by the game's original shield warning, including repeated attacks from the same direction. The extra cue fades when combat ends.
+Preymonition adds an arrow cue just below the center of the screen. When an attack comes, an arrow flashes in from its direction and turns red when the attack becomes critical. It vanishes once the attack lands or is deflected, so an empty cue means nothing is incoming. Unblockable attacks show a skull. The cue fades when combat ends.
 
-Choose [b]Small[/b], [b]Standard[/b] or [b]Large[/b] to suit your screen. The original warning stays in place. Blocking, dodging, and taking the credit remain your responsibility.
-
-[b]Current status:[/b] this version is awaiting in-game verification of warning delivery and animation.
+Size, arrow movement, arrow size, a background shield, a trailing glow and sounds are all adjustable. The original warning stays in place. Blocking, dodging, and taking the credit remain your responsibility.
 
 [b]Requirements[/b]
 
@@ -29,7 +27,16 @@ Install these before Preymonition:
 [/list]
 [b]Settings[/b]
 
-Open [b]Mod Settings → Preymonition[/b], set [b]Preymonition[/b] to [b]Yes[/b], and choose [b]Apply[/b]. Adjust [b]Size[/b] on the same page: [b]Small[/b], [b]Standard[/b] (the default) or [b]Large[/b]. Choose [b]Apply[/b] after changing it.
+Open [b]Mod Settings → Preymonition[/b], set [b]Preymonition[/b] to [b]Yes[/b], and choose [b]Apply[/b]. Adjust the settings under [b]Visuals[/b] on the same page and choose [b]Apply[/b] after changing them. Percentages scale the standard look; 100% leaves it unchanged.
+[list]
+[*][b]Size[/b]: Small, [b]Standard[/b] or Large.
+[*][b]Show background shield[/b]: [b]Off[/b] or On, a faint shield behind the arrows.
+[*][b]Arrow Movement[/b] and [b]Arrow Size[/b]: 50%–200% ([b]100%[/b]).
+[*][b]Show trailing glow[/b]: Off or [b]On[/b], a flash where an arrow appears.
+[*][b]Play sound[/b] for arrows: [b]None[/b], Parry, Time or Focus.
+[*][b]Unblockable size[/b]: 50%–200% ([b]100%[/b]), the skull's size.
+[*][b]Play sound[/b] for unblockable attacks: [b]None[/b], Time, Focus or Death.
+[/list]
 
 [b]If the cue does not appear[/b]
 [list]

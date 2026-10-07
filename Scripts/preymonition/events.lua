@@ -5,9 +5,10 @@ function M.new(capacity)
     assert(type(capacity) == 'number' and capacity >= 1, 'Invalid event capacity')
     local queue = { items = {}, capacity = capacity, sequence = 0, dropped = 0 }
 
-    function queue:push(kind, path)
+    -- data travels with the event; a coalesced event keeps the latest.
+    function queue:push(kind, path, data)
         self.sequence = self.sequence + 1
-        local event = { kind = kind, path = path, sequence = self.sequence }
+        local event = { kind = kind, path = path, data = data, sequence = self.sequence }
         if kind == 'combat_end' then
             self.items = { event }
             return event

@@ -11,6 +11,8 @@
     "Scripts/preymonition/cue.lua": "Scripts/preymonition/cue.lua",
     "Scripts/preymonition/events.lua": "Scripts/preymonition/events.lua",
     "Scripts/preymonition/session.lua": "Scripts/preymonition/session.lua",
+    "Scripts/preymonition/sound.lua": "Scripts/preymonition/sound.lua",
+    "Scripts/vendor/mc_log.lua": "Scripts/vendor/mc_log.lua",
     "README.md": "README.md",
     "CHANGELOG.md": "CHANGELOG.md",
     "FEATURE.md": "docs/FEATURE.md"

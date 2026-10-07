@@ -2,29 +2,49 @@
 
 Preymonition is a managed MCT template in `player.notifications`. The category
 supplies the HUD (`hud`) and a full-screen overlay created on its root (`cue`).
-`attach` builds a size box, the shield border and four arrow images inside that
-layer, bottom-centered. MCT releases the layer on detach; the template clears
-its own content and forgets the cue.
+`attach` builds the cue in that layer, centred horizontally with its top on the
+screen's vertical middle: a size box holding the shield image, then an overlay
+with a flash image behind four arrow images. The cue keeps every widget only as
+a weak handle, so nothing reads a collected widget after the HUD is rebuilt. MCT
+releases the layer on detach; the template clears its own content.
 
-`template.loaded` registers three native hooks for the session:
+## Signals
 
-- `CombatTargetIndicatorBase:UpdateIconTypeToMatchObservedStubState` shows a cue.
-- `CombatTargetIndicatorBase:NotifyIndicatorCleared` returns it to idle.
-- `PlayerCombatComponent:OnCombatEnded` fades it out and resets.
+This UE4SS cannot hook blueprint functions, and the game updates its indicator
+widgets from C++, which hooks never see. The indicator blueprint styles its
+arrows and its centre icon through the native `Image:SetBrushFromAtlasInterface`,
+and that one call carries the attack:
 
-Hook callbacks copy only the source object path, and only while a cue is attached.
-Events are coalesced in a bounded queue and drained once, deferred to the game
-thread, before reading widget state. Each update has its own identity, so a new
-attack may retrigger the same direction. A clear only affects the cue's current
-source. After combat ends, updates are ignored until combat state is positive.
+- **Arrow styled lit** (orange, on a visible indicator): an attack from that
+  direction. The first styling shows our arrow; the second turns it critical.
+- **Arrow styled dark**, or styled while its indicator is hidden: the attack is over.
+- **Centre icon to Sword**: no attack pending; the shown arrow resolves.
+- **Centre icon to SkullRed**: an unblockable attack; the cue shows a skull.
 
-Direction selection follows the rendered native arrows rather than the combat icon
-enum: the visible arrow with the strongest colour above 0.5 wins. Modified game
-artwork may require revisiting this heuristic.
+The centre icon is read before the call, from the sprite argument; arrows are
+read after it, once brush and colour are set. Both are handled during the call,
+in the game's order, so the cue changes in the same frame as the game's. An
+arrow not yet lit when styled is checked again next frame and can only be shown
+then. The game also updates hidden twin indicators; only an indicator that is
+itself visible counts.
 
-Animation uses real elapsed time and absolute phase deadlines. One deferred frame
-is pending per cue and none remain once it settles.
+`PlayerCombatComponent:OnCombatStarted` and `OnCombatEnded` mark combat; after
+an end, nothing shows until the next start.
+
+## Animation
+
+An arrow shows at full opacity and 1.5 times its size, one arrow image out from
+the native rest (half an image for the bottom arrow), then over 0.2 s grows to
+twice its size while travelling to three images out (two for the bottom). The
+flash shows where it appears and fades out while growing. Critical turns the
+arrow red and 2.5 times its size until resolved; a resolved arrow goes at once.
+Combat start fades the idle cue in; combat end fades it out over a second.
+The Visuals settings scale arrow size and movement, show the shield, turn the
+flash off, size the skull and choose sounds, posted through Wwise at the player.
+
+Animation uses real elapsed time and absolute phase deadlines, steps once per
+frame when the engine tick is hooked, and stops once nothing moves.
 
 Offline tests cover registration, menu generation against MCT's category,
 the animation timeline, the event queue and the session against fake UE objects.
-They do not establish live hook delivery, HUD discovery, placement or cadence.
+Live hook delivery, placement and sounds were checked in game during development.
