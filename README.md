@@ -39,7 +39,7 @@ credit remain your responsibility.
 ## Settings
 
 Open **Mod Settings → Preymonition**, set **Preymonition** to **Yes**, and choose
-**Apply**. Adjust the settings under **Visuals** on the same page and choose
+**Apply**. Adjust the settings under **Main Options** and the sections below it on the same page and choose
 **Apply** after changing them. Percentages scale the standard look; 100% leaves it
 unchanged.
 
@@ -50,9 +50,9 @@ unchanged.
 | **Arrow Movement** | 50%–200% (**100%**): how far arrows travel. |
 | **Arrow Size** | 50%–200% (**100%**). |
 | **Show trailing glow** | Off or **On**: a flash where an arrow appears. |
-| **Play sound** (arrows) | **None**, Parry, Time, or Focus, when an arrow appears. |
+| **Play sound** (arrows) | **None**, Short Swoosh, or Long Swoosh, when an arrow appears. |
 | **Unblockable size** | 50%–200% (**100%**): the skull's size. |
-| **Play sound** (unblockable) | **None**, Time, Focus, or Death, when the skull appears. |
+| **Play sound** (unblockable) | **None**, Growl, or Boom, when the skull appears. |
 
 ## If the cue does not appear
 

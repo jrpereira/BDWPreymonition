@@ -94,10 +94,10 @@ local wwise=object('Wwise')
 function wwise:PostEventAtLocation(event,location) posted[#posted+1]={event=event,location=location}; return 1 end
 objects['/Script/AkAudio.Default__AkGameplayStatics']=wwise
 local EVENTS='/Game/Audio/AK_Events/Events/'
-local TIME_SOUND=object('UI_HUD_TimePushWarning')
-local DEATH_SOUND=object('UI_Player_Death_Stinger')
-objects[EVENTS..'UI/UI_Notifications/UI_HUD_TimePushWarning.UI_HUD_TimePushWarning']=TIME_SOUND
-objects[EVENTS..'UI/UI_Notifications/UI_Player_Death_Stinger.UI_Player_Death_Stinger']=DEATH_SOUND
+local SWOOSH_SOUND=object('UI_Sword_Equip')
+local BOOM_SOUND=object('UI_PauseMenu_Resume')
+objects[EVENTS..'UI/UI_Inventory/UI_Sword_Equip.UI_Sword_Equip']=SWOOSH_SOUND
+objects[EVENTS..'UI/UI_MainMenu/UI_PauseMenu_Resume.UI_PauseMenu_Resume']=BOOM_SOUND
 
 objects['PlayerCombat']=component
 objects['/Script/Engine.Default__GameplayStatics']=statics
@@ -429,13 +429,13 @@ settle(0.05)
 assert(cue.RenderOpacity==before,'a cue whose HUD is gone is never written')
 hud.invalid=nil
 
--- The Visuals settings: shield shown, arrows twice the size moving half as far,
+-- The cue settings: shield shown, arrows twice the size moving half as far,
 -- no glow, the time warning for arrows, and a larger skull with the stinger.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 assert(#posted==0,'no sound plays without one chosen')
-attach(20,{BackgroundShield=1,ArrowsMove=50,ArrowsSize=200,ArrowsGlow=0,ArrowsSound=2,
-    UnblockableSize=150,UnblockableSound=3})
+attach(20,{CueShield=1,ArrowsMove=50,ArrowsSize=200,ArrowsGlow=0,ArrowsSound=2,
+    UnblockableSize=150,UnblockableSound=2})
 local tuned=layer.children[1]
 assert(shieldOf(tuned).ColorAndOpacity.A==0.2,'the background shield can be shown')
 fire(START,component)
@@ -446,14 +446,14 @@ fire(ARROW,other.BottomArrow)
 local tunedBottom=arrowOf(tuned,2)
 assert(math.abs(tunedBottom.RenderScale.X-3)<1e-6 and math.abs(tunedBottom.RenderTranslation.Y-(5+7.5))<1e-6,
     'arrow size and movement scale the arrow where it appears')
-assert(#posted==1 and posted[1].event==TIME_SOUND and posted[1].location.Z==3,
+assert(#posted==1 and posted[1].event==SWOOSH_SOUND and posted[1].location.Z==3,
     'the chosen arrow sound plays at the player when the arrow appears')
 settle(0.05)
 assert(math.abs(tunedBottom.RenderScale.X-4)<1e-6 and math.abs(tunedBottom.RenderTranslation.Y-(5+30))<1e-6,
     'and where it ends')
 assert(flashOf(tuned).RenderOpacity==0,'with the glow off nothing flashes')
 centre(other,SKULL)
-assert(shieldOf(tuned).RenderScale.X==1.5 and #posted==2 and posted[2].event==DEATH_SOUND,
+assert(shieldOf(tuned).RenderScale.X==1.5 and #posted==2 and posted[2].event==BOOM_SOUND,
     'the unblockable skull takes its size and plays its sound')
 centre(other,SWORD)
 assert(shieldOf(tuned).RenderScale.X==1 and shieldOf(tuned).ColorAndOpacity.A==0.2,

@@ -39,7 +39,7 @@ twice its size while travelling to three images out (two for the bottom). The
 flash shows where it appears and fades out while growing. Critical turns the
 arrow red and 2.5 times its size until resolved; a resolved arrow goes at once.
 Combat start fades the idle cue in; combat end fades it out over a second.
-The Visuals settings scale arrow size and movement, show the shield, turn the
+The cue settings scale arrow size and movement, show the shield, turn the
 flash off, size the skull and choose sounds, posted through Wwise at the player.
 
 Animation uses real elapsed time and absolute phase deadlines, steps once per

@@ -27,15 +27,15 @@ Install these before Preymonition:
 [/list]
 [b]Settings[/b]
 
-Open [b]Mod Settings → Preymonition[/b], set [b]Preymonition[/b] to [b]Yes[/b], and choose [b]Apply[/b]. Adjust the settings under [b]Visuals[/b] on the same page and choose [b]Apply[/b] after changing them. Percentages scale the standard look; 100% leaves it unchanged.
+Open [b]Mod Settings → Preymonition[/b], set [b]Preymonition[/b] to [b]Yes[/b], and choose [b]Apply[/b]. Adjust the settings under [b]Main Options[/b] and the sections below it on the same page and choose [b]Apply[/b] after changing them. Percentages scale the standard look; 100% leaves it unchanged.
 [list]
 [*][b]Size[/b]: Small, [b]Standard[/b] or Large.
 [*][b]Show background shield[/b]: [b]Off[/b] or On, a faint shield behind the arrows.
 [*][b]Arrow Movement[/b] and [b]Arrow Size[/b]: 50%–200% ([b]100%[/b]).
 [*][b]Show trailing glow[/b]: Off or [b]On[/b], a flash where an arrow appears.
-[*][b]Play sound[/b] for arrows: [b]None[/b], Parry, Time or Focus.
+[*][b]Play sound[/b] for arrows: [b]None[/b], Short Swoosh or Long Swoosh.
 [*][b]Unblockable size[/b]: 50%–200% ([b]100%[/b]), the skull's size.
-[*][b]Play sound[/b] for unblockable attacks: [b]None[/b], Time, Focus or Death.
+[*][b]Play sound[/b] for unblockable attacks: [b]None[/b], Growl or Boom.
 [/list]
 
 [b]If the cue does not appear[/b]

@@ -24,10 +24,8 @@ local template={
     objects={hud={},cue={}},
     -- Percentages scale the current look; 100% is unchanged.
     menu={
-        {id='Cue', label='Visuals', level=2, fields={
+        {id='Cue', label='Main Options', level=2, fields={
             {id='.S', label='Size', values={[15]='Small',[20]='Standard',[25]='Large'}, default=20},
-        }},
-        {id='Background', label='Background', level=3, fields={
             {id='.Shield', label='Show background shield', values=ON_OFF, default=0},
         }},
         {id='Arrows', label='Parry & Block Indicator', level=3, fields={

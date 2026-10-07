@@ -142,11 +142,11 @@ local SPRITES={
 local SHIELD_SHOWN,SHIELD_HIDDEN={R=1,G=1,B=1,A=0.2},{R=1,G=1,B=1,A=0}
 local SKULL_COLOR={R=1,G=1,B=1,A=1}
 
--- The Visuals settings: percentages of the current look, and switches.
+-- The cue settings: percentages of the current look, and switches.
 local function config(settings)
     local function percent(key) return (settings[key] or 100)/100 end
     return {
-        shieldColor=settings.BackgroundShield==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
+        shieldColor=settings.CueShield==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
         move=percent('ArrowsMove'),scale=percent('ArrowsSize'),glow=settings.ArrowsGlow~=0,
         skull=percent('UnblockableSize'),
     }
