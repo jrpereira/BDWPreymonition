@@ -487,7 +487,7 @@ assert(next(hooks)==nil,'no hook remains after cleanup')
 
 -- At TRACE the hooks are the same: tracing adds lines, never hooks.
 local Session=require('preymonition.session')
-Session.setLog(function() end)
+Session.setLog(dofile('Preymonition/Scripts/vendor/mc_log.lua').wrap(function() end))
 moduleCleanups={}
 template.loaded(function(callback) moduleCleanups[#moduleCleanups+1]=callback end)
 hookCount=0

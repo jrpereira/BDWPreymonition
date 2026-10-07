@@ -3,8 +3,10 @@ local source=assert(debug.getinfo(1,'S').source:match('^@(.+)$'))
 local folder=assert(source:match('^(.*)[/\\][^/\\]+$'))
 local root=folder:match('^(.*)[/\\][^/\\]+$') or '.'
 
+-- Loaded by path: MCT's Scripts come first on package.path, so a require finds MCT's copy.
+local Log=assert(loadfile(folder..'/vendor/mc_log.lua'))()
 -- The level comes from log_level.txt in the mod folder; WARN without it.
-local log=require('vendor.mc_log').new({name='Preymonition',path=root..'/log_level.txt'})
+local log=Log.new({name='Preymonition',path=root..'/log_level.txt'})
 local Session=require('preymonition.session')
 local Sound=require('preymonition.sound')
 Session.setLog(log)

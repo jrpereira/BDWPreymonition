@@ -25,10 +25,12 @@ local token=0
 local M={}
 
 -- Replaced by the template's leveled logger; silent until then.
-local log=require('vendor.mc_log').wrap(nil)
+local function silent() end
+local log={enabled=function() return false end}
+for _,name in ipairs({'trace','debug','info','warn','error','critical'}) do log[name]=silent end
 
 function M.setLog(logger)
-    log=require('vendor.mc_log').wrap(logger)
+    log=logger
 end
 
 -- Next frame when the engine tick is hooked; ExecuteWithDelay's timer is coarser.
