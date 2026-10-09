@@ -15,14 +15,17 @@ assert(projected.byName.cue.create==true)
 local path='9_ModCore_Preymonition/Scripts/mc_preymonition.lua'
 local model=require('mc.menu_model').build({category},{template},{path})
 local menu=require('mc.menu').generate(model.registry)
-local page=assert(menu.providers['ModCoreTemplates.module.Preymonition'])
+local page=assert(menu.providers['ModCoreTemplates.module.9ModCorePreymonition'])
 local definition
 for _,candidate in pairs(menu.definitions['player.notifications']) do
     if candidate.id==template.id then definition=candidate end
 end
 assert(definition and definition.enabled,'template must be selectable alongside other notifications')
 local rows={}
-for _,row in ipairs(page.rows) do rows[row.Id]=row end
+for _,row in ipairs(page.rows) do rows[row.id]=row end
 local size=assert(rows[definition.settings.CueS])
-assert(size.PresetLabels=='Small|Standard|Large' and tonumber(size.Default)==20)
+-- Rows are ModCoreSettings menu data.
+local labels={}
+for index,choice in ipairs(size.choices) do labels[index]=choice.label end
+assert(table.concat(labels,'|')=='Small|Standard|Large' and size.default==20)
 print('PASS: Preymonition registers one player.notifications template with its size setting')
