@@ -1,4 +1,4 @@
-# PREYMONITION
+# COMBAT PREYMONITION
 
 *You see them coming. They won't.*
 
@@ -38,8 +38,8 @@ credit remain your responsibility.
 
 ## Settings
 
-Open **Mod Settings → Preymonition**, set **Preymonition** to **Yes**, and choose
-**Apply**. Adjust the settings under **Main Options** and the sections below it on the same page and choose
+Open **Mod Settings → Combat Preymonition**, set **Enabled** under
+**Preymonition** to **Yes**, and choose **Apply**. Adjust the settings under **Main Options** and the sections below it on the same page and choose
 **Apply** after changing them. Percentages scale the standard look; 100% leaves it
 unchanged.
 
@@ -56,7 +56,8 @@ unchanged.
 
 ## If the cue does not appear
 
-- Confirm **Preymonition** is set to **Yes** on its settings page and choose **Apply**.
+- Confirm **Enabled** is set to **Yes** on the **Combat Preymonition** settings
+  page and choose **Apply**.
 - Check during combat while the game's original indicator shows an attack direction.
 - Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings and ModCore Templates are
   enabled, then restart the game.
@@ -66,8 +67,8 @@ unchanged.
 ## Updating or removing
 
 Close the game before updating and keep your existing saved settings. Do not
-replace them with example defaults. To stop the extra cue, set **Preymonition**
-to **No** on its settings page and choose **Apply**. To uninstall, close the game,
+replace them with example defaults. To stop the extra cue, set **Enabled** to
+**No** on the **Combat Preymonition** settings page and choose **Apply**. To uninstall, close the game,
 disable or remove the `9_ModCore_Preymonition` folder,
 and restart. Keep dependencies used by other mods.
 

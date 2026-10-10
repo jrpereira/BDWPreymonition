@@ -1,7 +1,7 @@
 # Directional cue behavior
 
-Preymonition is a managed MCT template in `player.notifications`. The category
-supplies the HUD (`hud`) and a full-screen overlay created on its root (`cue`).
+Preymonition is a managed MCT template in `npc.attacks`. The category
+attaches it once the player is in the game (`MCTPlayerReady`) and supplies the HUD (`hud`) and a full-screen overlay created on its root (`cue`).
 `attach` builds the cue in that layer, centred horizontally with its top on the
 screen's vertical middle: a size box holding the shield image, then an overlay
 with a flash image behind four arrow images. The cue keeps every widget only as
@@ -28,8 +28,10 @@ arrow not yet lit when styled is checked again next frame and can only be shown
 then. The game also updates hidden twin indicators; only an indicator that is
 itself visible counts.
 
-`PlayerCombatComponent:OnCombatStarted` and `OnCombatEnded` mark combat; after
-an end, nothing shows until the next start.
+MCT marks combat from `PlayerCombatComponent:OnCombatStarted` and
+`OnCombatEnded` and delivers it as the template's `wake` and `sleep` events.
+The styling call is hooked only between them, so outside combat nothing shows
+and the hook costs nothing.
 
 ## Animation
 

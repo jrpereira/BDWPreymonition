@@ -9,22 +9,13 @@ function M.new(capacity)
     function queue:push(kind, path, data)
         self.sequence = self.sequence + 1
         local event = { kind = kind, path = path, data = data, sequence = self.sequence }
-        if kind == 'combat_end' then
-            self.items = { event }
-            return event
-        end
         local last = self.items[#self.items]
         if last and last.kind == kind and last.path == path then
             self.items[#self.items] = event
             return event
         end
         if #self.items >= self.capacity then
-            local remove_at = self.items[1].kind == 'combat_end' and 2 or 1
-            if remove_at > #self.items then
-                self.dropped = self.dropped + 1
-                return event
-            end
-            table.remove(self.items, remove_at)
+            table.remove(self.items, 1)
             self.dropped = self.dropped + 1
         end
         self.items[#self.items + 1] = event

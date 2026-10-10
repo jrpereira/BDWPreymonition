@@ -81,7 +81,6 @@ local function newIndicator(name,lit)
     return value
 end
 local indicator=newIndicator('WBP_CombatTargetIndicator_C_1','LeftArrow')
-local component=object('PlayerCombat')
 local clock=0
 local statics=object('GameplayStatics')
 function statics:GetRealTimeSeconds() return clock end
@@ -99,7 +98,6 @@ local BOOM_SOUND=object('UI_PauseMenu_Resume')
 objects[EVENTS..'UI/UI_Inventory/UI_Sword_Equip.UI_Sword_Equip']=SWOOSH_SOUND
 objects[EVENTS..'UI/UI_MainMenu/UI_PauseMenu_Resume.UI_PauseMenu_Resume']=BOOM_SOUND
 
-objects['PlayerCombat']=component
 objects['/Script/Engine.Default__GameplayStatics']=statics
 StaticFindObject=function(path) return objects[path] or (path:match('^/Script/UMG%.') and {path=path}) end
 FName=function(value) return value end
@@ -163,8 +161,6 @@ local function fire(path,target)
     end
     hooks[path]({get=function() return target end})
 end
-local END='/Script/DogwoodCombat.PlayerCombatComponent:OnCombatEnded'
-local START='/Script/DogwoodCombat.PlayerCombatComponent:OnCombatStarted'
 local function param(value) return {get=function() return value end} end
 -- The centre icon is about to change; the hook only sees the sprite argument.
 local function centre(target,icon) hooks[ARROW]({get=function() return target.Reticle end},param(icon)) end
@@ -173,14 +169,16 @@ hudTree=object('WidgetTree')
 local hud=object('HUD',{WidgetTree=hudTree})
 local layer=object('Cue layer')
 local template=dofile('Preymonition/Scripts/mc_preymonition.lua')
-local moduleCleanups={}
-template.loaded(function(callback) moduleCleanups[#moduleCleanups+1]=callback end)
-assert(hooks[ARROW] and hooks[END],'the arrow styling and combat end are watched')
-assert(hooks[START],'combat start is watched')
+assert(next(hooks)==nil,'nothing is hooked outside combat')
+-- MCT owns combat: it reaches the template as its wake and sleep events.
+local function startCombat() template.events.wake({},{name='wake',signal='MCTCombatStart'}) end
+local function endCombat() template.events.sleep({},{name='sleep',signal='MCTCombatEnd'}) end
+startCombat()
+assert(hooks[ARROW],'combat hooks the arrow styling')
 assert(blueprintHooks==0,'no blueprint function is hooked')
 local hookCount=0
 for _ in pairs(hooks) do hookCount=hookCount+1 end
-assert(hookCount==3,'only the three working hooks; nothing is hooked just to trace')
+assert(hookCount==1,'only the styling call; nothing is hooked just to trace')
 
 fire(SHOW,indicator)
 assert(#delayed==0,'events are ignored until a cue is attached')
@@ -243,16 +241,14 @@ run()
 assert(math.abs(box.RenderOpacity-0.5)<1e-6,'a resolved attack keeps the idle cue')
 assert(left.RenderOpacity==0 and left.RenderScale.X==1.5,'a resolved attack puts the arrow out at once')
 
-fire(END,component)
+endCombat()
 run()
 settle(0.05)
 assert(box.RenderOpacity==0 and left.RenderOpacity==0,'combat end fades and resets the cue')
-fire(SHOW,indicator)
-run()
-assert(#delayed==0 and box.RenderOpacity==0,'stale updates after combat end are ignored')
+assert(hooks[ARROW]==nil and #delayed==0,'combat end unhooks the arrow styling')
 
 -- After combat end, only a combat start lets attacks through again.
-fire(START,component)
+startCombat()
 run()
 settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6 and left.RenderOpacity==0,'combat start shows the idle cue')
@@ -260,9 +256,24 @@ fire(SHOW,indicator)
 run()
 settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6 and left.RenderOpacity==1,'combat start re-enables the cue')
-fire(START,component)
+local hooked=hooks[ARROW]
+startCombat()
 run()
-assert(#delayed==0,'a second combat start changes nothing')
+assert(#delayed==0 and hooks[ARROW]==hooked,'a second combat start changes nothing')
+-- Combat ending or starting mid-animation never strands the animation.
+centre(indicator,SWORD)
+settle(0.05)
+fire(SHOW,indicator)
+assert(#delayed>0,'an arrow animation is under way')
+endCombat()
+settle(0.05)
+assert(math.abs(box.RenderOpacity)<1e-6,'combat ending mid-animation still fades the cue out')
+endCombat()
+startCombat()
+endCombat()
+startCombat()
+settle(0.05)
+assert(math.abs(box.RenderOpacity-0.5)<1e-6,'quick combat changes settle on the idle cue')
 
 -- A settings commit reattaches the same MCT layer after its cleanup.
 for index=#cleanups,1,-1 do cleanups[index]() end
@@ -379,11 +390,11 @@ assert(cueShield.BrushFromAtlasInterface==sprite,'the shield returns once it pas
 settle(0.05)
 centre(other,SKULL)
 run()
-fire(END,component)
+endCombat()
 run()
 assert(cueShield.BrushFromAtlasInterface==sprite,'combat end returns the shield')
 settle(0.05)
-fire(START,component)
+startCombat()
 run()
 settle(0.05)
 
@@ -438,7 +449,8 @@ attach(20,{CueShield=1,ArrowsMove=50,ArrowsSize=200,ArrowsGlow=0,ArrowsSound=2,
     UnblockableSize=150,UnblockableSound=2})
 local tuned=layer.children[1]
 assert(shieldOf(tuned).ColorAndOpacity.A==0.2,'the background shield can be shown')
-fire(START,component)
+endCombat()
+startCombat()
 run()
 settle(0.05)
 other.BottomArrow.ColorAndOpacity=color(0.9)
@@ -472,29 +484,34 @@ assert(math.abs(preview.RenderOpacity-0.5)<1e-6,'preview shows the cue on attach
 assert(math.abs(arrowOf(preview,1).RenderOpacity-1)<1e-6,'preview lights the top arrow')
 assert(shieldOf(preview).BrushFromAtlasInterface==sprite and shieldOf(preview).ColorAndOpacity.A==0,
     'a new cue has the shield hidden')
-fire(END,component)
+endCombat()
 run()
 settle(0.05)
 assert(math.abs(preview.RenderOpacity-0.5)<1e-6,'preview stays visible after combat end')
+startCombat()
 template.preview=false
 
 for index=#cleanups,1,-1 do cleanups[index]() end
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 assert(released==11*4,'each detached cue releases its eleven handles')
-assert(moduleCleanups[1]() and removed==3,'session cleanup unregisters every hook')
-assert(next(hooks)==nil,'no hook remains after cleanup')
+-- Stopping MCT detaches every cue, then puts the template to sleep.
+removed=0
+endCombat()
+assert(removed==1 and next(hooks)==nil,'sleep unregisters the hook')
+endCombat()
+assert(removed==1,'a second sleep has nothing left to remove')
 
 -- At TRACE the hooks are the same: tracing adds lines, never hooks.
 local Session=require('preymonition.session')
 Session.setLog(dofile('Preymonition/Scripts/vendor/mc_log.lua').wrap(function() end))
-moduleCleanups={}
-template.loaded(function(callback) moduleCleanups[#moduleCleanups+1]=callback end)
+startCombat()
 hookCount=0
 for _ in pairs(hooks) do hookCount=hookCount+1 end
-assert(hookCount==3,'TRACE adds no hooks')
+assert(hookCount==1,'TRACE adds no hooks')
 removed=0
-assert(moduleCleanups[1]() and removed==3 and next(hooks)==nil,'and unhooked with the rest')
+endCombat()
+assert(removed==1 and next(hooks)==nil,'and unhooked with the rest')
 local fire_ok=pcall(fire,SHOW,indicator)
 assert(not fire_ok,'no hook remains registered')
-print('PASS: Preymonition session follows attacks, resolves, combat end, reattach and cleanup')
+print('PASS: Preymonition session hooks only in combat, follows attacks, resolves, reattach and cleanup')

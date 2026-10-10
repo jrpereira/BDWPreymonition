@@ -8,20 +8,17 @@ local Sound=require('preymonition.sound')
 -- hooks never see; this UE4SS cannot hook blueprint functions either. The
 -- indicator blueprint styles the attacked arrow and its centre icon through
 -- this native Image call, so the call names the attack's direction and state.
-local HOOKS={
-    {'/Script/UMG.Image:SetBrushFromAtlasInterface','arrow'},
-    {'/Script/DogwoodCombat.PlayerCombatComponent:OnCombatEnded','combat_end'},
-    {'/Script/DogwoodCombat.PlayerCombatComponent:OnCombatStarted','combat_start',optional=true},
-}
+-- It is hooked only during combat: MCT wakes the template when combat starts
+-- and puts it to sleep when combat ends.
+local ARROW_HOOK='/Script/UMG.Image:SetBrushFromAtlasInterface'
 local FRAME_MS=16
 local DIRECTIONS={'top','bottom','left','right'}
 
 local queue=Events.new(16)
 local cues={}
+-- Whether combat is on and the arrow hook registered.
 local active=false
 local pending=false
--- Invalidates deferred callbacks scheduled before the session last stopped.
-local token=0
 local M={}
 
 -- Replaced by the template's leveled logger; silent until then.
@@ -38,13 +35,13 @@ local function frames()
     return rawget(_G,'EngineTickAvailable')==true and type(rawget(_G,'ExecuteInGameThreadAfterFrames'))=='function'
 end
 
+-- Deferred work guards itself: an animation step stops once its cue is
+-- detached, and a drain after sleep finds the queue empty.
 local function later(milliseconds,callback)
-    local current=token
-    local function run() if current==token then callback() end end
     if milliseconds<=FRAME_MS and frames() then
-        ExecuteInGameThreadAfterFrames(1,run)
+        ExecuteInGameThreadAfterFrames(1,callback)
     else
-        ExecuteWithDelay(milliseconds,function() ExecuteInGameThread(run) end)
+        ExecuteWithDelay(milliseconds,function() ExecuteInGameThread(callback) end)
     end
 end
 
@@ -109,8 +106,6 @@ end
 local function present(indicator,path,direction,event)
     local record=cueFor(indicator)
     if not record then log.trace('arrow #',event.sequence,': no cue in the indicator world'); return end
-    -- Combat state follows the start and end hooks; after an end only a start re-enables.
-    if record.ended then log.trace('arrow #',event.sequence,': ignored, combat ended'); return end
     -- Each attack styles its arrow twice: when it shows up, and when it turns
     -- red. Red holds until the attack resolves; later stylings change nothing.
     if record.source==path and record.direction==direction then
@@ -142,7 +137,7 @@ local function onCentre(image,sprite,sequence)
     sprite=sprite or ''
     log.trace('centre #',sequence,': ',sprite,' on ',path)
     local record=cueFor(indicator)
-    if not record or record.ended then return end
+    if not record then return end
     -- A hidden indicator's skull is not on screen.
     local skull=sprite:find('SkullRed',1,true)~=nil and Cue.visible(indicator)
     if skull~=(record.skull==true) then
@@ -202,14 +197,11 @@ function handlers.arrow(event)
     present(indicator,path,direction,event)
 end
 
-function handlers.combat_end(event)
-    log.trace('combat end #',event.sequence,' ',event.path)
-    local component=Cue.resolve(event.path)
-    if not component then return end
+-- Combat ended: the cue fades out and resets, unless it is a preview.
+local function endCombat()
     for _,record in ipairs(cues) do
-        if Cue.valid(record.ui) and Cue.sameWorld(component,record.ui) then
+        if Cue.valid(record.ui) then
             log.debug('combat ended; ',record.preview and 'preview stays visible' or 'fading out')
-            record.ended=true
             record.source,record.direction,record.critical=nil,nil,nil
             if record.skull then
                 record.skull=nil
@@ -221,13 +213,9 @@ function handlers.combat_end(event)
     end
 end
 
-function handlers.combat_start(event)
-    log.trace('combat start #',event.sequence,' ',event.path)
-    local component=Cue.resolve(event.path)
-    if not component then return end
+local function startCombat()
     for _,record in ipairs(cues) do
-        if Cue.valid(record.ui) and Cue.sameWorld(component,record.ui) then
-            record.ended=false
+        if Cue.valid(record.ui) then
             styleShield(record)
             if record.model:engage() then
                 log.debug('combat started; cue fading in')
@@ -274,14 +262,14 @@ local function push(kind,path,data)
     schedule()
 end
 
-local function stop()
+-- Takes no more events and drops queued ones; animations already running finish.
+local function pause()
     active=false
     pending=false
-    token=token+1
     queue:clear()
 end
 
-local hooks={}
+local hook=nil
 local sequence=0
 
 local function ready()
@@ -317,47 +305,29 @@ local function afterStyling(context)
     if not ok then log.error('arrow failed: ',why) end
 end
 
-local function register(spec)
-    local path,kind=spec[1],spec[2]
-    local before,after=function(context)
-        -- Copy only the path here; widget reads wait for the deferred drain.
-        local ok,value=pcall(function() return Cue.path(context:get()) end)
-        if ok then push(kind,value) else log.trace(kind,' hook context unreadable: ',value) end
-    end,nil
-    if kind=='arrow' then before,after=beforeStyling,afterStyling end
-    local registered,pre,post
-    if after then registered,pre,post=pcall(RegisterHook,path,before,after)
-    else registered,pre,post=pcall(RegisterHook,path,before) end
-    if registered and type(pre)=='number' and type(post)=='number' then
-        hooks[#hooks+1]={path,pre,post}
-        log.trace('hooked ',path)
-        return true
+-- Combat started: hook the arrow styling and show the idle cue.
+function M.wake()
+    if active then return end
+    local registered,pre,post=pcall(RegisterHook,ARROW_HOOK,beforeStyling,afterStyling)
+    if not (registered and type(pre)=='number' and type(post)=='number') then
+        error(registered and 'hook unavailable: '..ARROW_HOOK or pre,0)
     end
-    if not spec.optional then error(registered and 'hook unavailable: '..path or pre,0) end
-    log.warn('optional hook unavailable: ',path,' ',registered and '' or pre)
-    return false
+    hook={pre,post}
+    active=true
+    log.debug('arrow hook registered; animation steps ',frames() and 'every frame' or 'by ExecuteWithDelay')
+    startCombat()
 end
 
-function M.loaded(onCleanup)
-    assert(not active,'Preymonition session is already active')
-    hooks={}
-    -- Register release first so a partial registration is still undone.
-    onCleanup(function()
-        stop()
-        local failures={}
-        for index=#hooks,1,-1 do
-            local hook=hooks[index]
-            local ok,why=pcall(UnregisterHook,hook[1],hook[2],hook[3])
-            if ok then table.remove(hooks,index) else failures[#failures+1]=tostring(why) end
-        end
-        if #failures>0 then error('hook removal failed: '..table.concat(failures,'; '),0) end
-        log.debug('hooks removed')
-        return true
-    end)
-    active=true
-    token=token+1
-    for _,spec in ipairs(HOOKS) do register(spec) end
-    log.debug(#hooks,' hooks registered; animation steps ',frames() and 'every frame' or 'by ExecuteWithDelay')
+-- Combat ended, the template was deselected or MCT stopped: unhook and fade out.
+function M.sleep()
+    local wasActive=active
+    pause()
+    if wasActive then endCombat() end
+    if not hook then return end
+    local removed,why=pcall(UnregisterHook,ARROW_HOOK,hook[1],hook[2])
+    if not removed then error('hook removal failed: '..tostring(why),0) end
+    hook=nil
+    log.debug('arrow hook removed')
 end
 
 function M.attach(hud,layer,params,onCleanup,preview)

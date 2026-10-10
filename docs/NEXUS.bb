@@ -1,4 +1,4 @@
-[size=5][b]Preymonition[/b][/size]
+[size=5][b]Combat Preymonition[/b][/size]
 
 [i]You see them coming. They won't.[/i]
 
@@ -27,7 +27,7 @@ Install these before Preymonition:
 [/list]
 [b]Settings[/b]
 
-Open [b]Mod Settings → Preymonition[/b], set [b]Preymonition[/b] to [b]Yes[/b], and choose [b]Apply[/b]. Adjust the settings under [b]Main Options[/b] and the sections below it on the same page and choose [b]Apply[/b] after changing them. Percentages scale the standard look; 100% leaves it unchanged.
+Open [b]Mod Settings → Combat Preymonition[/b], set [b]Enabled[/b] under [b]Preymonition[/b] to [b]Yes[/b], and choose [b]Apply[/b]. Adjust the settings under [b]Main Options[/b] and the sections below it on the same page and choose [b]Apply[/b] after changing them. Percentages scale the standard look; 100% leaves it unchanged.
 [list]
 [*][b]Size[/b]: Small, [b]Standard[/b] or Large.
 [*][b]Show background shield[/b]: [b]Off[/b] or On, a faint shield behind the arrows.
@@ -40,7 +40,7 @@ Open [b]Mod Settings → Preymonition[/b], set [b]Preymonition[/b] to [b]Yes[/b]
 
 [b]If the cue does not appear[/b]
 [list]
-[*]Confirm [b]Preymonition[/b] is set to [b]Yes[/b] on its settings page and choose [b]Apply[/b].
+[*]Confirm [b]Enabled[/b] is set to [b]Yes[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b].
 [*]Check during combat while the game's original indicator shows an attack direction.
 [*]Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings and ModCore Templates are installed and enabled, then restart the game.
 [*]If another mod changes the original attack indicator, try disabling it to check for a conflict.
@@ -49,4 +49,4 @@ Open [b]Mod Settings → Preymonition[/b], set [b]Preymonition[/b] to [b]Yes[/b]
 
 Close the game before updating and keep your saved settings. Do not replace them with example defaults.
 
-To stop the extra cue, set [b]Preymonition[/b] to [b]No[/b] on its settings page and choose [b]Apply[/b]. To uninstall, close the game, disable or remove [font=Courier New]9_ModCore_Preymonition[/font], and restart. Keep dependencies used by other mods.
+To stop the extra cue, set [b]Enabled[/b] to [b]No[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b]. To uninstall, close the game, disable or remove [font=Courier New]9_ModCore_Preymonition[/font], and restart. Keep dependencies used by other mods.

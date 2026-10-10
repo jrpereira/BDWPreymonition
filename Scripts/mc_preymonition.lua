@@ -18,10 +18,17 @@ local template={
     name='Preymonition',
     description='Repeat the incoming attack direction just below the center of the screen.',
 
-    category='player.notifications',
+    category='npc.attacks',
+    
     -- MCT creates the cue layer on the HUD. The session builds the shield inside
-    -- it and follows the game's attack indicator through its own native hooks.
+    -- it and follows the game's attack indicator through its own native hook.
     objects={hud={},cue={}},
+    -- npc.attacks wakes its templates when combat starts and puts them to sleep
+    -- when it ends; the session hooks the indicator only in between.
+    events={
+        wake=function() Session.wake() end,
+        sleep=function() Session.sleep() end,
+    },
     -- Percentages scale the current look; 100% is unchanged.
     menu={
         {id='Cue', label='Main Options', level=2, fields={
@@ -46,8 +53,6 @@ local marker=io.open(root..'/preview.txt','r')
 if marker then marker:close() end
 template.preview=marker~=nil
 log.debug('template loaded; level ',log.level,', preview ',template.preview)
-
-template.loaded=Session.loaded
 
 template.attach=function(objects,params,original)
     Session.attach(objects.hud,objects.cue,params,
