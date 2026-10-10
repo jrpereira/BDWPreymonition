@@ -90,8 +90,8 @@ end
 local failedSounds={}
 local function play(record,path)
     if not path then return end
-    local ok,why=pcall(function() Sound.play(path,Cue.context(record.ui)) end)
-    if ok then log.trace('sound ',path) return end
+    local ok,why=pcall(function() return Sound.play(path,Cue.context(record.ui)) end)
+    if ok then log.trace('sound ',path,' playing id ',why) return end
     if not failedSounds[path] then
         failedSounds[path]=true
         log.warn('sound unavailable: ',why)

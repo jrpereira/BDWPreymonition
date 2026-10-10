@@ -37,7 +37,11 @@ function M.play(path,context)
     local statics=assert(Cue.resolve('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
     local pawn=statics:GetPlayerPawn(context,0)
     assert(MC.valid(pawn),'player unavailable')
-    wwise:PostEventAtLocation(sound,pawn:K2_GetActorLocation(),{Pitch=0,Yaw=0,Roll=0},context)
+    -- Wwise answers a refused event, such as one whose bank is not loaded, with
+    -- playing id 0 instead of an error.
+    local id=wwise:PostEventAtLocation(sound,pawn:K2_GetActorLocation(),{Pitch=0,Yaw=0,Roll=0},context)
+    assert(id~=0,'Wwise did not play '..path)
+    return id
 end
 
 return M
