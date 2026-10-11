@@ -30,4 +30,11 @@ local size=assert(rows[definition.settings.CueS])
 local labels={}
 for index,choice in ipairs(size.choices) do labels[index]=choice.label end
 assert(table.concat(labels,'|')=='Small|Standard|Large' and size.default==20)
-print('PASS: Preymonition registers one npc.attacks template with its size setting')
+-- Every key the cue reads is one MCT composes from the menu ids, with its default.
+local DEFAULTS={CueS=20,CueShield=0,ArrowsMove=100,ArrowsSize=100,ArrowsGlow=1,ArrowsSound=0,
+    UnblockableSize=100,UnblockableSound=0}
+for key,default in pairs(DEFAULTS) do
+    local row=assert(rows[definition.settings[key]],'no settings row for '..key)
+    assert(row.default==default,key..' defaults to '..tostring(row.default))
+end
+print('PASS: Preymonition registers one npc.attacks template with its eight settings')

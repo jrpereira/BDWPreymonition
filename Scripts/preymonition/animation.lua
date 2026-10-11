@@ -49,8 +49,12 @@ function M.new(env)
         self.tracks = {}
     end
 
-    function state:step()
+    -- Advances every track to now and applies the result; quiet leaves applying
+    -- to the caller, as a verb does once it has changed the state.
+    function state:step(quiet)
         local timestamp = env.now()
+        -- Verbs time their new tracks from the step they just took.
+        self.time = timestamp
         local completed = 0
         for key, job in pairs(self.tracks) do
             local last = job.phases[#job.phases]
@@ -81,7 +85,7 @@ function M.new(env)
                 if job.after then job.after() end
             end
         end
-        env.apply(self)
+        if not quiet then env.apply(self) end
         return self:has_jobs()
     end
 
@@ -90,8 +94,8 @@ function M.new(env)
     function state:show(index, identity)
         assert(self.arrows[index], 'Invalid arrow index')
         if self.last == identity then return false end
-        self:step()
-        local timestamp = env.now()
+        self:step(true)
+        local timestamp = self.time
         self.last = identity
         self.ended = false
 
@@ -116,7 +120,7 @@ function M.new(env)
     -- it until the attack resolves. Its travel carries on if unfinished.
     function state:critical(index)
         local arrow = assert(self.arrows[index], 'Invalid arrow index')
-        self:step()
+        self:step(true)
         self.tracks['opacity' .. index] = nil
         self.tracks['scale' .. index] = nil
         arrow.opacity, arrow.scale = 1, CRITICAL
@@ -126,13 +130,14 @@ function M.new(env)
 
     -- Combat started: fade the idle cue in without lighting an arrow.
     function state:engage()
-        self:step()
+        self:step(true)
         self.ended = false
         local container = self.tracks.container
         if self.opacity >= 0.5 and not (container and container.phases[#container.phases].target < 0.5) then
+            env.apply(self)
             return false
         end
-        track('container', self, 'opacity', { phase(self.opacity, 0.5, env.now(), 0.2) })
+        track('container', self, 'opacity', { phase(self.opacity, 0.5, self.time, 0.2) })
         env.apply(self)
         return true
     end
@@ -141,14 +146,14 @@ function M.new(env)
     -- combat end the cue itself also fades out over a second.
     function state:hide(combat_end)
         if not combat_end and self.ended then return false end
-        self:step()
+        self:step(true)
         self.last = nil
         for index = 1, #self.arrows do vanish(index) end
         if combat_end then
             self.ended = true
             self.tracks.flashOpacity, self.tracks.flashScale = nil, nil
             self.flash.opacity = 0
-            track('container', self, 'opacity', { phase(self.opacity, 0, env.now(), 1) })
+            track('container', self, 'opacity', { phase(self.opacity, 0, self.time, 1) })
         end
         env.apply(self)
         return true

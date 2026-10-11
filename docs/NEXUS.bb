@@ -17,7 +17,8 @@ Install these before Preymonition:
 [*][b]UE4SS compatible with your game version.[/b] See the loader links in the [url=https://www.nexusmods.com/thebloodofdawnwalker/mods/271]Dawnwalker Mod Menu requirements[/url].
 [*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/271]Dawnwalker Mod Menu[/url].
 [*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/590]ModCore Settings[/url].
-[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/641]ModCore Templates[/url].
+[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/641]ModCore Templates[/url] 1.1.0 or newer.
+[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/526]UE4SS Lua Event Bridge[/url] 1.0.12 or newer, which ModCore Templates also requires. Without it no cue appears.
 [/list]
 [b]Installation[/b]
 [list=1]
@@ -42,7 +43,7 @@ Open [b]Mod Settings → Combat Preymonition[/b], set [b]Enabled[/b] under [b]Pr
 [list]
 [*]Confirm [b]Enabled[/b] is set to [b]Yes[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b].
 [*]Check during combat while the game's original indicator shows an attack direction.
-[*]Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings and ModCore Templates are installed and enabled, then restart the game.
+[*]Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings, ModCore Templates and UE4SS Lua Event Bridge are installed and enabled, then restart the game.
 [*]If another mod changes the original attack indicator, try disabling it to check for a conflict.
 [/list]
 [b]Updating or removing[/b]

@@ -21,20 +21,17 @@ local M={
     UNBLOCKABLE={[1]=GROWL,[2]=BOOM},
 }
 
--- An event asset, loading it when the game has not yet.
-local function find(path)
-    local found=Cue.resolve(path)
-    if found then return found end
-    if type(rawget(_G,'LoadAsset'))=='function' then pcall(LoadAsset,path) end
-    return Cue.resolve(path)
+-- Loads an event when the cue attaches rather than at its first play, mid-combat.
+function M.preload(path)
+    return Cue.find(path)~=nil
 end
 
 -- Posts an event at the player's location; context is any live object in the
 -- player's world. Errors when the event, the player or Wwise is unavailable.
 function M.play(path,context)
-    local sound=assert(find(path),'sound event unavailable: '..path)
-    local wwise=assert(Cue.resolve('/Script/AkAudio.Default__AkGameplayStatics'),'Wwise unavailable')
-    local statics=assert(Cue.resolve('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
+    local sound=assert(Cue.find(path),'sound event unavailable: '..path)
+    local wwise=assert(Cue.default('/Script/AkAudio.Default__AkGameplayStatics'),'Wwise unavailable')
+    local statics=assert(Cue.default('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
     local pawn=statics:GetPlayerPawn(context,0)
     assert(MC.valid(pawn),'player unavailable')
     -- Wwise answers a refused event, such as one whose bank is not loaded, with

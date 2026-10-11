@@ -5,10 +5,10 @@ function M.new(capacity)
     assert(type(capacity) == 'number' and capacity >= 1, 'Invalid event capacity')
     local queue = { items = {}, capacity = capacity, sequence = 0, dropped = 0 }
 
-    -- data travels with the event; a coalesced event keeps the latest.
-    function queue:push(kind, path, data)
+    -- A coalesced event keeps the latest sequence.
+    function queue:push(kind, path)
         self.sequence = self.sequence + 1
-        local event = { kind = kind, path = path, data = data, sequence = self.sequence }
+        local event = { kind = kind, path = path, sequence = self.sequence }
         local last = self.items[#self.items]
         if last and last.kind == kind and last.path == path then
             self.items[#self.items] = event

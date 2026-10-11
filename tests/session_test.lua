@@ -1,14 +1,21 @@
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
--- Weak handles return their object only while it is live, like the bridge's.
+-- Weak handles return their object only while it is live, like the bridge's,
+-- and as UE4SS does, a fresh wrapper on every get: never the same table twice.
 local released=0
+local function wrapper(object)
+    return setmetatable({},{__index=object,__newindex=object})
+end
 require('mc.objects').useLifetimes({weak=function(object)
-    return {get=function() return object end,release=function() released=released+1 end}
+    return {get=function() return wrapper(object) end,release=function() released=released+1 end}
 end})
 
 local world={name='World'}
 function world:IsValid() return true end
 function world:GetFullName() return 'World /Game/Map.Map' end
 
+-- Native work the fakes see, for the call budget: UObject method calls, of
+-- which setters, and object lookups.
+local calls={methods=0,setters=0,finds=0}
 -- Fake UObjects record Set* calls as fields; reads use plain fields.
 local function object(name,fields)
     local value=fields or {}
@@ -26,7 +33,8 @@ local function object(name,fields)
     function methods:GetOuter() return self.outer end
     function methods:GetFName()
         local value=self
-        return {ToString=function() return value.fname or value.name end}
+        local text=value.fname or value.name
+        return {ToString=function() return text end,GetComparisonIndex=function() return 'index:'..text end}
     end
     function methods:AddChildToOverlay(child)
         self.children[#self.children+1]=child
@@ -43,13 +51,17 @@ local function object(name,fields)
         self.Background={OutlineSettings={Width=1}}
     end
     return setmetatable(value,{__index=function(_,key)
-        if methods[key] then return methods[key] end
+        if methods[key] then calls.methods=calls.methods+1; return methods[key] end
         local field=type(key)=='string' and key:match('^Set(.+)$')
-        if field then return function(self,v) rawset(self,field,v) end end
+        if field then
+            calls.methods,calls.setters=calls.methods+1,calls.setters+1
+            return function(self,v) self[field]=v end
+        end
     end})
 end
 
-local function color(strength) return {R=strength,G=0,B=0,A=1} end
+-- Native arrows: lit orange at strength, dim when inactive.
+local function color(strength) return {R=strength,G=strength*0.67,B=strength*0.19,A=1} end
 local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 local objects={}
 -- The game's centre icon sprites.
@@ -99,13 +111,19 @@ objects[EVENTS..'UI/UI_Inventory/UI_Sword_Equip.UI_Sword_Equip']=SWOOSH_SOUND
 objects[EVENTS..'UI/UI_MainMenu/UI_PauseMenu_Resume.UI_PauseMenu_Resume']=BOOM_SOUND
 
 objects['/Script/Engine.Default__GameplayStatics']=statics
-StaticFindObject=function(path) return objects[path] or (path:match('^/Script/UMG%.') and {path=path}) end
-FName=function(value) return value end
+StaticFindObject=function(path)
+    calls.finds=calls.finds+1
+    return objects[path] or (path:match('^/Script/UMG%.') and {path=path})
+end
+-- An FName's comparison index stands for its text, as the engine's does.
+FName=function(value)
+    return {ToString=function() return value end,GetComparisonIndex=function() return 'index:'..value end}
+end
 local constructed=0
 StaticConstructObject=function(class,outer,name)
     assert(outer==hudTree,'cue widgets belong to the HUD widget tree')
     constructed=constructed+1
-    return object(name,{class=class.path})
+    return object(name:ToString(),{class=class.path})
 end
 -- Combat state comes from the combat hooks; scanning every object is too slow.
 local scans=0
@@ -212,9 +230,16 @@ assert(box.RenderOpacity==0,'the cue starts hidden')
 assert(shieldOf(box).BrushFromAtlasInterface==sprite and shieldOf(box).ColorAndOpacity.A==0,
     'the cue is created with the shield sprite, hidden')
 
+-- Native work per event, measured on the fakes.
+local function cost(callback)
+    local methods,setters,finds=calls.methods,calls.setters,calls.finds
+    callback()
+    return calls.methods-methods,calls.setters-setters,calls.finds-finds
+end
+local budget={}
 -- The arrow is handled during the game's styling call: shown in that same
 -- frame, before any deferred work runs.
-fire(SHOW,indicator)
+budget.onset={cost(function() fire(SHOW,indicator) end)}
 local left=arrowOf(box,3)
 assert(left.RenderOpacity==1,'the arrow shows during the game call itself')
 local flash=flashOf(box)
@@ -226,6 +251,7 @@ assert(arrowOf(box,1).Brush==nil,'only the shown arrow is restyled')
 assert(left.ColorAndOpacity.R==0.9,'the shown arrow takes the native lit colour')
 assert(left.RenderOpacity==1 and left.RenderScale.X==1.5 and math.abs(left.RenderTranslation.X+40)<1e-6,
     'a detected arrow shows at once at full opacity, 1.5 times its size, one image out')
+budget.frame={cost(function() clock=clock+0.05; run() end)}
 settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6,'active cue rests at half opacity')
 assert(left.RenderOpacity==1 and math.abs(left.RenderScale.X-2)<1e-6,'the shown arrow grows to twice its size')
@@ -236,7 +262,17 @@ assert(math.abs(left.RenderTranslation.X+120)<1e-6 and math.abs(left.RenderTrans
 assert(arrowOf(box,1).RenderOpacity==0,'other arrows stay hidden')
 
 -- The centre icon turning to the sword resolves the attack.
-centre(indicator,SWORD)
+budget.resolve={cost(function() centre(indicator,SWORD) end)}
+-- Native work per event stays within budget: methods, of which setters, and
+-- object lookups. The frame counts no clock lookup: the clock is kept.
+local function within(name,methods,setters,finds)
+    local spent=budget[name]
+    assert(spent[1]<=methods and spent[2]<=setters and spent[3]<=finds,
+        name..' costs '..table.concat(spent,'/')..', over '..methods..'/'..setters..'/'..finds)
+end
+within('onset',60,14,0)
+within('frame',22,6,0)
+within('resolve',42,6,0)
 run()
 assert(math.abs(box.RenderOpacity-0.5)<1e-6,'a resolved attack keeps the idle cue')
 assert(left.RenderOpacity==0 and left.RenderScale.X==1.5,'a resolved attack puts the arrow out at once')
@@ -419,6 +455,14 @@ assert(bottom.RenderOpacity==0,'an arrow styled on its hidden source indicator p
 other.visible=true
 other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
 settle(0.05)
+-- Nor does a hidden twin take away the skull its visible indicator shows.
+centre(other,SKULL)
+assert(cueShield.BrushFromAtlasInterface==SKULL)
+centre(twin,SWORD)
+centre(twin,RED_SHIELD)
+assert(cueShield.BrushFromAtlasInterface==SKULL,'a hidden twin leaves the skull')
+centre(other,SWORD)
+assert(cueShield.BrushFromAtlasInterface==sprite,'its own indicator takes it away')
 
 -- From here on deferred work runs per frame, as when the engine tick is hooked.
 local delays=0
@@ -490,6 +534,28 @@ settle(0.05)
 assert(math.abs(preview.RenderOpacity-0.5)<1e-6,'preview stays visible after combat end')
 startCombat()
 template.preview=false
+
+-- A lasting fault inside the game's call is logged once per kind; the repeats
+-- are counted when combat ends.
+local Session=require('preymonition.session')
+local logged={}
+Session.setLog(setmetatable({enabled=function() return false end},{__index=function(_,level)
+    return function(...)
+        local parts={level}
+        for index=1,select('#',...) do parts[#parts+1]=tostring((select(index,...))) end
+        logged[#logged+1]=table.concat(parts,' ')
+    end
+end}))
+local broken={get=function() error('unreadable') end}
+for _=1,3 do hooks[ARROW](broken) end
+local errors=0
+for _,line in ipairs(logged) do if line:match('^error') then errors=errors+1 end end
+assert(errors==2,'one error per kind, not one per call')
+endCombat()
+local repeats=0
+for _,line in ipairs(logged) do if line:match('^warn') and line:match('2%s+more times') then repeats=repeats+1 end end
+assert(repeats==2,'repeats are counted at combat end')
+startCombat()
 
 for index=#cleanups,1,-1 do cleanups[index]() end
 assert(scans==0,'nothing scans for objects')

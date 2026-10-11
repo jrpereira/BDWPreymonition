@@ -8,7 +8,7 @@
     "interface"
   ],
   "author": "Jorge Pereira (kell)",
-  "version": "0.3.1",
+  "version": "1.0.0",
   "icon": "⊙",
   "description": "Keep incoming attack directions in sight with animated cues just below the center of your screen. Spend less time hunting for the warning—and more time getting hit in the face like a pro that saw it coming.",
   "dependencies": [
@@ -25,7 +25,14 @@
     {
       "id": "ModCoreTemplates",
       "name": "ModCoreTemplates",
+      "version": "1.1.0+",
       "url": "https://www.nexusmods.com/thebloodofdawnwalker/mods/641"
+    },
+    {
+      "id": "UE4SSLuaEventBridge",
+      "name": "UE4SSLuaEventBridge with weak handles",
+      "version": "1.0.12+",
+      "url": "https://www.nexusmods.com/thebloodofdawnwalker/mods/526"
     }
   ],
   "links": {}

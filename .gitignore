@@ -5,4 +5,6 @@
 *.zip
 *.bak
 __pycache__/
+.pytest_cache/
+*.swp
 /state/

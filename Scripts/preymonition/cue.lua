@@ -11,12 +11,35 @@ local OUTWARD={{X=0,Y=-1},{X=0,Y=1},{X=-1,Y=0},{X=1,Y=0}}
 -- Where each arrow shows up and where its travel ends, in arrow image sizes
 -- along its axis out from the native rest; the bottom arrow stays closer.
 local DISTANCE={{1,3},{0.5,2},{1,3},{1,3}}
+-- What apply last wrote to each arrow, by these keys in ui.applied.
+local KEYS={}
+for index=1,#ARROWS do
+    KEYS[index]={opacity='opacity'..index,scale='scale'..index,translation='translation'..index}
+end
+local GAMEPLAY_STATICS='/Script/Engine.Default__GameplayStatics'
 -- The game's attack flash, shown behind an arrow where it appears.
 local FLASH_PATH='/Game/_Dawnwalker/UI/_Unified/Combat/Textures/T_Mask_AttackIndicator_Flash.T_Mask_AttackIndicator_Flash'
 -- Native arrows at or below this colour strength are the inactive state.
 local INACTIVE=0.5
+-- Widget names stay unique across Lua reloads: generation restarts with the
+-- Lua state, while a HUD that survives the reload still holds the old names.
 local generation=0
+local nonce=string.format('%06x',math.random(0,0xffffff))
+local ARROW_INDEX={}
+for index,key in ipairs(ARROWS) do ARROW_INDEX[key]=index end
 local M={ARROWS=ARROWS}
+
+-- A pass is one entry from the game: a hook call, a deferred drain or an
+-- animation frame. Within it each cue's widgets resolve once; the wrappers are
+-- never read once the pass is over.
+local depth,current=0,0
+local function close(...) depth=0 return ... end
+-- Runs callback in a pass, protected; returns pcall's results.
+function M.pass(callback,...)
+    if depth>0 then return pcall(callback,...) end
+    depth,current=1,current+1
+    return close(pcall(callback,...))
+end
 
 local function world(object)
     local value=MC.call(object,'GetWorld')
@@ -54,6 +77,43 @@ function M.resolve(path)
     return MC.valid(object) and object or nil
 end
 
+-- An asset, loading it when the game has not yet.
+function M.find(path)
+    local object=M.resolve(path)
+    if object then return object end
+    if type(rawget(_G,'LoadAsset'))=='function' then pcall(LoadAsset,path) end
+    return M.resolve(path)
+end
+
+-- A class default object, kept between calls: the engine never frees one.
+local defaults={}
+function M.default(path)
+    local object=defaults[path]
+    if object and MC.valid(object) then return object end
+    object=M.resolve(path)
+    defaults[path]=object
+    return object
+end
+
+-- An object's short name. Unprotected: call it inside a pass or pcall.
+function M.name(object)
+    return object:GetFName():ToString()
+end
+
+-- The names the hook looks for, by FName comparison index: comparing numbers
+-- spares a string per styling call. The index ignores an FName's number, so
+-- TopArrow_1 reads as TopArrow; callers still check the indicator around it.
+local KNOWN={'Reticle','TopArrow','BottomArrow','LeftArrow','RightArrow'}
+local known
+-- Which of those names an object has, or nil. Unprotected, like name.
+function M.known(object)
+    if not known then
+        known={}
+        for _,name in ipairs(KNOWN) do known[FName(name):GetComparisonIndex()]=name end
+    end
+    return known[object:GetFName():GetComparisonIndex()]
+end
+
 function M.visible(widget)
     return MC.valid(widget) and visibleChain(widget)
 end
@@ -80,18 +140,22 @@ local function strength(image)
     return math.max(color.R or 0,color.G or 0,color.B or 0)*(color.A or 0)
 end
 
--- A native arrow the game currently shows as attacking: visible and brightly coloured.
+-- A native arrow the game currently shows as attacking: visible and brightly
+-- coloured. The colour is read first: it is the cheaper test.
 function M.lit(image)
-    return MC.valid(image) and visibleChain(image) and strength(image)>INACTIVE
+    return MC.valid(image) and strength(image)>INACTIVE and visibleChain(image)
 end
 
 -- The direction an indicator arrow image stands for, by its widget name.
+-- Unprotected: call it inside a pass or pcall.
 function M.arrowIndex(image)
-    local fname=MC.valid(image) and MC.call(image,'GetFName')
-    local name=fname and MC.call(fname,'ToString')
-    for index,key in ipairs(ARROWS) do
-        if key==name then return index end
-    end
+    return ARROW_INDEX[M.known(image)]
+end
+
+-- An indicator's native arrow image for a direction.
+function M.arrowOf(indicator,index)
+    local image=indicator[ARROWS[index]]
+    return MC.valid(image) and image or nil
 end
 
 -- The combat target indicator whose WidgetTree holds an arrow image.
@@ -105,8 +169,7 @@ end
 -- The cue's widgets as live wrappers for this call, or nil once any is gone.
 -- The cue keeps them only as weak handles: a kept wrapper reads freed memory
 -- after its HUD is collected, as on a level load.
-local function live(ui)
-    if not ui then return nil end
+local function resolve(ui)
     local widgets={images={}}
     for _,key in ipairs({'hud','layer','box','stack','shield','arrows','flash'}) do
         widgets[key]=MC.get(ui.handles[key])
@@ -119,9 +182,29 @@ local function live(ui)
     return widgets
 end
 
+local function live(ui)
+    if not ui then return nil end
+    if depth>0 and ui.pass==current then return ui.widgets end
+    local widgets=resolve(ui)
+    if depth>0 then ui.pass,ui.widgets,ui.world=current,widgets,nil end
+    return widgets
+end
+
+local function worldName(object)
+    local value=world(object)
+    local name=value and MC.call(value,'GetFullName')
+    return type(name)=='string' and name~='' and name or nil
+end
+
 function M.sameWorld(object,ui)
     local widgets=live(ui)
-    return widgets~=nil and MC.same(world(object),world(widgets.hud))
+    if not widgets then return false end
+    local own=depth>0 and ui.pass==current and ui.world
+    if not own then
+        own=worldName(widgets.hud)
+        if depth>0 then ui.world=own end
+    end
+    return own~=nil and own==worldName(object)
 end
 
 function M.valid(ui)
@@ -152,19 +235,11 @@ local function config(settings)
     }
 end
 
--- A sprite, loading it when the game has not yet.
-local function findSprite(path)
-    local sprite=M.resolve(path)
-    if sprite then return sprite end
-    if type(rawget(_G,'LoadAsset'))=='function' then pcall(LoadAsset,path) end
-    return M.resolve(path)
-end
-
 -- Gives the shield image a centre sprite in a colour. Returns its path, or nil
 -- while it cannot be found; the shield keeps its current look until then.
 local function applySprite(shield,name,color)
     local path=SPRITES[name]
-    local sprite=findSprite(path)
+    local sprite=M.find(path)
     if not sprite then return nil end
     shield:SetBrushFromAtlasInterface(sprite,false)
     shield:SetColorAndOpacity(color)
@@ -177,7 +252,7 @@ function M.build(hud,layer,screen,settings)
     -- A settings update reattaches the same layer; replace its previous content.
     layer:ClearChildren()
     generation=generation+1
-    local suffix=tostring(generation)
+    local suffix=nonce..'_'..generation
     -- SizeBox > Overlay with the shield image under the arrows overlay.
     local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionCue'..suffix)
     local stack=construct('/Script/UMG.Overlay',tree,'PreymonitionStack'..suffix)
@@ -190,7 +265,7 @@ function M.build(hud,layer,screen,settings)
     flashSlot:SetVerticalAlignment(0)
     flash:SetRenderOpacity(0)
     flash:SetRenderTransformPivot({X=0.5,Y=0.5})
-    local texture=findSprite(FLASH_PATH)
+    local texture=M.find(FLASH_PATH)
     if texture then
         flash:SetBrushFromTexture(texture,false)
         flash:SetColorAndOpacity(LIT_COLOR)
@@ -207,7 +282,8 @@ function M.build(hud,layer,screen,settings)
         images[index]=image
     end
     local size=math.min(screen.width,screen.height)*(settings.CueS or 20)/100
-    local inset=18/screen.scale
+    -- Slate units, like the box size: the inset keeps its share of the cue at any DPI.
+    local inset=18
     local shieldSlot=stack:AddChildToOverlay(shield)
     shieldSlot:SetHorizontalAlignment(0)
     shieldSlot:SetVerticalAlignment(0)
@@ -222,6 +298,8 @@ function M.build(hud,layer,screen,settings)
     -- An Image's default brush is solid white: clear until it has the sprite.
     shield:SetColorAndOpacity({R=1,G=1,B=1,A=0})
     local sprite=applySprite(shield,'shield',visuals.shieldColor)
+    -- Loaded now rather than at the first unblockable attack, mid-combat.
+    M.find(SPRITES.skull)
     local slot=layer:AddChildToOverlay(box)
     -- Centred horizontally, its top on the screen's vertical middle.
     slot:SetHorizontalAlignment(2)
@@ -237,7 +315,7 @@ function M.build(hud,layer,screen,settings)
     local base,size,angle={},{},{}
     for index=1,#ARROWS do base[index],size[index],angle[index]={X=0,Y=0},0,0 end
     return {handles=handles,base=base,size=size,angle=angle,sprite=sprite,visuals=visuals,
-        flash=texture and FLASH_PATH or nil}
+        flash=texture and FLASH_PATH or nil,applied={}}
 end
 
 -- Copy the live indicator's arrow artwork. The cue keeps its own shield: the
@@ -267,6 +345,10 @@ function M.style(ui,indicator,only)
             ui.size[index]=ok and size or 0
             local okAngle,angle=pcall(function() return native.RenderTransform.Angle end)
             ui.angle[index]=okAngle and type(angle)=='number' and angle or 0
+            -- The new transform replaced what apply last wrote to this arrow.
+            local keys=KEYS[index]
+            ui.applied[keys.scale],ui.applied[keys.translation]=nil,nil
+            ui.flashIndex=nil
         end
     end
 end
@@ -296,23 +378,37 @@ function M.centre(ui,name)
     return applySprite(widgets.shield,name,skull and SKULL_COLOR or ui.visuals.shieldColor)
 end
 
+-- Writes a value only when it differs from what the cue last wrote there.
+local function set(ui,widget,key,setter,value)
+    if ui.applied[key]==value then return end
+    ui.applied[key]=value
+    widget[setter](widget,value)
+end
+local function setPair(ui,widget,key,setter,x,y)
+    local last=ui.applied[key]
+    if last and last.X==x and last.Y==y then return end
+    local value={X=x,Y=y}
+    ui.applied[key]=value
+    widget[setter](widget,value)
+end
+
 function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
-    widgets.box:SetRenderOpacity(state.opacity)
+    set(ui,widgets.box,'box','SetRenderOpacity',state.opacity)
     for index,arrow in ipairs(state.arrows) do
-        local image,base,out=widgets.images[index],ui.base[index],OUTWARD[index]
+        local image,base,out,keys=widgets.images[index],ui.base[index],OUTWARD[index],KEYS[index]
         local from,to=DISTANCE[index][1],DISTANCE[index][2]
         local distance=ui.size[index]*(from+(to-from)*arrow.offset)*visuals.move
         local scale=arrow.scale*visuals.scale
-        image:SetRenderOpacity(arrow.opacity)
-        image:SetRenderScale({X=scale,Y=scale})
-        image:SetRenderTranslation({X=base.X+out.X*distance,Y=base.Y+out.Y*distance})
+        set(ui,image,keys.opacity,'SetRenderOpacity',arrow.opacity)
+        setPair(ui,image,keys.scale,'SetRenderScale',scale,scale)
+        setPair(ui,image,keys.translation,'SetRenderTranslation',base.X+out.X*distance,base.Y+out.Y*distance)
     end
     -- The flash sits where its arrow appears, turned like it; off, it stays clear.
     local flash,index=state.flash,state.flash.index
     if not visuals.glow then return end
-    widgets.flash:SetRenderOpacity(flash.opacity)
+    set(ui,widgets.flash,'flash','SetRenderOpacity',flash.opacity)
     if index then
         if ui.flashIndex~=index then
             ui.flashIndex=index
@@ -321,8 +417,9 @@ function M.apply(ui,state)
         local base,out=ui.base[index],OUTWARD[index]
         local distance=ui.size[index]*DISTANCE[index][1]*visuals.move
         local scale=flash.scale*visuals.scale
-        widgets.flash:SetRenderScale({X=scale,Y=scale})
-        widgets.flash:SetRenderTranslation({X=base.X+out.X*distance,Y=base.Y+out.Y*distance})
+        setPair(ui,widgets.flash,'flashScale','SetRenderScale',scale,scale)
+        setPair(ui,widgets.flash,'flashTranslation','SetRenderTranslation',
+            base.X+out.X*distance,base.Y+out.Y*distance)
     end
 end
 
@@ -348,7 +445,7 @@ end
 
 function M.now(ui)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    local clock=assert(M.resolve('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
+    local clock=assert(M.default(GAMEPLAY_STATICS),'GameplayStatics unavailable')
     return clock:GetRealTimeSeconds(widgets.hud)
 end
 
