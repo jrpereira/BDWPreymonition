@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.1
+
+- Requires ModCore Settings 1.2.0 or later, which ModCore Templates 1.2.0 needs for
+  its Templates tab. ModCore Templates 1.1.0 or later still works.
+- The Combat Preymonition settings no longer set a menu row level on the Main
+  Options, Parry & Block Indicator and Unblockable Attack sections; they follow the
+  menu's default nesting.
+
 ## v1.0.0
 
 - Rename the mod to Combat Preymonition and move it to ModCore Templates'
