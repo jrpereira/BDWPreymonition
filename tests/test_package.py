@@ -1,3 +1,4 @@
+# Vendored from ModCoreSettings (owner). Do not edit copies; change the source and re-vendor.
 import hashlib
 import importlib.util
 import json
@@ -38,10 +39,11 @@ class PackageTests(unittest.TestCase):
                                  or '/tools/' in n.lower() for n in names))
             # Every package ships enabled by default.
             self.assertIn(pack.MODULE + '/enabled.txt', names)
-            # README, CHANGELOG and Markdown documents in docs/ are published at the
-            # module root; the BBCode Nexus description stays in the repository.
-            docs = ['README.md', 'CHANGELOG.md'] + [doc.name for doc in (ROOT / 'docs').glob('*.md')]
-            for doc in docs:
+            # README and CHANGELOG at the root, where present, and Markdown documents in docs/
+            # are published at the module root; the BBCode Nexus description stays in the
+            # repository.
+            docs = [name for name in ('README.md', 'CHANGELOG.md') if (ROOT / name).exists()]
+            for doc in docs + [doc.name for doc in (ROOT / 'docs').glob('*.md')]:
                 self.assertIn(pack.MODULE + '/' + doc, names)
             self.assertNotIn(pack.MODULE + '/NEXUS.bb', names)
             self.assertFalse(any('/docs/' in n for n in names))

@@ -1,4 +1,4 @@
-package.path='ModCoreTemplates/Scripts/?.lua;'..package.path
+package.path='ModCoreTemplates/Scripts/?.lua;ModCoreTemplates/Scripts/vendor/?.lua;'..package.path
 local definitions,entries=dofile('Preymonition/tests/load_templates.lua')()
 assert(#definitions==1 and entries[1].path:match('Preymonition/Scripts/mc_preymonition%.lua$'))
 local template=definitions[1]

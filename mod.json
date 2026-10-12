@@ -8,7 +8,7 @@
     "interface"
   ],
   "author": "Jorge Pereira (kell)",
-  "version": "1.0.0",
+  "version_source": "VERSION",
   "icon": "⊙",
   "description": "Keep incoming attack directions in sight with animated cues just below the center of your screen. Spend less time hunting for the warning—and more time getting hit in the face like a pro that saw it coming.",
   "dependencies": [
@@ -20,6 +20,7 @@
     {
       "id": "ModCoreSettings",
       "name": "ModCoreSettings",
+      "version": "1.2.0+",
       "url": "https://www.nexusmods.com/thebloodofdawnwalker/mods/590"
     },
     {

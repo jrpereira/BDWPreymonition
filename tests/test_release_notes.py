@@ -1,8 +1,8 @@
+# Vendored from ModCoreSettings (owner). Do not edit copies; change the source and re-vendor.
 """Ensure release notes cannot accidentally include another version's history."""
 import importlib.util
-import json
-import os
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,12 +27,18 @@ class ReleaseNotesTests(unittest.TestCase):
             with self.subTest(text=text, tag=tag), self.assertRaises(ValueError):
                 extract_notes(text, tag)
 
-    @unittest.skipUnless(os.environ.get('GITHUB_REF_NAME', '').startswith('release/'),
-                         'checked on release branches, where the changelog section is published')
+    def test_code_headings_do_not_end_version(self):
+        text = '## v1.0.1\nExample:\n```md\n## v9.0.0\n```\nKept.\n## v1.0.0\nOlder.'
+        self.assertIn('Kept.', extract_notes(text, 'v1.0.1'))
+        self.assertNotIn('Older.', extract_notes(text, 'v1.0.1'))
+
+    def test_historical_prerelease_and_crlf(self):
+        self.assertEqual(extract_notes('## v0.3.4-rc.3\r\n\r\nHistorical.\r\n', 'v0.3.4-rc.3'), 'Historical.\n')
+
     def test_current_version_has_release_notes(self):
-        # The release workflow publishes the section named after mod.json's version.
-        version = json.loads((ROOT / 'mod.json').read_text(encoding='utf-8-sig'))['version']
-        text = (ROOT / 'CHANGELOG.md').read_text(encoding='utf-8')
+        # The release workflow publishes the section named after VERSION.
+        version = re.match(r'\s*(\S+)', (ROOT / 'VERSION').read_text(encoding='utf-8'))[1]
+        text = release_notes.default_changelog(ROOT).read_text(encoding='utf-8')
         self.assertTrue(extract_notes(text, 'v' + version).strip())
 
 
