@@ -31,17 +31,17 @@ local template={
     },
     -- Percentages scale the current look; 100% is unchanged.
     menu={
-        {id='Cue', label='Main Options', level=2, fields={
+        {id='Cue', label='Main Options', fields={
             {id='.S', label='Size', values={[15]='Small',[20]='Standard',[25]='Large'}, default=20},
             {id='.Shield', label='Show background shield', values=ON_OFF, default=0},
         }},
-        {id='Arrows', label='Parry & Block Indicator', level=3, fields={
+        {id='Arrows', label='Parry & Block Indicator', fields={
             {id='.Move', label='Arrow Movement', values=PERCENT, default=100},
             {id='.Size', label='Arrow Size', values=PERCENT, default=100},
             {id='.Glow', label='Show trailing glow', values=ON_OFF, default=1},
             {id='.Sound', label='Play sound', values=Sound.ARROW_LABELS, default=0},
         }},
-        {id='Unblockable', label='Unblockable Attack', level=3, fields={
+        {id='Unblockable', label='Unblockable Attack', fields={
             {id='.Size', label='Unblockable size', values=PERCENT, default=100},
             {id='.Sound', label='Play sound', values=Sound.UNBLOCKABLE_LABELS, default=0},
         }},
