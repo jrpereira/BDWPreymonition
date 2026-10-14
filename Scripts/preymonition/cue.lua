@@ -1,8 +1,8 @@
--- Shield cue widgets and reads of the game's combat target indicator.
+-- Shield cue widgets, and the few reads of the game it needs.
 local MC=require('mc')
 
 local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
--- The native lit arrow colour; a shown arrow copies the live one when it can.
+-- The native lit arrow colour, which a shown arrow takes.
 local LIT_COLOR={R=1,G=0.67,B=0.19,A=1}
 -- A critical attack's arrow, in the game's red, applied the moment it goes critical.
 local CRITICAL_COLOR={R=1,G=0.2,B=0,A=1}
@@ -27,18 +27,13 @@ local arrowImages
 local GAMEPLAY_STATICS='/Script/Engine.Default__GameplayStatics'
 -- The game's attack flash, shown behind an arrow where it appears.
 local FLASH_PATH='/Game/_Dawnwalker/UI/_Unified/Combat/Textures/T_Mask_AttackIndicator_Flash.T_Mask_AttackIndicator_Flash'
--- Native arrows at or below this colour strength are the inactive state.
-local INACTIVE=0.5
 -- Widget names stay unique across Lua reloads: generation restarts with the
 -- Lua state, while a HUD that survives the reload still holds the old names.
 local generation=0
 local nonce=string.format('%06x',math.random(0,0xffffff))
-local ARROW_INDEX={}
-for index,key in ipairs(ARROWS) do ARROW_INDEX[key]=index end
 local M={ARROWS=ARROWS}
 
--- A pass is one entry from the game: a hook call, a deferred drain or an
--- animation frame. Within it each cue's widgets resolve once; the wrappers are
+-- A pass is one entry from the game: an attack event or an animation frame. Within it each cue's widgets resolve once; the wrappers are
 -- never read once the pass is over.
 local depth,current=0,0
 local function close(...) depth=0 return ... end
@@ -52,18 +47,6 @@ end
 local function world(object)
     local value=MC.call(object,'GetWorld')
     return MC.valid(value) and value or nil
-end
-
-local function visibleChain(widget)
-    local current,visited=widget,0
-    while MC.valid(current) and visited<32 do
-        if MC.call(current,'IsVisible')~=true then return false end
-        local opacity=MC.call(current,'GetRenderOpacity')
-        if type(opacity)=='number' and opacity<=0 then return false end
-        current=MC.parent(current)
-        visited=visited+1
-    end
-    return true
 end
 
 local function construct(classPath,outer,name)
@@ -103,25 +86,6 @@ function M.default(path)
     return object
 end
 
--- An object's short name. Unprotected: call it inside a pass or pcall.
-function M.name(object)
-    return object:GetFName():ToString()
-end
-
--- The names the hook looks for, by FName comparison index: comparing numbers
--- spares a string per styling call. The index ignores an FName's number, so
--- TopArrow_1 reads as TopArrow; callers still check the indicator around it.
-local KNOWN={'Reticle','TopArrow','BottomArrow','LeftArrow','RightArrow'}
-local known
--- Which of those names an object has, or nil. Unprotected, like name.
-function M.known(object)
-    if not known then
-        known={}
-        for _,name in ipairs(KNOWN) do known[FName(name):GetComparisonIndex()]=name end
-    end
-    return known[object:GetFName():GetComparisonIndex()]
-end
-
 -- Where an indicator's attack comes from: the owner of the latest queued
 -- attack's instigator, a combat component. Nil when the queue names none.
 function M.attacker(indicator)
@@ -156,62 +120,22 @@ function M.parryWindow(context)
     return type(found)=='number' and found>0 and found or nil
 end
 
-function M.visible(widget)
-    return MC.valid(widget) and visibleChain(widget)
-end
-
 -- Visibility, opacity and colour of a widget, for the log.
 function M.describe(widget)
     local ok,text=pcall(function()
         local color=widget.ColorAndOpacity or {}
         local _,resource=pcall(function() return M.path(widget.Brush.ResourceObject) end)
-        local _,tint=pcall(function()
-            local value=widget.Brush.TintColor.SpecifiedColor
-            return string.format('%.2f %.2f %.2f %.2f',value.R,value.G,value.B,value.A)
-        end)
-        return string.format('visible %s, opacity %s, colour %.2f %.2f %.2f %.2f, brush %s tint %s',
+        return string.format('visible %s, opacity %s, colour %.2f %.2f %.2f %.2f, brush %s',
             tostring(MC.call(widget,'IsVisible')),tostring(MC.call(widget,'GetRenderOpacity')),
-            color.R or -1,color.G or -1,color.B or -1,color.A or -1,tostring(resource),tostring(tint))
+            color.R or -1,color.G or -1,color.B or -1,color.A or -1,tostring(resource))
     end)
     return ok and text or 'unreadable: '..tostring(text)
-end
-
-local function strength(image)
-    local color=image.ColorAndOpacity
-    if not color then return 0 end
-    return math.max(color.R or 0,color.G or 0,color.B or 0)*(color.A or 0)
-end
-
--- A native arrow the game currently shows as attacking: visible and brightly
--- coloured. The colour is read first: it is the cheaper test.
-function M.lit(image)
-    return MC.valid(image) and strength(image)>INACTIVE and visibleChain(image)
-end
-
--- The direction an indicator arrow image stands for, by its widget name.
--- Unprotected: call it inside a pass or pcall.
-function M.arrowIndex(image)
-    return ARROW_INDEX[M.known(image)]
-end
-
--- An indicator's native arrow image for a direction.
-function M.arrowOf(indicator,index)
-    local image=indicator[ARROWS[index]]
-    return MC.valid(image) and image or nil
-end
-
--- The combat target indicator whose WidgetTree holds an arrow image.
-function M.indicatorOf(image)
-    local tree=MC.valid(image) and MC.call(image,'GetOuter')
-    local indicator=MC.valid(tree) and MC.call(tree,'GetOuter')
-    local name=MC.valid(indicator) and MC.call(indicator,'GetFullName')
-    if type(name)=='string' and name:find('CombatTargetIndicator',1,true) then return indicator end
 end
 
 -- The cue's widgets as live wrappers for this call, or nil once any is gone.
 -- The cue keeps them only as weak handles: a kept wrapper reads freed memory
 -- after its HUD is collected, as on a level load.
-local LISTS={'images','ghosts','edges','bands'}
+local LISTS={'images','ghosts'}
 local function resolve(ui)
     local widgets={}
     for _,key in ipairs({'hud','layer','box','stack','shield','arrows','flash'}) do
@@ -276,55 +200,36 @@ local SKULL_COLOR={R=1,G=1,B=1,A=1}
 -- The trailing arrows of the Fade effect: how much of the main arrow's
 -- opacity each keeps, nearest first.
 local GHOSTS={0.5,0.25}
--- Screen edge glow: nested bands per edge, each a little deeper and faint, so
--- they add up to a gradient fading inward; depth is a share of the shorter
--- screen side.
-local EDGE_BANDS,EDGE_DEPTH=6,0.08
-local EDGE_COLOR,EDGE_CRITICAL={R=1,G=0.67,B=0.19,A=0.1},{R=1,G=0.2,B=0,A=0.1}
+-- The cue box, and the shield at Scale 0%, as a share of the shorter screen side.
+local SHIELD_SHARE=0.4
+-- Position keeps the shield this share of the screen height from the
+-- bottom (Below) or top (Above) edge; Middle centres it.
+local SHIELD_MARGIN=0.1
+
+-- The shield's vertical centre for a Position, given its drawn size.
+local function shieldCentre(position,height,size)
+    if position==1 then return height/2 end
+    if position==2 then return height*SHIELD_MARGIN+size/2 end
+    return height*(1-SHIELD_MARGIN)-size/2
+end
 
 -- The cue settings: percentages of the current look, and choices.
 local function config(settings)
     local function percent(key) return (settings[key] or 100)/100 end
     local style,trail=settings.ParryStyle or 1,settings.ParryTrail or 1
-    local edges=settings.ParryEdges or 0
     -- Display Shield: 0 Off never shows it, 1 In Combat shows it faintly, 2
     -- Defending shows it faintly while an attack is shown, 3 Opportunity reveals
     -- it only for a critical attack. Each turns it red while the attack is critical.
-    local watermark=settings.ShieldDisplay or 0
+    local watermark=settings.GeneralShield or 0
     return {
         shieldColor=watermark==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
         watermark=watermark,
         move=percent('ParryMovement'),scale=percent('ParrySize'),
         arrows=style~=0,glowStyle=style==2,glow=trail==1,ghosts=trail==2,
-        frame=edges==1,directional=edges==2,
         skull=percent('UnblockableSize'),
+        -- Scale adds to the shield's size: 0% leaves it unchanged.
+        shieldScale=(100+(settings.GeneralScale or 0))/100,
     }
-end
-
--- One edge's glow: an overlay over the whole layer holding the bands, faded
--- as a whole; its band images go in bands, for the critical tint. Index
--- follows ARROWS: top, bottom, left, right.
-local function buildEdge(tree,layer,index,depth,suffix,bands)
-    local edge=construct('/Script/UMG.Overlay',tree,'PreymonitionEdge'..index..suffix)
-    edge:SetRenderOpacity(0)
-    local slot=layer:AddChildToOverlay(edge)
-    slot:SetHorizontalAlignment(0)
-    slot:SetVerticalAlignment(0)
-    local vertical=index<=2
-    for band=1,EDGE_BANDS do
-        local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionEdge'..index..'_'..band..suffix)
-        local image=construct('/Script/UMG.Image',tree,'PreymonitionEdgeBand'..index..'_'..band..suffix)
-        image:SetColorAndOpacity(EDGE_COLOR)
-        bands[#bands+1]=image
-        box:SetContent(image)
-        local thickness=depth*band/EDGE_BANDS
-        if vertical then box:SetHeightOverride(thickness) else box:SetWidthOverride(thickness) end
-        local bandSlot=edge:AddChildToOverlay(box)
-        -- 0 fills; 1 is top or left, 3 bottom or right.
-        bandSlot:SetHorizontalAlignment(vertical and 0 or (index==3 and 1 or 3))
-        bandSlot:SetVerticalAlignment(vertical and (index==1 and 1 or 3) or 0)
-    end
-    return edge
 end
 
 -- Gives the shield image a centre sprite in a colour. Returns its path, or nil
@@ -386,7 +291,7 @@ function M.build(hud,layer,screen,settings)
             end
         end
     end
-    local size=math.min(screen.width,screen.height)*(settings.ShieldSize or 20)/100
+    local size=math.min(screen.width,screen.height)*SHIELD_SHARE
     -- Slate units, like the box size: the inset keeps its share of the cue at any DPI.
     local inset=18
     local shieldSlot=stack:AddChildToOverlay(shield)
@@ -402,34 +307,36 @@ function M.build(hud,layer,screen,settings)
     box:SetRenderOpacity(0)
     -- An Image's default brush is solid white: clear until it has the sprite.
     shield:SetColorAndOpacity({R=1,G=1,B=1,A=0})
+    -- Scale resizes only the shield, drawn around its centre; the box and the
+    -- arrows keep their size.
+    shield:SetRenderTransformPivot({X=0.5,Y=0.5})
+    shield:SetRenderScale({X=visuals.shieldScale,Y=visuals.shieldScale})
     local sprite=applySprite(shield,'shield',visuals.shieldColor)
     -- Loaded now rather than at the first unblockable attack, mid-combat.
     M.find(SPRITES.skull)
     local slot=layer:AddChildToOverlay(box)
-    -- Centred horizontally, its top on the screen's vertical middle.
+    -- Centred horizontally, at its Position vertically.
     slot:SetHorizontalAlignment(2)
     slot:SetVerticalAlignment(1)
-    slot:SetPadding({Left=0,Top=screen.height/2,Right=0,Bottom=0})
-    local edges,bands={},{}
-    if visuals.frame or visuals.directional then
-        local depth=math.min(screen.width,screen.height)*EDGE_DEPTH
-        for index=1,#ARROWS do edges[index]=buildEdge(tree,layer,index,depth,suffix,bands) end
-    end
+    -- The box shares the shield's centre.
+    local centre=shieldCentre(settings.GeneralPosition or 1,screen.height,size*visuals.shieldScale)
+    local top=math.max(0,centre-size/2)
+    slot:SetPadding({Left=0,Top=top,Right=0,Bottom=0})
 
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
         stack=hold(stack,'stack'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
-        flash=hold(flash,'flash'),images={},ghosts={},edges={},bands={}}
+        flash=hold(flash,'flash'),images={},ghosts={}}
     for index,image in ipairs(images) do handles.images[index]=hold(image,ARROWS[index]) end
     for index,image in ipairs(ghosts) do handles.ghosts[index]=hold(image,'trail') end
-    for index,edge in ipairs(edges) do handles.edges[index]=hold(edge,'edge') end
-    for index,band in ipairs(bands) do handles.bands[index]=hold(band,'edge band') end
     -- Plain numbers, kept per arrow: rest translation and the native rotation,
     -- which the flash copies; and the movement unit.
     local base,angle={},{}
     for index=1,#ARROWS do base[index],angle[index]={X=0,Y=0},0 end
-    return {handles=handles,base=base,angle=angle,sprite=sprite,visuals=visuals,
+    local ui={handles=handles,base=base,angle=angle,sprite=sprite,visuals=visuals,
         unit=math.min(screen.width,screen.height)*UNIT,
         flash=texture and FLASH_PATH or nil,applied={}}
+    M.artwork(ui)
+    return ui
 end
 
 -- A direction's arrow image followed by its trail's, when the cue has one.
@@ -441,40 +348,55 @@ function arrowImages(ui,widgets,index)
     return list
 end
 
--- Copy the live indicator's arrow artwork. The cue keeps its own shield: the
--- indicator's centre icon changes with the attack's state.
--- With only, just that arrow is restyled, so other arrows keep their brush.
-function M.style(ui,indicator,only)
+-- The indicator blueprint's own arrows, as designed: the cue takes their
+-- artwork and rest transform when it attaches, never from a live indicator.
+local INDICATOR_CLASS='/Game/_Dawnwalker/UI/_Unified/Combat/WBP_CombatTargetIndicator.WBP_CombatTargetIndicator_C'
+local DESIGNED=INDICATOR_CLASS..':WidgetTree.'
+
+-- Gives the cue's arrows the indicator's artwork: its arrow brush, or the
+-- game's attack flash for the Glow style, in the lit colour, and each arrow's
+-- designed rest and rotation. Returns whether the artwork was found; a cue
+-- built before the indicator loads tries again when combat starts.
+function M.artwork(ui)
+    if ui.artwork then return true end
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
+    M.find(INDICATOR_CLASS)
+    local designed={}
     for index,key in ipairs(ARROWS) do
-        if only==nil or only==index then
-            local native=indicator[key]
-            assert(MC.valid(native),'indicator arrow unavailable: '..key)
-            local color=native.ColorAndOpacity
-            color=only and strength(native)>INACTIVE and {R=color.R,G=color.G,B=color.B,A=color.A} or LIT_COLOR
-            -- The Glow style draws the game's attack flash in place of the arrow.
-            local glow=ui.visuals.glowStyle and M.find(FLASH_PATH)
-            for _,image in ipairs(arrowImages(ui,widgets,index)) do
-                if glow then image:SetBrushFromTexture(glow,false) else image:SetBrush(native.Brush) end
-                image:SetColorAndOpacity(color)
-                image:SetRenderTransform(native.RenderTransform)
-                image:SetRenderTransformPivot({X=0.5,Y=0.5})
-            end
-            -- Distances count out from the native rest.
-            local ok,base=pcall(function()
-                local translation=native.RenderTransform.Translation
-                return {X=translation.X,Y=translation.Y}
-            end)
-            ui.base[index]=ok and base or {X=0,Y=0}
-            local okAngle,angle=pcall(function() return native.RenderTransform.Angle end)
-            ui.angle[index]=okAngle and type(angle)=='number' and angle or 0
-            -- The new transform replaced what apply last wrote to this arrow.
-            for _,keys in ipairs(KEYS[index]) do
-                ui.applied[keys.scale],ui.applied[keys.translation]=nil,nil
-            end
-            ui.flashIndex=nil
+        designed[index]=M.resolve(DESIGNED..key)
+        if not designed[index] then return false end
+    end
+    -- The Glow style draws the game's attack flash in place of the arrow.
+    local glow=ui.visuals.glowStyle and M.find(FLASH_PATH)
+    for index,native in ipairs(designed) do
+        for _,image in ipairs(arrowImages(ui,widgets,index)) do
+            if glow then image:SetBrushFromTexture(glow,false) else image:SetBrush(native.Brush) end
+            image:SetColorAndOpacity(LIT_COLOR)
+            image:SetRenderTransform(native.RenderTransform)
+            image:SetRenderTransformPivot({X=0.5,Y=0.5})
+        end
+        -- Distances count out from the designed rest.
+        local ok,base=pcall(function()
+            local translation=native.RenderTransform.Translation
+            return {X=translation.X,Y=translation.Y}
+        end)
+        ui.base[index]=ok and base or {X=0,Y=0}
+        local okAngle,angle=pcall(function() return native.RenderTransform.Angle end)
+        ui.angle[index]=okAngle and type(angle)=='number' and angle or 0
+        -- The transform replaced what apply last wrote to this arrow.
+        for _,keys in ipairs(KEYS[index]) do
+            ui.applied[keys.scale],ui.applied[keys.translation]=nil,nil
         end
     end
+    ui.flashIndex=nil
+    ui.artwork=true
+    return true
+end
+
+-- Readies one cue arrow, and its trail, for a new attack: back to the lit colour.
+function M.arm(ui,index)
+    local widgets=assert(live(ui),'Preymonition cue is no longer valid')
+    for _,image in ipairs(arrowImages(ui,widgets,index)) do image:SetColorAndOpacity(LIT_COLOR) end
 end
 
 -- Turns one cue arrow, and its trail, critical red.
@@ -502,7 +424,7 @@ function M.centre(ui,name)
     -- restyles the shield after it.
     ui.skull=skull
     ui.applied.shieldColor,ui.applied.shieldScale=nil,nil
-    local scale=skull and ui.visuals.skull or 1
+    local scale=skull and ui.visuals.skull or ui.visuals.shieldScale
     widgets.shield:SetRenderScale({X=scale,Y=scale})
     return applySprite(widgets.shield,name,skull and SKULL_COLOR or ui.visuals.shieldColor)
 end
@@ -540,29 +462,18 @@ function M.apply(ui,state)
             setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)
             setPair(ui,widget,keys.translation,'SetRenderTranslation',base.X+out.X*distance,base.Y+out.Y*distance)
         end
-        -- Directional lights the attacked side's edge; Frame lights every edge.
-        if widgets.edges[index] and visuals.directional then
-            set(ui,widgets.edges[index],'edge'..index,'SetRenderOpacity',arrow.opacity)
-        end
         lit=math.max(lit,arrow.opacity)
     end
-    if visuals.frame then
-        for index,edge in ipairs(widgets.edges) do set(ui,edge,'edge'..index,'SetRenderOpacity',lit) end
-    end
-    -- A critical attack turns the edges red, and the shield: In Combat and
-    -- Defending turn it red, Opportunity pops it in red and grows it; Off keeps
-    -- it clear. Defending shows it faintly while an attack is shown.
+    -- A critical attack turns the shield red: In Combat and Defending turn it
+    -- red, Opportunity pops it in red and grows it; Off keeps it clear.
+    -- Defending shows it faintly while an attack is shown.
     local shield=state.shield
     local critical=shield.critical and visuals.watermark~=0
-    if #widgets.bands>0 and ui.applied.edgeColor~=shield.critical then
-        ui.applied.edgeColor=shield.critical
-        for _,band in ipairs(widgets.bands) do band:SetColorAndOpacity(shield.critical and EDGE_CRITICAL or EDGE_COLOR) end
-    end
     if ui.sprite and not ui.skull then
         local color=critical and SHIELD_CRITICAL
             or (visuals.watermark==2 and lit>0 and SHIELD_SHOWN) or visuals.shieldColor
         set(ui,widgets.shield,'shieldColor','SetColorAndOpacity',color)
-        local scale=critical and visuals.watermark==3 and shield.scale or 1
+        local scale=(critical and visuals.watermark==3 and shield.scale or 1)*visuals.shieldScale
         setPair(ui,widgets.shield,'shieldScale','SetRenderScale',scale,scale)
     elseif ui.skull then
         -- The skull grows from its set size to twice that.
@@ -571,8 +482,8 @@ function M.apply(ui,state)
     end
     -- The flash sits where its arrow appears, turned like it; off, or without
     -- arrows, it stays clear.
-    local flash,index=state.flash,state.flash.index
     if not (visuals.glow and visuals.arrows) then return end
+    local flash,index=state.flash,state.flash.index
     set(ui,widgets.flash,'flash','SetRenderOpacity',flash.opacity)
     if index then
         if ui.flashIndex~=index then
@@ -621,7 +532,7 @@ function M.destroy(ui)
     if box then MC.call(box,'SetRenderOpacity',0) end
     if layer then MC.call(layer,'ClearChildren') end
     for key,handle in pairs(handles) do
-        if key=='images' or key=='ghosts' or key=='edges' or key=='bands' then
+        if key=='images' or key=='ghosts' then
             for _,image in ipairs(handle) do MC.release(image) end
         else
             MC.release(handle)

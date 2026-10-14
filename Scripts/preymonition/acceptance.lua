@@ -48,11 +48,14 @@ local function pathOf(call)
     return ok and object and Cue.path(object) or raw
 end
 
+-- The bridge stamps each call when the game makes it (frame, clock); delivery
+-- can be frames later. The live values stand in for a bridge without them.
 local function onIcon(call)
     local icon=call.params and call.params.IconType
     if type(icon)=='table' then icon=icon.value end
-    write(string.format('[hooks] t=%.4f%s phase=%s icon=%s path=%s',os.clock(),frame(),tostring(call.phase),
-        tostring(icon),tostring(pathOf(call))))
+    local at=tonumber(call.frame)
+    write(string.format('[hooks] t=%.4f%s phase=%s icon=%s path=%s',tonumber(call.clock) or os.clock(),
+        at and string.format(' frame=%d',at) or frame(),tostring(call.phase),tostring(icon),tostring(pathOf(call))))
 end
 
 local function hook(log)

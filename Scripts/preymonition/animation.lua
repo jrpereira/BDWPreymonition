@@ -57,7 +57,7 @@ function M.new(env)
     -- Puts an arrow out at once, back at rest.
     local function vanish(index)
         local arrow = state.arrows[index]
-        for _, field in ipairs({ 'opacity', 'scale', 'offset' }) do state.tracks[field .. index] = nil end
+        for _, field in ipairs({ 'scale', 'offset' }) do state.tracks[field .. index] = nil end
         arrow.opacity, arrow.scale, arrow.offset = 0, REST, 0
         for ghost = 1, TRAIL do
             state.tracks['trail' .. index .. '_' .. ghost] = nil
@@ -162,7 +162,6 @@ function M.new(env)
     function state:critical(index)
         local arrow = assert(self.arrows[index], 'Invalid arrow index')
         self:step(true)
-        self.tracks['opacity' .. index] = nil
         self.tracks['scale' .. index] = nil
         arrow.opacity, arrow.scale = 1, CRITICAL
         if not self.shield.critical then

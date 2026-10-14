@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Two templates in place of one, each with its own Enabled: Center, the cue near the
+  middle of the screen, and Edges, the screen edge glows, with an Edge Style of Framed
+  or Directional. Settings are saved under `MCT_Center_*` and `MCT_Edges_*`; earlier
+  `MCT_Preymonition_*` values are ignored.
+- General Options at the top of the Center settings: Scale (−50% to 200%) resizes the
+  shield, Position puts the cue Below, in the Middle (the default) or Above, and
+  Display Shield moves here. The cue is twice its former size.
+- Parry & Block sounds are Chime and Swish; Long Swoosh is gone.
+- Requires ModCore Templates 1.2.0 or later, which watches the game's attack indicator
+  and delivers it as `MC_NPCAttackIndicator`; Preymonition no longer hooks the game.
+- The arrows take their artwork from the indicator blueprint when the cue attaches
+  instead of copying it from the live indicator during an attack.
+- The `probe.txt` and `preview.txt` developer aids are gone.
+
 ## v1.0.1
 
 - Requires ModCore Settings 1.2.0 or later, which ModCore Templates 1.2.0 needs for

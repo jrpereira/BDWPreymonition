@@ -50,7 +50,8 @@ local function object(name,fields)
     function methods:AddChildToOverlay(child)
         self.children[#self.children+1]=child
         child.parent=self
-        return object(child.name..' slot')
+        child.slot=object(child.name..' slot')
+        return child.slot
     end
     function methods:ClearChildren()
         for _,child in ipairs(self.children) do child.parent=nil end
@@ -104,6 +105,12 @@ local function newIndicator(name,lit)
     return value
 end
 local indicator=newIndicator('WBP_CombatTargetIndicator_C_1','LeftArrow')
+-- The indicator blueprint's designed arrows, whose artwork the cue takes when it attaches.
+local DESIGNED='/Game/_Dawnwalker/UI/_Unified/Combat/WBP_CombatTargetIndicator.WBP_CombatTargetIndicator_C:WidgetTree.'
+for _,key in ipairs(ARROWS) do
+    objects[DESIGNED..key]=object('Designed'..key,{Brush=ARROW_BRUSH,
+        RenderTransform={Translation={X=0,Y=5},Scale={X=1,Y=1}}})
+end
 local clock=0
 local statics=object('GameplayStatics')
 function statics:GetRealTimeSeconds() return clock end
@@ -116,9 +123,9 @@ local wwise=object('Wwise')
 function wwise:PostEventAtLocation(event,location) posted[#posted+1]={event=event,location=location}; return 1 end
 objects['/Script/AkAudio.Default__AkGameplayStatics']=wwise
 local EVENTS='/Game/Audio/AK_Events/Events/'
-local SWOOSH_SOUND=object('UI_Sword_Equip')
+local SWISH_SOUND=object('UI_Claws_Equip')
 local BOOM_SOUND=object('UI_PauseMenu_Resume')
-objects[EVENTS..'UI/UI_Inventory/UI_Sword_Equip.UI_Sword_Equip']=SWOOSH_SOUND
+objects[EVENTS..'UI/UI_Inventory/UI_Claws_Equip.UI_Claws_Equip']=SWISH_SOUND
 objects[EVENTS..'UI/UI_MainMenu/UI_PauseMenu_Resume.UI_PauseMenu_Resume']=BOOM_SOUND
 
 objects['/Script/Engine.Default__GameplayStatics']=statics
@@ -220,11 +227,26 @@ local function centre(target,icon) hooks[ARROW]({get=function() return target.Re
 hudTree=object('WidgetTree')
 local hud=object('HUD',{WidgetTree=hudTree})
 local layer=object('Cue layer')
-local template=dofile('Preymonition/Scripts/mc_preymonition.lua')
+local template=dofile('Preymonition/Scripts/mc_center.lua')
 assert(next(hooks)==nil,'nothing is hooked outside combat')
--- MCT owns combat: it reaches the template as its wake and sleep events.
-local function startCombat() template.events.wake({},{name='wake',signal='MCTCombatStart'}) end
-local function endCombat() template.events.sleep({},{name='sleep',signal='MCTCombatEnd'}) end
+-- MCT owns combat: it reaches the template as its wake and sleep events, and
+-- MCT's attack indicator source, started once the template is awake, delivers
+-- MC_NPCAttackIndicator as its update event from inside the game's call.
+-- Its log goes to sourceLog once a check sets it.
+local sourceLog
+local source=require('mc.attack_indicator').new(_G,function(event)
+    template.events.update({},event)
+end,setmetatable({},{__index=function(_,level)
+    return function(...) if sourceLog then sourceLog[level](...) end end
+end}))
+local function startCombat()
+    template.events.wake({},{name='wake',signal='MC_CombatStart'})
+    source:start()
+end
+local function endCombat()
+    template.events.sleep({},{name='sleep',signal='MC_CombatEnd'})
+    source:stop()
+end
 startCombat()
 assert(hooks[ARROW],'combat hooks the arrow styling')
 assert(blueprintHooks==0,'no blueprint function is hooked')
@@ -238,7 +260,7 @@ assert(#delayed==0,'events are ignored until a cue is attached')
 local cleanups={}
 local function attach(size,visuals)
     local original={}
-    local settings={ShieldSize=size}
+    local settings={GeneralScale=size}
     for key,value in pairs(visuals or {}) do settings[key]=value end
     local result=template.attach({hud=hud,cue=layer},
         {settings=settings,screen={width=1920,height=1080,scale=1},
@@ -255,11 +277,14 @@ local function shieldOf(cue) return cue.content.children[1] end
 local function flashOf(cue) return cue.content.children[2].children[1] end
 local function arrowOf(cue,index) return cue.content.children[2].children[index+1] end
 
-attach(20)
+attach(0)
 assert(constructed==9 and #layer.children==1,'one box with a stack of shield, overlay, flash and four arrows')
 assert(flashOf(layer.children[1]).BrushFromTexture==FLASH and flashOf(layer.children[1]).RenderOpacity==0,'the flash waits unseen')
 local box=layer.children[1]
-assert(box.WidthOverride==216 and box.HeightOverride==216,'Standard size is 20% of the short side')
+assert(box.WidthOverride==432 and box.HeightOverride==432,'Scale 0% is 40% of the short side')
+-- Middle by default: the box is centred on the screen's middle.
+assert(box.slot.VerticalAlignment==1 and math.abs(box.slot.Padding.Top-(1080-432)/2)<1e-6,
+    'the shield is centred')
 assert(box.RenderOpacity==0,'the cue starts hidden')
 assert(shieldOf(box).BrushFromAtlasInterface==sprite and shieldOf(box).ColorAndOpacity.A==0,
     'the cue is created with the shield sprite, hidden')
@@ -280,10 +305,9 @@ local flash=flashOf(box)
 -- Movement is measured in units of 5% of the shorter screen side: 54 at 1080.
 assert(flash.RenderOpacity==1 and flash.RenderScale.X==1 and math.abs(flash.RenderTranslation.X+54)<1e-6,
     'a flash shows where the arrow appears')
-assert(shieldOf(box).BrushFromAtlasInterface==sprite and left.Brush==ARROW_BRUSH,
-    'cue keeps its shield and copies the live arrow')
-assert(arrowOf(box,1).Brush==nil,'only the shown arrow is restyled')
-assert(left.ColorAndOpacity.R==0.9,'the shown arrow takes the native lit colour')
+assert(shieldOf(box).BrushFromAtlasInterface==sprite and left.Brush==ARROW_BRUSH and arrowOf(box,1).Brush==ARROW_BRUSH,
+    'cue keeps its shield; its arrows have the designed artwork from attach')
+assert(left.ColorAndOpacity.R==1 and left.ColorAndOpacity.G==0.67,'the shown arrow is in the lit colour')
 assert(left.RenderOpacity==1 and left.RenderScale.X==1.5 and math.abs(left.RenderTranslation.X+54)<1e-6,
     'a detected arrow shows at once at full opacity, 1.5 times its size, one unit out')
 budget.frame={cost(function() clock=clock+0.05; run() end)}
@@ -350,8 +374,14 @@ assert(math.abs(box.RenderOpacity-0.5)<1e-6,'quick combat changes settle on the 
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 assert(#layer.children==0,'cleanup removes the cue from the layer')
-attach(25)
-assert(#layer.children==1 and layer.children[1].WidthOverride==270,'reattach rebuilds once at the new size')
+attach(50)
+assert(#layer.children==1 and shieldOf(layer.children[1]).RenderScale.X==1.5,'reattach rebuilds once at the new scale')
+assert(layer.children[1].WidthOverride==432 and layer.children[1].content.children[2].slot.Padding.Left==18,
+    'Scale resizes only the shield: the box and the arrows keep their size')
+-- Back to Scale 0%: the arrow travel below is in units of 54.
+for index=#cleanups,1,-1 do cleanups[index]() end
+cleanups={}
+attach(0)
 assert(#delayed==0 and layer.children[1].RenderOpacity==0,'a reattached cue waits for the next arrow')
 
 -- Only indicator arrows count: other atlas images and arrows elsewhere are ignored.
@@ -391,8 +421,8 @@ local critical={ImageSize={X=40,Y=30}}
 other.BottomArrow.Brush=critical
 fire(ARROW,other.BottomArrow)
 run()
-assert(bottom.Brush==critical and bottom.ColorAndOpacity.R==1 and bottom.ColorAndOpacity.G==0.2,
-    'a critical arrow turns red with the new brush at once')
+assert(bottom.Brush==ARROW_BRUSH and bottom.ColorAndOpacity.R==1 and bottom.ColorAndOpacity.G==0.2,
+    'a critical arrow turns red at once, keeping the designed artwork')
 assert(math.abs(bottom.RenderScale.X-2.5)<1e-6 and math.abs(bottom.RenderOpacity-1)<1e-6
     and math.abs(bottom.RenderTranslation.Y-(5+81))<1e-6,'a critical arrow jumps to 2.5 times where it travelled')
 assert(#delayed==0,'a critical arrow needs no frames: it does not pulse')
@@ -400,7 +430,7 @@ assert(#delayed==0,'a critical arrow needs no frames: it does not pulse')
 other.BottomArrow.Brush=ARROW_BRUSH
 fire(ARROW,other.BottomArrow)
 run()
-assert(bottom.Brush==critical and bottom.ColorAndOpacity.G==0.2,'a later styling leaves the critical arrow')
+assert(bottom.ColorAndOpacity.G==0.2,'a later styling leaves the critical arrow')
 -- The centre icon turning to the sword means no attack is pending: resolved.
 centre(other,SWORD)
 run()
@@ -536,7 +566,7 @@ hud.invalid=nil
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 assert(#posted==0,'no sound plays without one chosen')
-attach(20,{ShieldDisplay=1,ParryMovement=50,ParrySize=200,ParryTrail=0,ParrySound=2,
+attach(0,{GeneralShield=1,ParryMovement=50,ParrySize=200,ParryTrail=0,ParrySound=2,
     UnblockableSize=150,UnblockableSound=2})
 local tuned=layer.children[1]
 assert(shieldOf(tuned).ColorAndOpacity.A==0.2,'the background shield can be shown')
@@ -557,7 +587,7 @@ fire(ARROW,other.BottomArrow)
 local tunedBottom=arrowOf(tuned,2)
 assert(math.abs(tunedBottom.RenderScale.X-3)<1e-6 and math.abs(tunedBottom.RenderTranslation.Y-(5+13.5))<1e-6,
     'arrow size and movement scale the arrow where it appears')
-assert(#posted==1 and posted[1].event==SWOOSH_SOUND and posted[1].location.Z==9,
+assert(#posted==1 and posted[1].event==SWISH_SOUND and posted[1].location.Z==9,
     'the chosen arrow sound plays at the attacker when the arrow appears')
 -- An indicator whose queue names no attacker plays at the player.
 other.AttackQueue=nil
@@ -577,7 +607,7 @@ settle(0.05)
 -- With the overlay style off, an attack still plays its sound but shows no arrow or flash.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
-attach(20,{ParryStyle=0,ParrySound=2})
+attach(0,{ParryStyle=0,ParrySound=2})
 local hiddenArrows=layer.children[1]
 endCombat()
 startCombat()
@@ -594,17 +624,12 @@ other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
 settle(0.05)
 
 -- The Glow style moves the game's flash in place of the arrow; the Fade trail
--- adds two fainter arrows behind it; Directional lights the attacked edge.
+-- adds two fainter arrows behind it.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
-attach(20,{ParryStyle=2,ParryTrail=2,ParryEdges=2})
+attach(0,{ParryStyle=2,ParryTrail=2})
 local looks=layer.children[1]
-assert(#layer.children==5,'four screen edges follow the cue')
-local bottomEdge,topEdge=layer.children[3],layer.children[2]
-assert(#bottomEdge.children==6 and bottomEdge.children[1].HeightOverride<bottomEdge.children[6].HeightOverride,
-    'each edge stacks deepening bands')
-assert(layer.children[4].children[1].WidthOverride~=nil,'side edges take a width')
-assert(bottomEdge.RenderOpacity==0,'edges wait unseen')
+assert(#layer.children==1,'the center cue builds no screen edges')
 local function trailOf(cue,index,ghost) return cue.content.children[2].children[5+(index-1)*2+ghost] end
 endCombat()
 startCombat()
@@ -624,35 +649,18 @@ assert(near.RenderTranslation.Y<glowArrow.RenderTranslation.Y and far.RenderTran
     'and follows behind it')
 settle(0.05)
 assert(math.abs(far.RenderTranslation.Y-glowArrow.RenderTranslation.Y)<1e-6,'catching up once the arrow stops')
-assert(bottomEdge.RenderOpacity==1 and topEdge.RenderOpacity==0,'Directional lights only the attacked edge')
 other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
 fire(ARROW,other.BottomArrow)
 settle(0.05)
-assert(bottomEdge.RenderOpacity==0 and far.RenderOpacity==0,'both go with the attack')
+assert(far.RenderOpacity==0,'the trail goes with the attack')
 
--- Frame lights every edge for any attack.
-for index=#cleanups,1,-1 do cleanups[index]() end
-cleanups={}
-attach(20,{ParryEdges=1})
-local framed={layer.children[2],layer.children[3],layer.children[4],layer.children[5]}
-endCombat()
-startCombat()
-run()
-settle(0.05)
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
-settle(0.05)
-for _,edge in ipairs(framed) do assert(edge.RenderOpacity==1,'Frame lights every edge') end
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
-settle(0.05)
-
--- A critical attack: the arrow and the edges turn red, and the shield
+-- A critical attack: the arrow turns red, and the shield
 -- follows its setting. Each case styles the attack's arrow twice, as the game
 -- does, and resolves it.
 local function criticalAttack(settings)
     for index=#cleanups,1,-1 do cleanups[index]() end
     cleanups={}
-    attach(20,settings)
+    attach(0,settings)
     local cue=layer.children[1]
     endCombat()
     startCombat()
@@ -674,24 +682,22 @@ end
 local function red(color) return color.R==1 and color.G==0.2 and color.B==0 end
 
 -- Opportunity: hidden until critical, then pops in red and grows to twice its size.
-local dynamic,before=criticalAttack({ShieldDisplay=3,ParryEdges=1})
-local band=layer.children[2].children[1].content
+local dynamic,before=criticalAttack({GeneralShield=3})
 assert(before.color.A==0,'an Opportunity shield waits unseen')
 assert(red(shieldOf(dynamic).ColorAndOpacity) and shieldOf(dynamic).ColorAndOpacity.A==1
     and math.abs(shieldOf(dynamic).RenderScale.X-1)<1e-6,'an Opportunity shield pops in red at its size')
 assert(red(arrowOf(dynamic,2).ColorAndOpacity),'the arrow turns red too')
-assert(red(band.ColorAndOpacity) and band.ColorAndOpacity.A==0.1,'and the edges, as faintly')
 clock=clock+0.1
 run()
 assert(math.abs(shieldOf(dynamic).RenderScale.X-1.5)<1e-6,'growing over 0.2s')
 settle(0.05)
 assert(math.abs(shieldOf(dynamic).RenderScale.X-2)<1e-6,'to twice its size')
 resolveAttack()
-assert(shieldOf(dynamic).ColorAndOpacity.A==0 and math.abs(shieldOf(dynamic).RenderScale.X-1)<1e-6
-    and not red(band.ColorAndOpacity),'the resolve hides the shield and calms the edges')
+assert(shieldOf(dynamic).ColorAndOpacity.A==0 and math.abs(shieldOf(dynamic).RenderScale.X-1)<1e-6,
+    'the resolve hides the shield')
 
 -- In Combat: the faint shield turns red at its size, then returns.
-local static=criticalAttack({ShieldDisplay=1})
+local static=criticalAttack({GeneralShield=1})
 assert(red(shieldOf(static).ColorAndOpacity) and math.abs(shieldOf(static).RenderScale.X-1)<1e-6,
     'an In Combat shield turns red without growing')
 resolveAttack()
@@ -699,7 +705,7 @@ assert(shieldOf(static).ColorAndOpacity.A==0.2 and not red(shieldOf(static).Colo
     'and returns to its faint white')
 
 -- Defending: faint while the attack shows, red once critical, gone once resolved.
-local defending,shown=criticalAttack({ShieldDisplay=2})
+local defending,shown=criticalAttack({GeneralShield=2})
 assert(shown.color.A==0.2 and not red(shown.color),'a Defending shield shows faintly with the attack')
 assert(red(shieldOf(defending).ColorAndOpacity) and math.abs(shieldOf(defending).RenderScale.X-1)<1e-6,
     'turns red without growing once critical')
@@ -707,7 +713,7 @@ resolveAttack()
 assert(shieldOf(defending).ColorAndOpacity.A==0,'and hides once the attack resolves')
 
 -- Off: no shield, even for a critical attack; the skull still shows.
-local hidden=criticalAttack({ShieldDisplay=0})
+local hidden=criticalAttack({GeneralShield=0})
 assert(shieldOf(hidden).ColorAndOpacity.A==0,'with the shield off none shows')
 centre(other,SKULL)
 assert(shieldOf(hidden).BrushFromAtlasInterface==SKULL and shieldOf(hidden).ColorAndOpacity.A==1,
@@ -777,35 +783,18 @@ warn(0,true)
 settle(0.05)
 assert(shieldOf(early).BrushFromAtlasInterface~=SKULL,'an early skull nothing takes over expires')
 
--- Preview shows the cue without an attack and keeps it through combat end.
-for index=#cleanups,1,-1 do cleanups[index]() end
-cleanups={}
-template.preview=true
-attach(20)
-local preview=layer.children[1]
-settle(0.05)
-assert(math.abs(preview.RenderOpacity-0.5)<1e-6,'preview shows the cue on attach')
-assert(math.abs(arrowOf(preview,1).RenderOpacity-1)<1e-6,'preview lights the top arrow')
-assert(shieldOf(preview).BrushFromAtlasInterface==sprite and shieldOf(preview).ColorAndOpacity.A==0,
-    'a new cue has the shield hidden')
-endCombat()
-run()
-settle(0.05)
-assert(math.abs(preview.RenderOpacity-0.5)<1e-6,'preview stays visible after combat end')
-startCombat()
-template.preview=false
-
 -- A lasting fault inside the game's call is logged once per kind; the repeats
 -- are counted when combat ends.
 local Session=require('preymonition.session')
 local logged={}
-Session.setLog(setmetatable({enabled=function() return false end},{__index=function(_,level)
+sourceLog=setmetatable({enabled=function() return false end},{__index=function(_,level)
     return function(...)
         local parts={level}
         for index=1,select('#',...) do parts[#parts+1]=tostring((select(index,...))) end
         logged[#logged+1]=table.concat(parts,' ')
     end
-end}))
+end})
+Session.setLog(sourceLog)
 local broken={get=function() error('unreadable') end}
 for _=1,3 do hooks[ARROW](broken) end
 local errors=0
@@ -820,14 +809,40 @@ startCombat()
 for index=#cleanups,1,-1 do cleanups[index]() end
 assert(scans==0,'nothing scans for objects')
 assert(delays==4,'with the engine tick hooked only early warnings wait on ExecuteWithDelay, to expire')
--- Eleven handles per cue, plus eight trailing arrows, and four edges of six bands each where shown.
-assert(released==11*14+8+(4+24)*3,'each detached cue releases its handles')
+-- Eleven handles per cue (thirteen cues), plus eight trailing arrows.
+assert(released==11*13+8,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
 assert(removed==2 and next(hooks)==nil,'sleep unregisters both hooks')
 endCombat()
 assert(removed==2,'a second sleep has nothing left to remove')
+
+-- Position: Below puts the box's bottom 10% of the height above the bottom
+-- edge; Above puts its top 10% below the top edge.
+for position,top in pairs({[0]=1080*0.9-432,[2]=1080*0.1}) do
+    cleanups={}
+    attach(0,{GeneralPosition=position})
+    assert(math.abs(layer.children[1].slot.Padding.Top-top)<1e-6,'shield position '..position)
+    for index=#cleanups,1,-1 do cleanups[index]() end
+end
+-- A scaled shield keeps its edge there: at +50% it is 648 across, and the box
+-- shares its centre.
+cleanups={}
+attach(50,{GeneralPosition=0})
+assert(math.abs(layer.children[1].slot.Padding.Top-(1080*0.9-324-216))<1e-6,'a scaled shield sits by its own edge')
+for index=#cleanups,1,-1 do cleanups[index]() end
+-- A cue attached before the indicator blueprint loads takes its artwork when combat starts.
+local designedTop=objects[DESIGNED..'TopArrow']
+objects[DESIGNED..'TopArrow']=nil
+cleanups={}
+attach(0)
+assert(arrowOf(layer.children[1],1).Brush==nil,'no artwork before the blueprint loads')
+objects[DESIGNED..'TopArrow']=designedTop
+startCombat()
+assert(arrowOf(layer.children[1],1).Brush==ARROW_BRUSH,'combat start takes the artwork')
+endCombat()
+for index=#cleanups,1,-1 do cleanups[index]() end
 
 -- At TRACE the hooks are the same: tracing adds lines, never hooks.
 local Session=require('preymonition.session')

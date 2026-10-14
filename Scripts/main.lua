@@ -1,4 +1,6 @@
--- Preymonition owns the attack cue; MCT owns HUD discovery and the cue layer.
+-- Preymonition owns the attack cues; MCT owns HUD discovery, the cue layers and
+-- the attack events. The center cue and the screen edges are separate templates.
 local MC=require('mc')
 
-MC.registerTemplate('preymonition')
+MC.registerTemplate('center')
+MC.registerTemplate('edges')

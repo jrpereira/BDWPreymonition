@@ -8,15 +8,15 @@ local function event(path)
     return EVENTS..path..'.'..name
 end
 
-local SHORT_SWOOSH=event('UI/UI_Inventory/UI_Claws_Equip')
-local LONG_SWOOSH=event('UI/UI_Inventory/UI_Sword_Equip')
+local CHIME=event('UI/UI_Gameplay/UI_AA_Cooldown_Ended')
+local SWISH=event('UI/UI_Inventory/UI_Claws_Equip')
 local GROWL=event('UI/UI_Gameplay/UI_Dialogue_Select_GiveInToHunger')
 local BOOM=event('UI/UI_MainMenu/UI_PauseMenu_Resume')
 
 local M={
     -- Setting value to label and to event; 0 plays nothing.
-    ARROW_LABELS={[0]='None',[1]='Short Swoosh',[2]='Long Swoosh'},
-    ARROW={[1]=SHORT_SWOOSH,[2]=LONG_SWOOSH},
+    ARROW_LABELS={[0]='None',[1]='Chime',[2]='Swish'},
+    ARROW={[1]=CHIME,[2]=SWISH},
     UNBLOCKABLE_LABELS={[0]='None',[1]='Growl',[2]='Boom'},
     UNBLOCKABLE={[1]=GROWL,[2]=BOOM},
 }

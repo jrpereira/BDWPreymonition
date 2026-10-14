@@ -70,6 +70,9 @@ assert(last() == '[hooks] t=12.5000 frame=813 phase=post icon=6 path=' .. INDICA
 -- A path the cue cannot resolve is written as the bridge gave it.
 options.post({ phase = 'post', params = { IconType = 9 }, object = { path = '/Other.Path' } })
 assert(last() == '[hooks] t=12.5000 frame=813 phase=post icon=9 path=/Other.Path', last())
+-- The bridge's capture stamps, when given, replace the delivery-time values.
+options.post({ phase = 'post', params = { IconType = 0 }, object = { path = '/Other.Path' }, frame = 811, clock = 12.25 })
+assert(last() == '[hooks] t=12.2500 frame=811 phase=post icon=0 path=/Other.Path', last())
 
 -- Fight end: the bridge's counters and the hook's status.
 fresh.report()
