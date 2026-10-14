@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.1.0
 
 - Two templates in place of one, each with its own Enabled: Center, the cue near the
   middle of the screen, and Edges, the screen edge glows, with an Edge Style of Framed
@@ -10,7 +10,7 @@
   shield, Position puts the cue Below, in the Middle (the default) or Above, and
   Display Shield moves here. The cue is twice its former size.
 - Parry & Block sounds are Chime and Swish; Long Swoosh is gone.
-- Requires ModCore Templates 1.2.0 or later, which watches the game's attack indicator
+- Requires ModCore Templates 1.3.0 or later, which watches the game's attack indicator
   and delivers it as `MC_NPCAttackIndicator`; Preymonition no longer hooks the game.
 - The arrows take their artwork from the indicator blueprint when the cue attaches
   instead of copying it from the live indicator during an attack.
