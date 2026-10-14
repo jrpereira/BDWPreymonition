@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.1
+
+- Requires ModCore Settings 1.3.0 or later, which plays the previewing sound choices and
+  reads the `conditions` rules in its menu data. No change to the cue.
+
 ## v1.1.0
 
 - Two templates in place of one, each with its own Enabled: Center, the cue near the
