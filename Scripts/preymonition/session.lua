@@ -3,6 +3,7 @@ local Animation=require('preymonition.animation')
 local Cue=require('preymonition.cue')
 local Events=require('preymonition.events')
 local Sound=require('preymonition.sound')
+local Acceptance=require('preymonition.acceptance')
 local MC=require('mc')
 
 -- The game reuses its indicator widgets and updates them from C++, which UE4SS
@@ -141,6 +142,7 @@ end
 -- The attack went critical: its arrow turns red and holds until it resolves.
 local function escalate(record,indicator,path,direction)
     record.critical=true
+    Acceptance.detect('critical',path)
     Cue.style(record.ui,indicator,direction)
     Cue.critical(record.ui,direction)
     record.model:critical(direction)
@@ -162,6 +164,7 @@ local function present(indicator,path,direction,event)
         return
     end
     record.indicator=path
+    Acceptance.detect('arrow',path)
     -- The game's early warning already showed this attack: the arrow takes it
     -- over without showing or sounding again.
     if record.early and record.direction==direction then
@@ -194,12 +197,15 @@ local function onCentre(image,sprite,sequence)
     -- is not on screen, and only the indicator that showed the skull, or a
     -- visible one, takes it away.
     local visible=Cue.visible(indicator)
+    local sword=sprite:find('Sword',1,true)~=nil
+    local resolved=sword and record.source==path
     if visible or record.skullSource==path then
         local skull=visible and sprite:find('SkullRed',1,true)~=nil
         if skull then record.skullSource,record.earlySkull=path,nil end
         if skull~=(record.skull==true) then
             record.skull=skull
-            if not skull then record.skullSource=nil end
+            if not skull then record.skullSource=nil; resolved=resolved or sword end
+            if skull then Acceptance.detect('skull',path) end
             local ok,why=pcall(Cue.centre,record.ui,skull and 'skull' or 'shield')
             if not ok or not why then log.warn('centre sprite unavailable: ',why) end
             if skull then play(record,record.sounds.skull,indicator) end
@@ -208,7 +214,8 @@ local function onCentre(image,sprite,sequence)
             log.debug(skull and 'unblockable attack' or 'unblockable passed')
         end
     end
-    if sprite:find('Sword',1,true) and record.source==path then release(record,'attack resolved:') end
+    if resolved then Acceptance.detect('resolve',path) end
+    if sword and record.source==path then release(record,'attack resolved:') end
 end
 
 -- An indicator arrow was just restyled, in the same frame the game shows it:
@@ -514,6 +521,7 @@ function M.sleep()
     if wasActive then
         log.debug('combat saw ',styled,' styling calls, ',handled,' of them the indicator\'s')
         reportFailures()
+        Acceptance.report()
         local ok,why=Cue.pass(endCombat)
         if not ok then error(why,0) end
     end

@@ -1,4 +1,15 @@
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
+-- The acceptance aid's DETECT calls, by kind; taken() returns them and starts over.
+local detects={}
+package.loaded['preymonition.acceptance']={
+    detect=function(kind,path) if path then detects[#detects+1]=kind end end,
+    report=function() end,start=function() end,enabled=function() return true end,
+}
+local function taken()
+    local list=table.concat(detects,' ')
+    detects={}
+    return list
+end
 -- Weak handles return their object only while it is live, like the bridge's,
 -- and as UE4SS does, a fresh wrapper on every get: never the same table twice.
 local released=0
@@ -375,6 +386,7 @@ assert(arrowOf(layer.children[1],4).RenderOpacity==0
 centre(other,RED_SHIELD)
 run()
 assert(math.abs(bottom.RenderOpacity-1)<1e-6,'the red centre icon at an attack changes nothing yet')
+taken()
 local critical={ImageSize={X=40,Y=30}}
 other.BottomArrow.Brush=critical
 fire(ARROW,other.BottomArrow)
@@ -394,6 +406,7 @@ centre(other,SWORD)
 run()
 assert(bottom.RenderOpacity==0 and bottom.RenderScale.X==1.5 and math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,
     'a resolved attack puts its arrow out at once and keeps the idle cue')
+assert(taken()=='critical resolve','the acceptance aid sees the critical and the resolve, once each')
 settle(0.05)
 -- Turning a showing arrow dark also resolves it.
 other.BottomArrow.ColorAndOpacity=color(0.9)
@@ -405,6 +418,7 @@ other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
 fire(ARROW,other.BottomArrow)
 run()
 assert(bottom.RenderOpacity==0,'a dark arrow puts it out at once')
+assert(taken()=='arrow','a new attack is detected as an arrow; a dark arrow is no game icon change')
 settle(0.05)
 
 -- One frame can resolve an attack and start the next: handled in the game's
@@ -440,6 +454,7 @@ settle(0.05)
 -- An unblockable attack: the centre turns to a skull in place, growing from its
 -- size to twice that over 0.2s, then holding.
 local cueShield=shieldOf(layer.children[1])
+taken()
 centre(other,SKULL)
 assert(cueShield.BrushFromAtlasInterface==SKULL and math.abs(cueShield.RenderScale.X-1)<1e-6,
     'an unblockable attack shows the skull at its size')
@@ -452,6 +467,7 @@ centre(other,SWORD)
 run()
 assert(math.abs(cueShield.RenderScale.X-1)<1e-6,'the shield returns at its size')
 assert(cueShield.BrushFromAtlasInterface==sprite,'the shield returns once it passes')
+assert(taken()=='skull resolve','the acceptance aid sees the skull and its sword')
 settle(0.05)
 centre(other,SKULL)
 run()
@@ -464,6 +480,7 @@ run()
 settle(0.05)
 
 -- The game gives a hidden indicator the same updates; only the visible one counts.
+taken()
 local twin=newIndicator('WBP_CombatTargetIndicator_C_4','BottomArrow')
 twin.visible=false
 other.BottomArrow.ColorAndOpacity=color(0.9)
@@ -477,6 +494,7 @@ assert(bottom.ColorAndOpacity.G==0.2 and math.abs(bottom.RenderScale.X-2.5)<1e-6
     'the visible indicator still turns critical')
 centre(twin,SWORD)
 assert(bottom.RenderOpacity==1,'a hidden indicator resolves nothing it did not show')
+assert(taken()=='arrow critical','the acceptance aid reports the visible indicator only')
 -- Its own indicator hidden, as when an attack is parried, the arrow goes.
 other.visible=false
 fire(ARROW,other.BottomArrow)

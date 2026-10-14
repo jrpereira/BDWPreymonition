@@ -16,6 +16,11 @@ if probe then
 end
 local Session=require('preymonition.session')
 local Probe=probe and require('preymonition.probe')
+-- Developer aid: an acceptance.txt next to mod.json logs detections and the
+-- event bridge's indicator hook side by side (preymonition/acceptance.lua).
+local acceptance=io.open(root..'/acceptance.txt','r')
+if acceptance then acceptance:close() end
+local Acceptance=acceptance and require('preymonition.acceptance')
 local Sound=require('preymonition.sound')
 Session.setLog(log)
 
@@ -36,6 +41,7 @@ local template={
         wake=function()
             -- Blueprint probe hooks may only be found once combat has loaded them.
             if Probe then Probe.start(log) end
+            if Acceptance then Acceptance.start(log) end
             Session.wake()
         end,
         sleep=function() Session.sleep() end,
@@ -69,8 +75,10 @@ local template={
 local marker=io.open(root..'/preview.txt','r')
 if marker then marker:close() end
 template.preview=marker~=nil
-log.debug('template loaded; level ',log.level,', preview ',template.preview,', probe ',probe~=nil)
+log.debug('template loaded; level ',log.level,', preview ',template.preview,', probe ',probe~=nil,
+    ', acceptance ',acceptance~=nil)
 if Probe then Probe.start(log) end
+if Acceptance then Acceptance.start(log) end
 
 template.attach=function(objects,params,original)
     Session.attach(objects.hud,objects.cue,params,
