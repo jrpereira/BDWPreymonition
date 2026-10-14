@@ -42,20 +42,22 @@ credit remain your responsibility.
 ## Settings
 
 Open **Mod Settings → Combat Preymonition**, set **Enabled** under
-**Preymonition** to **Yes**, and choose **Apply**. Adjust the settings under **Main Options** and the sections below it on the same page and choose
+**Preymonition** to **Yes**, and choose **Apply**. Adjust the settings under **Parry & Block** and the sections below it on the same page and choose
 **Apply** after changing them. Percentages scale the standard look; 100% leaves it
 unchanged.
 
 | Setting | Choices |
 |---|---|
-| **Size** | Small, **Standard**, or Large. |
-| **Show background shield** | **Off** or On: a faint shield behind the arrows. |
-| **Arrow Movement** | 50%–200% (**100%**): how far arrows travel. |
-| **Arrow Size** | 50%–200% (**100%**). |
-| **Show trailing glow** | Off or **On**: a flash where an arrow appears. |
-| **Play sound** (arrows) | **None**, Short Swoosh, or Long Swoosh, when an arrow appears. |
+| **Parry & Block → Play sound** | **None**, Short Swoosh, or Long Swoosh, when an attack appears, played at the attacker. |
+| **Character Overlay Indicator → Style** | Off, **Arrows**, or Glow: Glow moves the game's attack flash in place of the arrow. |
+| **Character Overlay Indicator → Scaling** | 50%–200% (**100%**): the arrows' size. |
+| **Character Overlay Indicator → Amplitude** | 50%–200% (**100%**): how far arrows travel. |
+| **Character Overlay Indicator → Trailing effect** | Off, **Glow** (a flash where an arrow appears), or Fade (two fainter arrows trail it, at half and a quarter of its opacity). |
+| **Screen Edge Effects → Behaviour** | **Off**, Frame (every screen edge glows during an attack), or Directional (only the edge on the attack's side). |
 | **Unblockable size** | 50%–200% (**100%**): the skull's size. |
-| **Play sound** (unblockable) | **None**, Growl, or Boom, when the skull appears. |
+| **Play sound** (unblockable) | **None**, Growl, or Boom, when the skull appears, played at the attacker. |
+| **Background → Size** | Small, **Standard**, or Large. |
+| **Background → Shield watermark** | **Off** or Static: a faint shield behind the arrows. |
 
 ## If the cue does not appear
 

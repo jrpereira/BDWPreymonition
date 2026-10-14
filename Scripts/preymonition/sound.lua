@@ -21,22 +21,33 @@ local M={
     UNBLOCKABLE={[1]=GROWL,[2]=BOOM},
 }
 
+-- A sound picker's menu choices: each label, previewing its event when chosen;
+-- None previews silence.
+function M.choices(labels,events)
+    local out={}
+    for value,label in pairs(labels) do out[value]={label=label,sound=events[value] or 'none'} end
+    return out
+end
+
 -- Loads an event when the cue attaches rather than at its first play, mid-combat.
 function M.preload(path)
     return Cue.find(path)~=nil
 end
 
--- Posts an event at the player's location; context is any live object in the
--- player's world. Errors when the event, the player or Wwise is unavailable.
-function M.play(path,context)
+-- Posts an event at the source actor's location, or at the player's without
+-- one; context is any live object in the player's world. Errors when the
+-- event, both actors or Wwise are unavailable.
+function M.play(path,context,source)
     local sound=assert(Cue.find(path),'sound event unavailable: '..path)
     local wwise=assert(Cue.default('/Script/AkAudio.Default__AkGameplayStatics'),'Wwise unavailable')
-    local statics=assert(Cue.default('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
-    local pawn=statics:GetPlayerPawn(context,0)
-    assert(MC.valid(pawn),'player unavailable')
+    if not MC.valid(source) then
+        local statics=assert(Cue.default('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
+        source=statics:GetPlayerPawn(context,0)
+        assert(MC.valid(source),'player unavailable')
+    end
     -- Wwise answers a refused event, such as one whose bank is not loaded, with
     -- playing id 0 instead of an error.
-    local id=wwise:PostEventAtLocation(sound,pawn:K2_GetActorLocation(),{Pitch=0,Yaw=0,Roll=0},context)
+    local id=wwise:PostEventAtLocation(sound,source:K2_GetActorLocation(),{Pitch=0,Yaw=0,Roll=0},context)
     assert(id~=0,'Wwise did not play '..path)
     return id
 end

@@ -12,10 +12,16 @@ local OUTWARD={{X=0,Y=-1},{X=0,Y=1},{X=-1,Y=0},{X=1,Y=0}}
 -- along its axis out from the native rest; the bottom arrow stays closer.
 local DISTANCE={{1,3},{0.5,2},{1,3},{1,3}}
 -- What apply last wrote to each arrow, by these keys in ui.applied.
+-- Per direction: the arrow's keys, then each trailing arrow's.
 local KEYS={}
 for index=1,#ARROWS do
-    KEYS[index]={opacity='opacity'..index,scale='scale'..index,translation='translation'..index}
+    KEYS[index]={}
+    for image=0,2 do
+        local tag=index..'_'..image
+        KEYS[index][image+1]={opacity='opacity'..tag,scale='scale'..tag,translation='translation'..tag}
+    end
 end
+local arrowImages
 local GAMEPLAY_STATICS='/Script/Engine.Default__GameplayStatics'
 -- The game's attack flash, shown behind an arrow where it appears.
 local FLASH_PATH='/Game/_Dawnwalker/UI/_Unified/Combat/Textures/T_Mask_AttackIndicator_Flash.T_Mask_AttackIndicator_Flash'
@@ -114,6 +120,18 @@ function M.known(object)
     return known[object:GetFName():GetComparisonIndex()]
 end
 
+-- Where an indicator's attack comes from: the owner of the latest queued
+-- attack's instigator, a combat component. Nil when the queue names none.
+function M.attacker(indicator)
+    local queue=indicator.AttackQueue
+    local count=queue and MC.call(queue,'GetArrayNum') or 0
+    for index=count,1,-1 do
+        local component=queue[index].Instigator
+        local actor=MC.valid(component) and MC.call(component,'GetOwner')
+        if actor and MC.valid(actor) then return actor end
+    end
+end
+
 function M.visible(widget)
     return MC.valid(widget) and visibleChain(widget)
 end
@@ -169,15 +187,19 @@ end
 -- The cue's widgets as live wrappers for this call, or nil once any is gone.
 -- The cue keeps them only as weak handles: a kept wrapper reads freed memory
 -- after its HUD is collected, as on a level load.
+local LISTS={'images','ghosts','edges'}
 local function resolve(ui)
-    local widgets={images={}}
+    local widgets={}
     for _,key in ipairs({'hud','layer','box','stack','shield','arrows','flash'}) do
         widgets[key]=MC.get(ui.handles[key])
         if not widgets[key] then return nil end
     end
-    for index=1,#ARROWS do
-        widgets.images[index]=MC.get(ui.handles.images[index])
-        if not widgets.images[index] then return nil end
+    for _,list in ipairs(LISTS) do
+        widgets[list]={}
+        for index,handle in ipairs(ui.handles[list]) do
+            widgets[list][index]=MC.get(handle)
+            if not widgets[list][index] then return nil end
+        end
     end
     return widgets
 end
@@ -225,14 +247,50 @@ local SPRITES={
 local SHIELD_SHOWN,SHIELD_HIDDEN={R=1,G=1,B=1,A=0.2},{R=1,G=1,B=1,A=0}
 local SKULL_COLOR={R=1,G=1,B=1,A=1}
 
--- The cue settings: percentages of the current look, and switches.
+-- The trailing arrows of the Fade effect: how much of the main arrow's
+-- opacity each keeps, nearest first.
+local GHOSTS={0.5,0.25}
+-- Screen edge glow: nested bands per edge, each a little deeper and faint, so
+-- they add up to a gradient fading inward; depth is a share of the shorter
+-- screen side.
+local EDGE_BANDS,EDGE_DEPTH,EDGE_COLOR=6,0.08,{R=1,G=0.67,B=0.19,A=0.1}
+
+-- The cue settings: percentages of the current look, and choices.
 local function config(settings)
     local function percent(key) return (settings[key] or 100)/100 end
+    local style,trail=settings.OverlayStyle or 1,settings.OverlayTrail or 1
+    local edges=settings.EdgeBehaviour or 0
     return {
-        shieldColor=settings.CueShield==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
-        move=percent('ArrowsMove'),scale=percent('ArrowsSize'),glow=settings.ArrowsGlow~=0,
+        shieldColor=(settings.BackgroundShield or 0)~=0 and SHIELD_SHOWN or SHIELD_HIDDEN,
+        move=percent('OverlayAmplitude'),scale=percent('OverlayScaling'),
+        arrows=style~=0,glowStyle=style==2,glow=trail==1,ghosts=trail==2,
+        frame=edges==1,directional=edges==2,
         skull=percent('UnblockableSize'),
     }
+end
+
+-- One edge's glow: an overlay over the whole layer holding the bands, faded
+-- as a whole. Index follows ARROWS: top, bottom, left, right.
+local function buildEdge(tree,layer,index,depth,suffix)
+    local edge=construct('/Script/UMG.Overlay',tree,'PreymonitionEdge'..index..suffix)
+    edge:SetRenderOpacity(0)
+    local slot=layer:AddChildToOverlay(edge)
+    slot:SetHorizontalAlignment(0)
+    slot:SetVerticalAlignment(0)
+    local vertical=index<=2
+    for band=1,EDGE_BANDS do
+        local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionEdge'..index..'_'..band..suffix)
+        local image=construct('/Script/UMG.Image',tree,'PreymonitionEdgeBand'..index..'_'..band..suffix)
+        image:SetColorAndOpacity(EDGE_COLOR)
+        box:SetContent(image)
+        local thickness=depth*band/EDGE_BANDS
+        if vertical then box:SetHeightOverride(thickness) else box:SetWidthOverride(thickness) end
+        local bandSlot=edge:AddChildToOverlay(box)
+        -- 0 fills; 1 is top or left, 3 bottom or right.
+        bandSlot:SetHorizontalAlignment(vertical and 0 or (index==3 and 1 or 3))
+        bandSlot:SetVerticalAlignment(vertical and (index==1 and 1 or 3) or 0)
+    end
+    return edge
 end
 
 -- Gives the shield image a centre sprite in a colour. Returns its path, or nil
@@ -273,7 +331,7 @@ function M.build(hud,layer,screen,settings)
         -- An Image's default brush is solid white: keep it clear without the texture.
         flash:SetColorAndOpacity({R=1,G=1,B=1,A=0})
     end
-    local images={}
+    local images,ghosts={},{}
     for index,key in ipairs(ARROWS) do
         local image=construct('/Script/UMG.Image',tree,'Preymonition'..key..suffix)
         local slot=arrows:AddChildToOverlay(image)
@@ -281,7 +339,20 @@ function M.build(hud,layer,screen,settings)
         slot:SetVerticalAlignment(0)
         images[index]=image
     end
-    local size=math.min(screen.width,screen.height)*(settings.CueS or 20)/100
+    -- The Fade trail's arrows, two per direction, nearest first.
+    if visuals.ghosts then
+        for index,key in ipairs(ARROWS) do
+            for ghost=1,#GHOSTS do
+                local image=construct('/Script/UMG.Image',tree,'Preymonition'..key..'Trail'..ghost..suffix)
+                image:SetRenderOpacity(0)
+                local slot=arrows:AddChildToOverlay(image)
+                slot:SetHorizontalAlignment(0)
+                slot:SetVerticalAlignment(0)
+                ghosts[(index-1)*#GHOSTS+ghost]=image
+            end
+        end
+    end
+    local size=math.min(screen.width,screen.height)*(settings.BackgroundSize or 20)/100
     -- Slate units, like the box size: the inset keeps its share of the cue at any DPI.
     local inset=18
     local shieldSlot=stack:AddChildToOverlay(shield)
@@ -305,17 +376,33 @@ function M.build(hud,layer,screen,settings)
     slot:SetHorizontalAlignment(2)
     slot:SetVerticalAlignment(1)
     slot:SetPadding({Left=0,Top=screen.height/2,Right=0,Bottom=0})
+    local edges={}
+    if visuals.frame or visuals.directional then
+        local depth=math.min(screen.width,screen.height)*EDGE_DEPTH
+        for index=1,#ARROWS do edges[index]=buildEdge(tree,layer,index,depth,suffix) end
+    end
 
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
         stack=hold(stack,'stack'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
-        flash=hold(flash,'flash'),images={}}
+        flash=hold(flash,'flash'),images={},ghosts={},edges={}}
     for index,image in ipairs(images) do handles.images[index]=hold(image,ARROWS[index]) end
+    for index,image in ipairs(ghosts) do handles.ghosts[index]=hold(image,'trail') end
+    for index,edge in ipairs(edges) do handles.edges[index]=hold(edge,'edge') end
     -- Plain numbers, kept per arrow: rest translation, image size along its
     -- axis and the native rotation, which the flash copies.
     local base,size,angle={},{},{}
     for index=1,#ARROWS do base[index],size[index],angle[index]={X=0,Y=0},0,0 end
     return {handles=handles,base=base,size=size,angle=angle,sprite=sprite,visuals=visuals,
         flash=texture and FLASH_PATH or nil,applied={}}
+end
+
+-- A direction's arrow image followed by its trail's, when the cue has one.
+function arrowImages(ui,widgets,index)
+    local list={widgets.images[index]}
+    if ui.visuals.ghosts then
+        for ghost=1,#GHOSTS do list[#list+1]=widgets.ghosts[(index-1)*#GHOSTS+ghost] end
+    end
+    return list
 end
 
 -- Copy the live indicator's arrow artwork. The cue keeps its own shield: the
@@ -327,13 +414,16 @@ function M.style(ui,indicator,only)
         if only==nil or only==index then
             local native=indicator[key]
             assert(MC.valid(native),'indicator arrow unavailable: '..key)
-            local image=widgets.images[index]
-            image:SetBrush(native.Brush)
             local color=native.ColorAndOpacity
-            image:SetColorAndOpacity(only and strength(native)>INACTIVE
-                and {R=color.R,G=color.G,B=color.B,A=color.A} or LIT_COLOR)
-            image:SetRenderTransform(native.RenderTransform)
-            image:SetRenderTransformPivot({X=0.5,Y=0.5})
+            color=only and strength(native)>INACTIVE and {R=color.R,G=color.G,B=color.B,A=color.A} or LIT_COLOR
+            -- The Glow style draws the game's attack flash in place of the arrow.
+            local glow=ui.visuals.glowStyle and M.find(FLASH_PATH)
+            for _,image in ipairs(arrowImages(ui,widgets,index)) do
+                if glow then image:SetBrushFromTexture(glow,false) else image:SetBrush(native.Brush) end
+                image:SetColorAndOpacity(color)
+                image:SetRenderTransform(native.RenderTransform)
+                image:SetRenderTransformPivot({X=0.5,Y=0.5})
+            end
             -- Distances count out from the native rest in arrow image sizes.
             local ok,base,size=pcall(function()
                 local translation=native.RenderTransform.Translation
@@ -346,17 +436,18 @@ function M.style(ui,indicator,only)
             local okAngle,angle=pcall(function() return native.RenderTransform.Angle end)
             ui.angle[index]=okAngle and type(angle)=='number' and angle or 0
             -- The new transform replaced what apply last wrote to this arrow.
-            local keys=KEYS[index]
-            ui.applied[keys.scale],ui.applied[keys.translation]=nil,nil
+            for _,keys in ipairs(KEYS[index]) do
+                ui.applied[keys.scale],ui.applied[keys.translation]=nil,nil
+            end
             ui.flashIndex=nil
         end
     end
 end
 
--- Turns one cue arrow critical red.
+-- Turns one cue arrow, and its trail, critical red.
 function M.critical(ui,index)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    widgets.images[index]:SetColorAndOpacity(CRITICAL_COLOR)
+    for _,image in ipairs(arrowImages(ui,widgets,index)) do image:SetColorAndOpacity(CRITICAL_COLOR) end
 end
 
 -- Retries the shield sprite for a cue built before it could be found. Returns
@@ -396,18 +487,34 @@ function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
     set(ui,widgets.box,'box','SetRenderOpacity',state.opacity)
+    local lit=0
     for index,arrow in ipairs(state.arrows) do
-        local image,base,out,keys=widgets.images[index],ui.base[index],OUTWARD[index],KEYS[index]
+        local base,out=ui.base[index],OUTWARD[index]
         local from,to=DISTANCE[index][1],DISTANCE[index][2]
-        local distance=ui.size[index]*(from+(to-from)*arrow.offset)*visuals.move
         local scale=arrow.scale*visuals.scale
-        set(ui,image,keys.opacity,'SetRenderOpacity',arrow.opacity)
-        setPair(ui,image,keys.scale,'SetRenderScale',scale,scale)
-        setPair(ui,image,keys.translation,'SetRenderTranslation',base.X+out.X*distance,base.Y+out.Y*distance)
+        local opacity=visuals.arrows and arrow.opacity or 0
+        for image,widget in ipairs(arrowImages(ui,widgets,index)) do
+            local keys=KEYS[index][image]
+            -- The trail follows the arrow's path, each one a step behind and fainter.
+            local offset=image==1 and arrow.offset or arrow.trail[image-1]
+            local distance=ui.size[index]*(from+(to-from)*offset)*visuals.move
+            set(ui,widget,keys.opacity,'SetRenderOpacity',opacity*(image==1 and 1 or GHOSTS[image-1]))
+            setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)
+            setPair(ui,widget,keys.translation,'SetRenderTranslation',base.X+out.X*distance,base.Y+out.Y*distance)
+        end
+        -- Directional lights the attacked side's edge; Frame lights every edge.
+        if widgets.edges[index] and visuals.directional then
+            set(ui,widgets.edges[index],'edge'..index,'SetRenderOpacity',arrow.opacity)
+        end
+        lit=math.max(lit,arrow.opacity)
     end
-    -- The flash sits where its arrow appears, turned like it; off, it stays clear.
+    if visuals.frame then
+        for index,edge in ipairs(widgets.edges) do set(ui,edge,'edge'..index,'SetRenderOpacity',lit) end
+    end
+    -- The flash sits where its arrow appears, turned like it; off, or without
+    -- arrows, it stays clear.
     local flash,index=state.flash,state.flash.index
-    if not visuals.glow then return end
+    if not (visuals.glow and visuals.arrows) then return end
     set(ui,widgets.flash,'flash','SetRenderOpacity',flash.opacity)
     if index then
         if ui.flashIndex~=index then
@@ -456,7 +563,7 @@ function M.destroy(ui)
     if box then MC.call(box,'SetRenderOpacity',0) end
     if layer then MC.call(layer,'ClearChildren') end
     for key,handle in pairs(handles) do
-        if key=='images' then
+        if key=='images' or key=='ghosts' or key=='edges' then
             for _,image in ipairs(handle) do MC.release(image) end
         else
             MC.release(handle)

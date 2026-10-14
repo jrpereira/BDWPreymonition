@@ -20,24 +20,30 @@ assert(model.flash.index == 1); near(model.flash.opacity, 1); near(model.flash.s
 time = 0.1; model:step()
 near(model.opacity, 0.5); near(arrow(1).scale, 1.75); near(arrow(1).offset, 0.5)
 near(model.flash.opacity, 0.5); near(model.flash.scale, 1.25)
+-- The two trailing arrows follow the same travel 0.04s and 0.08s behind.
+near(arrow(1).trail[1], 0.3); near(arrow(1).trail[2], 0.1)
 time = 0.25; model:step()
 near(arrow(1).opacity, 1); near(arrow(1).scale, 2); near(arrow(1).offset, 1)
 near(model.flash.opacity, 0); near(model.flash.scale, 1.5)
+near(arrow(1).trail[1], 1); near(arrow(1).trail[2], 0.85)
+time = 0.3; model:step(); near(arrow(1).trail[2], 1)
 assert(not model:has_jobs(), 'a delayed step catches up to the absolute deadline')
 assert(not model:show(1, 'attack-1'), 'duplicate event identity must be ignored')
 
 -- Another arrow puts the first out at once.
 assert(model:show(2, 'attack-2'))
 near(arrow(1).opacity, 0); near(arrow(1).scale, 1.5); near(arrow(1).offset, 0)
+near(arrow(1).trail[1], 0); near(arrow(1).trail[2], 0)
 near(arrow(2).opacity, 1)
 
 -- Critical: at once 2.5 times, held until resolved, with nothing left to
 -- animate once its travel ends. The travel carries on.
-time = 0.35; model:step()
+time = 0.4; model:step()
 assert(model:critical(2))
 near(arrow(2).scale, 2.5); near(arrow(2).opacity, 1)
-time = 0.4; model:step(); near(arrow(2).scale, 2.5); near(arrow(2).offset, 0.75)
+time = 0.45; model:step(); near(arrow(2).scale, 2.5); near(arrow(2).offset, 0.75)
 time = 0.5; model:step(); near(arrow(2).scale, 2.5); near(arrow(2).offset, 1)
+time = 0.6; model:step()
 assert(not model:has_jobs(), 'a critical arrow needs no frames once still')
 
 -- Resolved: the arrow goes at once and the idle cue stays.

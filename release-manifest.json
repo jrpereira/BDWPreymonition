@@ -11,6 +11,7 @@
     "Scripts/preymonition/animation.lua": "Scripts/preymonition/animation.lua",
     "Scripts/preymonition/cue.lua": "Scripts/preymonition/cue.lua",
     "Scripts/preymonition/events.lua": "Scripts/preymonition/events.lua",
+    "Scripts/preymonition/probe.lua": "Scripts/preymonition/probe.lua",
     "Scripts/preymonition/session.lua": "Scripts/preymonition/session.lua",
     "Scripts/preymonition/sound.lua": "Scripts/preymonition/sound.lua",
     "Scripts/vendor/mc_log.lua": "Scripts/vendor/mc_log.lua",

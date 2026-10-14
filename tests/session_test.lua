@@ -204,7 +204,7 @@ assert(#delayed==0,'events are ignored until a cue is attached')
 local cleanups={}
 local function attach(size,visuals)
     local original={}
-    local settings={CueS=size}
+    local settings={BackgroundSize=size}
     for key,value in pairs(visuals or {}) do settings[key]=value end
     local result=template.attach({hud=hud,cue=layer},
         {settings=settings,screen={width=1920,height=1080,scale=1},
@@ -489,7 +489,7 @@ hud.invalid=nil
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 assert(#posted==0,'no sound plays without one chosen')
-attach(20,{CueShield=1,ArrowsMove=50,ArrowsSize=200,ArrowsGlow=0,ArrowsSound=2,
+attach(20,{BackgroundShield=1,OverlayAmplitude=50,OverlayScaling=200,OverlayTrail=0,ParrySound=2,
     UnblockableSize=150,UnblockableSound=2})
 local tuned=layer.children[1]
 assert(shieldOf(tuned).ColorAndOpacity.A==0.2,'the background shield can be shown')
@@ -497,23 +497,114 @@ endCombat()
 startCombat()
 run()
 settle(0.05)
+-- The indicator's queued attack names its attacker through a combat component.
+local enemy=object('Enemy')
+function enemy:K2_GetActorLocation() return {X=7,Y=8,Z=9} end
+local combat=object('Enemy.Combat')
+function combat:GetOwner() return enemy end
+local attacks={{Instigator=object('Gone',{invalid=true})},{Instigator=combat},{Instigator=nil}}
+function attacks:GetArrayNum() return 3 end
+other.AttackQueue=attacks
 other.BottomArrow.ColorAndOpacity=color(0.9)
 fire(ARROW,other.BottomArrow)
 local tunedBottom=arrowOf(tuned,2)
 assert(math.abs(tunedBottom.RenderScale.X-3)<1e-6 and math.abs(tunedBottom.RenderTranslation.Y-(5+7.5))<1e-6,
     'arrow size and movement scale the arrow where it appears')
-assert(#posted==1 and posted[1].event==SWOOSH_SOUND and posted[1].location.Z==3,
-    'the chosen arrow sound plays at the player when the arrow appears')
+assert(#posted==1 and posted[1].event==SWOOSH_SOUND and posted[1].location.Z==9,
+    'the chosen arrow sound plays at the attacker when the arrow appears')
+-- An indicator whose queue names no attacker plays at the player.
+other.AttackQueue=nil
 settle(0.05)
 assert(math.abs(tunedBottom.RenderScale.X-4)<1e-6 and math.abs(tunedBottom.RenderTranslation.Y-(5+30))<1e-6,
     'and where it ends')
 assert(flashOf(tuned).RenderOpacity==0,'with the glow off nothing flashes')
 centre(other,SKULL)
-assert(shieldOf(tuned).RenderScale.X==1.5 and #posted==2 and posted[2].event==BOOM_SOUND,
-    'the unblockable skull takes its size and plays its sound')
+assert(shieldOf(tuned).RenderScale.X==1.5 and #posted==2 and posted[2].event==BOOM_SOUND
+    and posted[2].location.Z==3,'the unblockable skull takes its size and plays its sound')
 centre(other,SWORD)
 assert(shieldOf(tuned).RenderScale.X==1 and shieldOf(tuned).ColorAndOpacity.A==0.2,
     'the shield returns at its size and setting')
+other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+settle(0.05)
+
+-- With the overlay style off, an attack still plays its sound but shows no arrow or flash.
+for index=#cleanups,1,-1 do cleanups[index]() end
+cleanups={}
+attach(20,{OverlayStyle=0,ParrySound=2})
+local hiddenArrows=layer.children[1]
+endCombat()
+startCombat()
+run()
+settle(0.05)
+local before=#posted
+other.BottomArrow.ColorAndOpacity=color(0.9)
+fire(ARROW,other.BottomArrow)
+settle(0.05)
+assert(arrowOf(hiddenArrows,2).RenderOpacity==0 and flashOf(hiddenArrows).RenderOpacity==0,
+    'the overlay style off shows no arrow or flash')
+assert(#posted==before+1,'and the parry sound still plays')
+other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+settle(0.05)
+
+-- The Glow style moves the game's flash in place of the arrow; the Fade trail
+-- adds two fainter arrows behind it; Directional lights the attacked edge.
+for index=#cleanups,1,-1 do cleanups[index]() end
+cleanups={}
+attach(20,{OverlayStyle=2,OverlayTrail=2,EdgeBehaviour=2})
+local looks=layer.children[1]
+assert(#layer.children==5,'four screen edges follow the cue')
+local bottomEdge,topEdge=layer.children[3],layer.children[2]
+assert(#bottomEdge.children==6 and bottomEdge.children[1].HeightOverride<bottomEdge.children[6].HeightOverride,
+    'each edge stacks deepening bands')
+assert(layer.children[4].children[1].WidthOverride~=nil,'side edges take a width')
+assert(bottomEdge.RenderOpacity==0,'edges wait unseen')
+local function trailOf(cue,index,ghost) return cue.content.children[2].children[5+(index-1)*2+ghost] end
+endCombat()
+startCombat()
+run()
+settle(0.05)
+-- The probe's observer sees each cue event with its indicator.
+local observed={}
+require('preymonition.session').setObserver(function(source,event)
+    observed[#observed+1]=event..' '..source:GetFullName()
+end)
+other.BottomArrow.ColorAndOpacity=color(0.9)
+fire(ARROW,other.BottomArrow)
+local glowArrow,near,far=arrowOf(looks,2),trailOf(looks,2,1),trailOf(looks,2,2)
+assert(glowArrow.BrushFromTexture==FLASH and near.BrushFromTexture==FLASH,'the Glow style draws the flash')
+assert(flashOf(looks).RenderOpacity==0,'the Fade trail shows no appearing flash')
+-- Midway through the travel, one frame later.
+clock=clock+0.1
+run()
+assert(glowArrow.RenderOpacity==1 and near.RenderOpacity==0.5 and far.RenderOpacity==0.25,
+    'the trail keeps half and a quarter of the arrow\'s opacity')
+assert(near.RenderTranslation.Y<glowArrow.RenderTranslation.Y and far.RenderTranslation.Y<near.RenderTranslation.Y,
+    'and follows behind it')
+settle(0.05)
+assert(math.abs(far.RenderTranslation.Y-glowArrow.RenderTranslation.Y)<1e-6,'catching up once the arrow stops')
+assert(bottomEdge.RenderOpacity==1 and topEdge.RenderOpacity==0,'Directional lights only the attacked edge')
+other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+fire(ARROW,other.BottomArrow)
+settle(0.05)
+assert(bottomEdge.RenderOpacity==0 and far.RenderOpacity==0,'both go with the attack')
+assert(observed[1]=='show bottom Object WBP_CombatTargetIndicator_C_2'
+    and observed[#observed]=='arrow went dark: bottom Object WBP_CombatTargetIndicator_C_2',
+    'the observer sees the show and the resolve on their indicator')
+require('preymonition.session').setObserver(nil)
+
+-- Frame lights every edge for any attack.
+for index=#cleanups,1,-1 do cleanups[index]() end
+cleanups={}
+attach(20,{EdgeBehaviour=1})
+local framed={layer.children[2],layer.children[3],layer.children[4],layer.children[5]}
+endCombat()
+startCombat()
+run()
+settle(0.05)
+other.BottomArrow.ColorAndOpacity=color(0.9)
+fire(ARROW,other.BottomArrow)
+settle(0.05)
+for _,edge in ipairs(framed) do assert(edge.RenderOpacity==1,'Frame lights every edge') end
 other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
 settle(0.05)
 
@@ -560,7 +651,8 @@ startCombat()
 for index=#cleanups,1,-1 do cleanups[index]() end
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
-assert(released==11*4,'each detached cue releases its eleven handles')
+-- Eleven handles per cue, plus eight trailing arrows and four edges where shown.
+assert(released==11*7+8+4+4,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()

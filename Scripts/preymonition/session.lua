@@ -34,6 +34,17 @@ function M.setLog(logger)
     log=logger
 end
 
+-- The probe's view of an indicator at each cue event; nothing without the probe.
+local observer
+function M.setObserver(callback)
+    observer=callback
+end
+local function observe(indicator,event)
+    if not observer then return end
+    local ok,why=pcall(observer,indicator,event)
+    if not ok then log.warn('observer failed on ',event,': ',why) end
+end
+
 -- Next frame when the engine tick is hooked; ExecuteWithDelay's timer is coarser.
 local function frames()
     return rawget(_G,'EngineTickAvailable')==true and type(rawget(_G,'ExecuteInGameThreadAfterFrames'))=='function'
@@ -108,12 +119,18 @@ local function styleShield(record)
     elseif not sprite then log.debug('shield sprite still not found; shield stays clear') end
 end
 
--- Plays a cue's sound for an event, when one is chosen; a failure is reported
--- once per sound and never stops the cue.
+-- Plays a cue's sound for an event, when one is chosen, at the attacker behind
+-- the indicator, or at the player when the indicator names none; a failure is
+-- reported once per sound and never stops the cue.
 local failedSounds={}
-local function play(record,path)
+local function play(record,path,indicator)
     if not path then return end
-    local ok,why=pcall(function() return Sound.play(path,Cue.context(record.ui)) end)
+    local ok,why=pcall(function()
+        local found,attacker=pcall(Cue.attacker,indicator)
+        attacker=found and attacker or nil
+        log.debug('sound at ',attacker and Cue.path(attacker) or 'the player')
+        return Sound.play(path,Cue.context(record.ui),attacker)
+    end)
     if ok then log.trace('sound ',path,' playing id ',why) return end
     if not failedSounds[path] then
         failedSounds[path]=true
@@ -122,8 +139,9 @@ local function play(record,path)
 end
 
 -- The attack resolved: its arrow goes at once, the idle cue stays.
-local function release(record,why)
+local function release(record,why,indicator)
     log.debug(why,' ',record.direction and DIRECTIONS[record.direction] or 'none')
+    observe(indicator,why..' '..(record.direction and DIRECTIONS[record.direction] or 'none'))
     record.source,record.direction,record.critical=nil,nil,nil
     if record.model:hide(false) then pump(record) end
 end
@@ -135,6 +153,7 @@ local function escalate(record,indicator,path,direction)
     Cue.critical(record.ui,direction)
     record.model:critical(direction)
     log.debug('critical ',DIRECTIONS[direction],' from ',path)
+    observe(indicator,'critical '..DIRECTIONS[direction])
     pump(record)
 end
 
@@ -155,7 +174,8 @@ local function present(indicator,path,direction,event)
     record.source,record.direction,record.critical=path,direction,nil
     if record.model:show(direction,event.path..':'..event.sequence) then
         log.debug('show ',DIRECTIONS[direction],' from ',path)
-        play(record,record.sounds.arrow)
+        observe(indicator,'show '..DIRECTIONS[direction])
+        play(record,record.sounds.arrow,indicator)
         pump(record)
     end
 end
@@ -183,11 +203,12 @@ local function onCentre(image,sprite,sequence)
             if not skull then record.skullSource=nil end
             local ok,why=pcall(Cue.centre,record.ui,skull and 'skull' or 'shield')
             if not ok or not why then log.warn('centre sprite unavailable: ',why) end
-            if skull then play(record,record.sounds.skull) end
+            if skull then play(record,record.sounds.skull,indicator) end
             log.debug(skull and 'unblockable attack' or 'unblockable passed')
+            observe(indicator,skull and 'unblockable attack' or 'unblockable passed')
         end
     end
-    if sprite:find('Sword',1,true) and record.source==path then release(record,'attack resolved:') end
+    if sprite:find('Sword',1,true) and record.source==path then release(record,'attack resolved:',indicator) end
 end
 
 -- An indicator arrow was just restyled, in the same frame the game shows it:
@@ -204,7 +225,7 @@ local function onArrow(image,direction,sequence)
     if not Cue.visible(indicator) then
         log.trace('arrow #',sequence,': ',DIRECTIONS[direction],' on a hidden indicator')
         for _,record in ipairs(cues) do
-            if record.source==path then release(record,'indicator hidden:') end
+            if record.source==path then release(record,'indicator hidden:',indicator) end
         end
         return true
     end
@@ -216,7 +237,7 @@ local function onArrow(image,direction,sequence)
         present(indicator,path,direction,{path=path,sequence=sequence})
     else
         for _,record in ipairs(cues) do
-            if record.source==path and record.direction==direction then release(record,'arrow went dark:') end
+            if record.source==path and record.direction==direction then release(record,'arrow went dark:',indicator) end
         end
     end
     if started then
@@ -378,7 +399,7 @@ function M.wake()
     hook={pre,post}
     active=true
     styled,handled=0,0
-    log.debug('arrow hook registered; animation steps ',frames() and 'every frame' or 'by ExecuteWithDelay')
+    log.debug('arrow hook registered (ids ',pre,', ',post,'); animation steps ',frames() and 'every frame' or 'by ExecuteWithDelay')
     local ok,why=Cue.pass(startCombat)
     if not ok then error(why,0) end
 end
@@ -403,7 +424,7 @@ end
 function M.attach(hud,layer,params,onCleanup,preview)
     local settings=params.settings or {}
     local record={detached=false,preview=preview==true,
-        sounds={arrow=Sound.ARROW[settings.ArrowsSound],skull=Sound.UNBLOCKABLE[settings.UnblockableSound]}}
+        sounds={arrow=Sound.ARROW[settings.ParrySound],skull=Sound.UNBLOCKABLE[settings.UnblockableSound]}}
     record.onFrame=function()
         local ok,why=Cue.pass(frame,record)
         if not ok then record.scheduled=false; fail('animation step',why) end
@@ -430,7 +451,7 @@ function M.attach(hud,layer,params,onCleanup,preview)
     })
     record.model:step()
     cues[#cues+1]=record
-    log.info('cue attached, size ',(params.settings or {}).CueS or 20,'%, screen ',
+    log.info('cue attached, size ',(params.settings or {}).BackgroundSize or 20,'%, screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale,
         record.preview and ', preview' or '','; shield ',ui.sprite or 'not found yet',
         '; flash ',ui.flash or 'texture not found')

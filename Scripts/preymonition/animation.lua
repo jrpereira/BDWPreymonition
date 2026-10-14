@@ -9,6 +9,8 @@ local CRITICAL = 2.5
 -- The flash where an arrow appears fades out while growing to FLASH_GROWN,
 -- over the arrow's travel.
 local FLASH_GROWN = 1.5
+-- The trail's arrows follow the same travel, each LAG seconds behind the one before.
+local TRAIL, LAG = 2, 0.04
 
 local function clamp(value)
     return math.max(0, math.min(1, value))
@@ -23,8 +25,12 @@ function M.new(env)
         flash = { opacity = 0, scale = 1, index = nil },
         finished_keys = {}, finished_jobs = {},
     }
-    -- offset is the share of the arrow's outward travel, 0 at rest to 1.
-    for index = 1, 4 do state.arrows[index] = { opacity = 0, scale = REST, offset = 0 } end
+    -- offset is the share of the arrow's outward travel, 0 at rest to 1; trail
+    -- holds the trailing arrows' offsets, nearest first.
+    for index = 1, 4 do
+        state.arrows[index] = { opacity = 0, scale = REST, offset = 0, trail = {} }
+        for ghost = 1, TRAIL do state.arrows[index].trail[ghost] = 0 end
+    end
 
     local function track(key, object, field, phases, after)
         state.tracks[key] = { object = object, field = field, phases = phases, after = after }
@@ -39,6 +45,10 @@ function M.new(env)
         local arrow = state.arrows[index]
         for _, field in ipairs({ 'opacity', 'scale', 'offset' }) do state.tracks[field .. index] = nil end
         arrow.opacity, arrow.scale, arrow.offset = 0, REST, 0
+        for ghost = 1, TRAIL do
+            state.tracks['trail' .. index .. '_' .. ghost] = nil
+            arrow.trail[ghost] = 0
+        end
     end
 
     function state:has_jobs()
@@ -112,6 +122,10 @@ function M.new(env)
         track('flashScale', flash, 'scale', { phase(1, FLASH_GROWN, timestamp, TRAVEL) })
         track('scale' .. index, selected, 'scale', { phase(REST, GROWN, timestamp, TRAVEL) })
         track('offset' .. index, selected, 'offset', { phase(0, 1, timestamp, TRAVEL) })
+        for ghost = 1, TRAIL do
+            track('trail' .. index .. '_' .. ghost, selected.trail, ghost,
+                { phase(0, 1, timestamp + LAG * ghost, TRAVEL) })
+        end
         env.apply(self)
         return true
     end

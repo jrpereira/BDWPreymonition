@@ -25,16 +25,23 @@ end
 assert(definition and definition.enabled,'template must be selectable alongside other notifications')
 local rows={}
 for _,row in ipairs(page.rows) do rows[row.id]=row end
-local size=assert(rows[definition.settings.CueS])
+local size=assert(rows[definition.settings.BackgroundSize])
 -- Rows are ModCoreSettings menu data.
 local labels={}
 for index,choice in ipairs(size.choices) do labels[index]=choice.label end
 assert(table.concat(labels,'|')=='Small|Standard|Large' and size.default==20)
 -- Every key the cue reads is one MCT composes from the menu ids, with its default.
-local DEFAULTS={CueS=20,CueShield=0,ArrowsMove=100,ArrowsSize=100,ArrowsGlow=1,ArrowsSound=0,
-    UnblockableSize=100,UnblockableSound=0}
+local DEFAULTS={ParrySound=0,OverlayStyle=1,OverlayScaling=100,OverlayAmplitude=100,OverlayTrail=1,
+    EdgeBehaviour=0,UnblockableSize=100,UnblockableSound=0,BackgroundSize=20,BackgroundShield=0}
 for key,default in pairs(DEFAULTS) do
     local row=assert(rows[definition.settings[key]],'no settings row for '..key)
     assert(row.default==default,key..' defaults to '..tostring(row.default))
 end
-print('PASS: Preymonition registers one npc.attacks template with its eight settings')
+-- Each sound choice previews its own event; None previews silence.
+local parry=assert(rows[definition.settings.ParrySound])
+assert(parry.choices[1].label=='None' and parry.choices[1].sound=='none'
+    and parry.choices[2].sound:match('UI_Claws_Equip%.UI_Claws_Equip$')
+    and parry.choices[3].sound:match('UI_Sword_Equip%.UI_Sword_Equip$'),'parry sounds preview')
+local skull=assert(rows[definition.settings.UnblockableSound])
+assert(skull.choices[2].label=='Growl' and skull.choices[3].sound:match('UI_PauseMenu_Resume'),'unblockable sounds preview')
+print('PASS: Preymonition registers one npc.attacks template with its ten settings')
