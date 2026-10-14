@@ -25,14 +25,14 @@ end
 assert(definition and definition.enabled,'template must be selectable alongside other notifications')
 local rows={}
 for _,row in ipairs(page.rows) do rows[row.id]=row end
-local size=assert(rows[definition.settings.BackgroundSize])
+local size=assert(rows[definition.settings.ShieldSize])
 -- Rows are ModCoreSettings menu data.
 local labels={}
 for index,choice in ipairs(size.choices) do labels[index]=choice.label end
-assert(table.concat(labels,'|')=='Small|Standard|Large' and size.default==20)
+assert(table.concat(labels,'|')=='Smaller|Small|Average|Large|Larger' and size.default==20)
 -- Every key the cue reads is one MCT composes from the menu ids, with its default.
-local DEFAULTS={ParrySound=0,OverlayStyle=1,OverlayScaling=100,OverlayAmplitude=100,OverlayTrail=1,
-    EdgeBehaviour=0,UnblockableSize=100,UnblockableSound=0,BackgroundSize=20,BackgroundShield=0}
+local DEFAULTS={ParrySound=0,ParryStyle=1,ParrySize=100,ParryMovement=100,ParryTrail=1,
+    ParryEdges=0,UnblockableSize=100,UnblockableSound=0,ShieldSize=20,ShieldDisplay=0}
 for key,default in pairs(DEFAULTS) do
     local row=assert(rows[definition.settings[key]],'no settings row for '..key)
     assert(row.default==default,key..' defaults to '..tostring(row.default))

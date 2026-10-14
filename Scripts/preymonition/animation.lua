@@ -2,15 +2,22 @@
 local M = {}
 
 -- An attack's arrow: shown at full opacity and its REST size, it grows to
--- GROWN while travelling outward over TRAVEL seconds.
-local REST, GROWN, TRAVEL = 1.5, 2, 0.2
--- A critical arrow jumps to this size and holds it until the attack resolves.
-local CRITICAL = 2.5
+-- GROWN while travelling outward over the animation's duration: TRAVEL seconds
+-- unless the cue sets its own. It ends at the size a critical arrow has, so
+-- turning critical only turns it red.
+local REST, GROWN, TRAVEL = 1.5, 2.5, 0.2
+-- A critical arrow takes this size at once, if its travel has not reached it,
+-- and holds it until the attack resolves.
+local CRITICAL = GROWN
 -- The flash where an arrow appears fades out while growing to FLASH_GROWN,
 -- over the arrow's travel.
 local FLASH_GROWN = 1.5
--- The trail's arrows follow the same travel, each LAG seconds behind the one before.
-local TRAIL, LAG = 2, 0.04
+-- A shield revealed by a critical attack, when the cue asks for growth, and the
+-- unblockable skull grow to SHIELD_GROWN times their size over the same duration.
+local SHIELD_GROWN = 2
+-- The trail's arrows follow the same travel, each LAG of the duration behind the
+-- one before.
+local TRAIL, LAG = 2, 0.2
 
 local function clamp(value)
     return math.max(0, math.min(1, value))
@@ -23,6 +30,13 @@ function M.new(env)
         opacity = 0, arrows = {}, tracks = {}, last = nil, ended = false,
         -- index names the arrow the flash belongs to; nil before the first.
         flash = { opacity = 0, scale = 1, index = nil },
+        -- Seconds each attack's animation takes; setDuration changes it.
+        duration = TRAVEL,
+        -- critical while the shown attack is critical; scale is the revealed
+        -- shield's growth.
+        shield = { critical = false, scale = 1 },
+        -- The unblockable skull's growth while it shows.
+        skull = { scale = 1 },
         finished_keys = {}, finished_jobs = {},
     }
     -- offset is the share of the arrow's outward travel, 0 at rest to 1; trail
@@ -49,6 +63,18 @@ function M.new(env)
             state.tracks['trail' .. index .. '_' .. ghost] = nil
             arrow.trail[ghost] = 0
         end
+    end
+
+    -- The attack is over or replaced: the shield calms at once.
+    local function calm()
+        state.tracks.shieldScale = nil
+        state.shield.critical, state.shield.scale = false, 1
+    end
+
+    -- Sets the animation's duration in seconds, from the next attack on.
+    function state:setDuration(seconds)
+        assert(type(seconds) == 'number' and seconds > 0, 'Invalid animation duration')
+        self.duration = seconds
     end
 
     function state:has_jobs()
@@ -114,17 +140,18 @@ function M.new(env)
             track('container', self, 'opacity', { phase(self.opacity, 0.5, timestamp, 0.1) })
         end
         for current = 1, #self.arrows do vanish(current) end
+        calm()
         local selected = self.arrows[index]
         selected.opacity = 1
         local flash = self.flash
         flash.index, flash.opacity, flash.scale = index, 1, 1
-        track('flashOpacity', flash, 'opacity', { phase(1, 0, timestamp, TRAVEL) })
-        track('flashScale', flash, 'scale', { phase(1, FLASH_GROWN, timestamp, TRAVEL) })
-        track('scale' .. index, selected, 'scale', { phase(REST, GROWN, timestamp, TRAVEL) })
-        track('offset' .. index, selected, 'offset', { phase(0, 1, timestamp, TRAVEL) })
+        track('flashOpacity', flash, 'opacity', { phase(1, 0, timestamp, self.duration) })
+        track('flashScale', flash, 'scale', { phase(1, FLASH_GROWN, timestamp, self.duration) })
+        track('scale' .. index, selected, 'scale', { phase(REST, GROWN, timestamp, self.duration) })
+        track('offset' .. index, selected, 'offset', { phase(0, 1, timestamp, self.duration) })
         for ghost = 1, TRAIL do
             track('trail' .. index .. '_' .. ghost, selected.trail, ghost,
-                { phase(0, 1, timestamp + LAG * ghost, TRAVEL) })
+                { phase(0, 1, timestamp + self.duration * LAG * ghost, self.duration) })
         end
         env.apply(self)
         return true
@@ -138,6 +165,12 @@ function M.new(env)
         self.tracks['opacity' .. index] = nil
         self.tracks['scale' .. index] = nil
         arrow.opacity, arrow.scale = 1, CRITICAL
+        if not self.shield.critical then
+            self.shield.critical = true
+            if env.grow then
+                track('shieldScale', self.shield, 'scale', { phase(1, SHIELD_GROWN, self.time, self.duration) })
+            end
+        end
         env.apply(self)
         return true
     end
@@ -156,6 +189,19 @@ function M.new(env)
         return true
     end
 
+    -- An unblockable attack: the skull grows to twice its size like a revealed
+    -- shield; when it passes, it is back at its size for next time.
+    function state:unblockable(shown)
+        self:step(true)
+        self.tracks.skullScale = nil
+        self.skull.scale = 1
+        if shown then
+            track('skullScale', self.skull, 'scale', { phase(1, SHIELD_GROWN, self.time, self.duration) })
+        end
+        env.apply(self)
+        return true
+    end
+
     -- The attack resolved: every arrow goes at once and the idle cue stays. At
     -- combat end the cue itself also fades out over a second.
     function state:hide(combat_end)
@@ -163,6 +209,7 @@ function M.new(env)
         self:step(true)
         self.last = nil
         for index = 1, #self.arrows do vanish(index) end
+        calm()
         if combat_end then
             self.ended = true
             self.tracks.flashOpacity, self.tracks.flashScale = nil, nil

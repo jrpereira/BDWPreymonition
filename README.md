@@ -12,7 +12,9 @@ Preymonition adds an arrow cue just below the center of the screen without
 replacing the game's original warning. When an attack comes, an arrow flashes in
 from its direction and turns red when the attack becomes critical. It vanishes
 once the attack lands or is deflected, so an empty cue means nothing is incoming.
-Unblockable attacks show a skull. The cue fades when combat ends.
+Unblockable attacks show a skull. For some attacks the game gives an early
+warning, and the cue shows them up to almost a second before the game's own
+indicator does. The cue fades when combat ends.
 
 It makes the warning easier to keep in view. Blocking, dodging, and taking the
 credit remain your responsibility.
@@ -46,18 +48,21 @@ Open **Mod Settings → Combat Preymonition**, set **Enabled** under
 **Apply** after changing them. Percentages scale the standard look; 100% leaves it
 unchanged.
 
+Every setting, its options and the `config.ini` key it is saved under are listed
+in `SETTINGS.md`, next to this file in the installed mod.
+
 | Setting | Choices |
 |---|---|
+| **Parry & Block → Indicator Style** | Off, **Arrows**, or Glow: Glow moves the game's attack flash in place of the arrow. |
+| **Parry & Block → Size** | 50%–200% (**100%**): the arrows' size. |
+| **Parry & Block → Indicator Movement** | 50%–200% (**100%**): how far arrows travel. |
+| **Parry & Block → Trailing effect** | Off, **Glow** (a flash where an arrow appears), or Fade (two fainter arrows trail it, at half and a quarter of its opacity). |
+| **Parry & Block → Screen Edge Effect** | **Off**, Frame (every screen edge glows during an attack), or Directional (only the edge on the attack's side); red while the attack is critical. |
 | **Parry & Block → Play sound** | **None**, Short Swoosh, or Long Swoosh, when an attack appears, played at the attacker. |
-| **Character Overlay Indicator → Style** | Off, **Arrows**, or Glow: Glow moves the game's attack flash in place of the arrow. |
-| **Character Overlay Indicator → Scaling** | 50%–200% (**100%**): the arrows' size. |
-| **Character Overlay Indicator → Amplitude** | 50%–200% (**100%**): how far arrows travel. |
-| **Character Overlay Indicator → Trailing effect** | Off, **Glow** (a flash where an arrow appears), or Fade (two fainter arrows trail it, at half and a quarter of its opacity). |
-| **Screen Edge Effects → Behaviour** | **Off**, Frame (every screen edge glows during an attack), or Directional (only the edge on the attack's side). |
-| **Unblockable size** | 50%–200% (**100%**): the skull's size. |
+| **Unblockable size** | 50%–200% (**100%**): the skull's size as it appears; it grows to twice that as it appears. |
 | **Play sound** (unblockable) | **None**, Growl, or Boom, when the skull appears, played at the attacker. |
-| **Background → Size** | Small, **Standard**, or Large. |
-| **Background → Shield watermark** | **Off** or Static: a faint shield behind the arrows. |
+| **Shield Indicator → Display Shield** | **Off**; In Combat (a faint shield behind the arrows throughout combat); Defending (the faint shield while an attack is shown); or Opportunity (a shield that pops in only when an attack turns critical, growing to twice its size). Each turns red while the attack is critical, and the skull replaces it during an unblockable attack. |
+| **Shield Indicator → Size** | Smaller, **Small**, Average, Large, or Larger: −30%, the standard size, +30%, +60%, or +100%. |
 
 ## If the cue does not appear
 

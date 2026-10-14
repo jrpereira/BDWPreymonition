@@ -8,9 +8,11 @@ local LIT_COLOR={R=1,G=0.67,B=0.19,A=1}
 local CRITICAL_COLOR={R=1,G=0.2,B=0,A=1}
 -- Screen direction each arrow travels in, matching ARROWS.
 local OUTWARD={{X=0,Y=-1},{X=0,Y=1},{X=-1,Y=0},{X=1,Y=0}}
--- Where each arrow shows up and where its travel ends, in arrow image sizes
--- along its axis out from the native rest; the bottom arrow stays closer.
-local DISTANCE={{1,3},{0.5,2},{1,3},{1,3}}
+-- Where each arrow shows up and where its travel ends, in movement units out
+-- from the native rest; the bottom arrow moves half as far. A unit is UNIT of the
+-- shorter screen side.
+local DISTANCE={{1,3},{0.5,1.5},{1,3},{1,3}}
+local UNIT=0.05
 -- What apply last wrote to each arrow, by these keys in ui.applied.
 -- Per direction: the arrow's keys, then each trailing arrow's.
 local KEYS={}
@@ -132,6 +134,28 @@ function M.attacker(indicator)
     end
 end
 
+-- The current difficulty's parry window multiplier on this platform, or nil
+-- when the game's combat subsystem cannot be read. The world subsystem lookup
+-- needs no object scan; context is any live object in the player's world.
+local SUBSYSTEMS='/Script/Engine.Default__SubsystemBlueprintLibrary'
+local COMBAT='/Script/DogwoodCombat.CombatSubsystem'
+local PLATFORM='Windows'
+function M.parryWindow(context)
+    local library,class=M.default(SUBSYSTEMS),M.default(COMBAT)
+    if not (library and class) then return nil end
+    local subsystem=MC.call(library,'GetWorldSubsystem',context,class)
+    if not MC.valid(subsystem) then return nil end
+    local level=subsystem.ActionDifficultyLevel
+    local found
+    subsystem.DifficultyConfig.ActionDifficulties:ForEach(function(key,value)
+        if key:get()~=level then return end
+        value:get().ParryWindowMultipliers:ForEach(function(name,multiplier)
+            if name:get():ToString()==PLATFORM then found=multiplier:get() end
+        end)
+    end)
+    return type(found)=='number' and found>0 and found or nil
+end
+
 function M.visible(widget)
     return MC.valid(widget) and visibleChain(widget)
 end
@@ -187,7 +211,7 @@ end
 -- The cue's widgets as live wrappers for this call, or nil once any is gone.
 -- The cue keeps them only as weak handles: a kept wrapper reads freed memory
 -- after its HUD is collected, as on a level load.
-local LISTS={'images','ghosts','edges'}
+local LISTS={'images','ghosts','edges','bands'}
 local function resolve(ui)
     local widgets={}
     for _,key in ipairs({'hud','layer','box','stack','shield','arrows','flash'}) do
@@ -245,6 +269,8 @@ local SPRITES={
     skull=FRAMES..'T_Combat_Icon_SkullRed.T_Combat_Icon_SkullRed',
 }
 local SHIELD_SHOWN,SHIELD_HIDDEN={R=1,G=1,B=1,A=0.2},{R=1,G=1,B=1,A=0}
+-- The game turns its indicator's shield red when an attack goes critical.
+local SHIELD_CRITICAL={R=1,G=0.2,B=0,A=1}
 local SKULL_COLOR={R=1,G=1,B=1,A=1}
 
 -- The trailing arrows of the Fade effect: how much of the main arrow's
@@ -253,16 +279,22 @@ local GHOSTS={0.5,0.25}
 -- Screen edge glow: nested bands per edge, each a little deeper and faint, so
 -- they add up to a gradient fading inward; depth is a share of the shorter
 -- screen side.
-local EDGE_BANDS,EDGE_DEPTH,EDGE_COLOR=6,0.08,{R=1,G=0.67,B=0.19,A=0.1}
+local EDGE_BANDS,EDGE_DEPTH=6,0.08
+local EDGE_COLOR,EDGE_CRITICAL={R=1,G=0.67,B=0.19,A=0.1},{R=1,G=0.2,B=0,A=0.1}
 
 -- The cue settings: percentages of the current look, and choices.
 local function config(settings)
     local function percent(key) return (settings[key] or 100)/100 end
-    local style,trail=settings.OverlayStyle or 1,settings.OverlayTrail or 1
-    local edges=settings.EdgeBehaviour or 0
+    local style,trail=settings.ParryStyle or 1,settings.ParryTrail or 1
+    local edges=settings.ParryEdges or 0
+    -- Display Shield: 0 Off never shows it, 1 In Combat shows it faintly, 2
+    -- Defending shows it faintly while an attack is shown, 3 Opportunity reveals
+    -- it only for a critical attack. Each turns it red while the attack is critical.
+    local watermark=settings.ShieldDisplay or 0
     return {
-        shieldColor=(settings.BackgroundShield or 0)~=0 and SHIELD_SHOWN or SHIELD_HIDDEN,
-        move=percent('OverlayAmplitude'),scale=percent('OverlayScaling'),
+        shieldColor=watermark==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
+        watermark=watermark,
+        move=percent('ParryMovement'),scale=percent('ParrySize'),
         arrows=style~=0,glowStyle=style==2,glow=trail==1,ghosts=trail==2,
         frame=edges==1,directional=edges==2,
         skull=percent('UnblockableSize'),
@@ -270,8 +302,9 @@ local function config(settings)
 end
 
 -- One edge's glow: an overlay over the whole layer holding the bands, faded
--- as a whole. Index follows ARROWS: top, bottom, left, right.
-local function buildEdge(tree,layer,index,depth,suffix)
+-- as a whole; its band images go in bands, for the critical tint. Index
+-- follows ARROWS: top, bottom, left, right.
+local function buildEdge(tree,layer,index,depth,suffix,bands)
     local edge=construct('/Script/UMG.Overlay',tree,'PreymonitionEdge'..index..suffix)
     edge:SetRenderOpacity(0)
     local slot=layer:AddChildToOverlay(edge)
@@ -282,6 +315,7 @@ local function buildEdge(tree,layer,index,depth,suffix)
         local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionEdge'..index..'_'..band..suffix)
         local image=construct('/Script/UMG.Image',tree,'PreymonitionEdgeBand'..index..'_'..band..suffix)
         image:SetColorAndOpacity(EDGE_COLOR)
+        bands[#bands+1]=image
         box:SetContent(image)
         local thickness=depth*band/EDGE_BANDS
         if vertical then box:SetHeightOverride(thickness) else box:SetWidthOverride(thickness) end
@@ -352,7 +386,7 @@ function M.build(hud,layer,screen,settings)
             end
         end
     end
-    local size=math.min(screen.width,screen.height)*(settings.BackgroundSize or 20)/100
+    local size=math.min(screen.width,screen.height)*(settings.ShieldSize or 20)/100
     -- Slate units, like the box size: the inset keeps its share of the cue at any DPI.
     local inset=18
     local shieldSlot=stack:AddChildToOverlay(shield)
@@ -376,23 +410,25 @@ function M.build(hud,layer,screen,settings)
     slot:SetHorizontalAlignment(2)
     slot:SetVerticalAlignment(1)
     slot:SetPadding({Left=0,Top=screen.height/2,Right=0,Bottom=0})
-    local edges={}
+    local edges,bands={},{}
     if visuals.frame or visuals.directional then
         local depth=math.min(screen.width,screen.height)*EDGE_DEPTH
-        for index=1,#ARROWS do edges[index]=buildEdge(tree,layer,index,depth,suffix) end
+        for index=1,#ARROWS do edges[index]=buildEdge(tree,layer,index,depth,suffix,bands) end
     end
 
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
         stack=hold(stack,'stack'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
-        flash=hold(flash,'flash'),images={},ghosts={},edges={}}
+        flash=hold(flash,'flash'),images={},ghosts={},edges={},bands={}}
     for index,image in ipairs(images) do handles.images[index]=hold(image,ARROWS[index]) end
     for index,image in ipairs(ghosts) do handles.ghosts[index]=hold(image,'trail') end
     for index,edge in ipairs(edges) do handles.edges[index]=hold(edge,'edge') end
-    -- Plain numbers, kept per arrow: rest translation, image size along its
-    -- axis and the native rotation, which the flash copies.
-    local base,size,angle={},{},{}
-    for index=1,#ARROWS do base[index],size[index],angle[index]={X=0,Y=0},0,0 end
-    return {handles=handles,base=base,size=size,angle=angle,sprite=sprite,visuals=visuals,
+    for index,band in ipairs(bands) do handles.bands[index]=hold(band,'edge band') end
+    -- Plain numbers, kept per arrow: rest translation and the native rotation,
+    -- which the flash copies; and the movement unit.
+    local base,angle={},{}
+    for index=1,#ARROWS do base[index],angle[index]={X=0,Y=0},0 end
+    return {handles=handles,base=base,angle=angle,sprite=sprite,visuals=visuals,
+        unit=math.min(screen.width,screen.height)*UNIT,
         flash=texture and FLASH_PATH or nil,applied={}}
 end
 
@@ -424,15 +460,12 @@ function M.style(ui,indicator,only)
                 image:SetRenderTransform(native.RenderTransform)
                 image:SetRenderTransformPivot({X=0.5,Y=0.5})
             end
-            -- Distances count out from the native rest in arrow image sizes.
-            local ok,base,size=pcall(function()
+            -- Distances count out from the native rest.
+            local ok,base=pcall(function()
                 local translation=native.RenderTransform.Translation
-                local imageSize=native.Brush.ImageSize
-                return {X=translation.X,Y=translation.Y},
-                    OUTWARD[index].X~=0 and imageSize.X or imageSize.Y
+                return {X=translation.X,Y=translation.Y}
             end)
             ui.base[index]=ok and base or {X=0,Y=0}
-            ui.size[index]=ok and size or 0
             local okAngle,angle=pcall(function() return native.RenderTransform.Angle end)
             ui.angle[index]=okAngle and type(angle)=='number' and angle or 0
             -- The new transform replaced what apply last wrote to this arrow.
@@ -456,6 +489,7 @@ function M.styleShield(ui)
     if ui.sprite then return ui.sprite end
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     ui.sprite=applySprite(widgets.shield,'shield',ui.visuals.shieldColor)
+    ui.applied.shieldColor=nil
     return ui.sprite
 end
 
@@ -464,6 +498,10 @@ end
 function M.centre(ui,name)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local skull=name=='skull'
+    -- The skull hides the shield; apply leaves the centre alone meanwhile and
+    -- restyles the shield after it.
+    ui.skull=skull
+    ui.applied.shieldColor,ui.applied.shieldScale=nil,nil
     local scale=skull and ui.visuals.skull or 1
     widgets.shield:SetRenderScale({X=scale,Y=scale})
     return applySprite(widgets.shield,name,skull and SKULL_COLOR or ui.visuals.shieldColor)
@@ -497,7 +535,7 @@ function M.apply(ui,state)
             local keys=KEYS[index][image]
             -- The trail follows the arrow's path, each one a step behind and fainter.
             local offset=image==1 and arrow.offset or arrow.trail[image-1]
-            local distance=ui.size[index]*(from+(to-from)*offset)*visuals.move
+            local distance=ui.unit*(from+(to-from)*offset)*visuals.move
             set(ui,widget,keys.opacity,'SetRenderOpacity',opacity*(image==1 and 1 or GHOSTS[image-1]))
             setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)
             setPair(ui,widget,keys.translation,'SetRenderTranslation',base.X+out.X*distance,base.Y+out.Y*distance)
@@ -511,6 +549,26 @@ function M.apply(ui,state)
     if visuals.frame then
         for index,edge in ipairs(widgets.edges) do set(ui,edge,'edge'..index,'SetRenderOpacity',lit) end
     end
+    -- A critical attack turns the edges red, and the shield: In Combat and
+    -- Defending turn it red, Opportunity pops it in red and grows it; Off keeps
+    -- it clear. Defending shows it faintly while an attack is shown.
+    local shield=state.shield
+    local critical=shield.critical and visuals.watermark~=0
+    if #widgets.bands>0 and ui.applied.edgeColor~=shield.critical then
+        ui.applied.edgeColor=shield.critical
+        for _,band in ipairs(widgets.bands) do band:SetColorAndOpacity(shield.critical and EDGE_CRITICAL or EDGE_COLOR) end
+    end
+    if ui.sprite and not ui.skull then
+        local color=critical and SHIELD_CRITICAL
+            or (visuals.watermark==2 and lit>0 and SHIELD_SHOWN) or visuals.shieldColor
+        set(ui,widgets.shield,'shieldColor','SetColorAndOpacity',color)
+        local scale=critical and visuals.watermark==3 and shield.scale or 1
+        setPair(ui,widgets.shield,'shieldScale','SetRenderScale',scale,scale)
+    elseif ui.skull then
+        -- The skull grows from its set size to twice that.
+        local scale=visuals.skull*state.skull.scale
+        setPair(ui,widgets.shield,'shieldScale','SetRenderScale',scale,scale)
+    end
     -- The flash sits where its arrow appears, turned like it; off, or without
     -- arrows, it stays clear.
     local flash,index=state.flash,state.flash.index
@@ -522,7 +580,7 @@ function M.apply(ui,state)
             widgets.flash:SetRenderTransformAngle(ui.angle[index])
         end
         local base,out=ui.base[index],OUTWARD[index]
-        local distance=ui.size[index]*DISTANCE[index][1]*visuals.move
+        local distance=ui.unit*DISTANCE[index][1]*visuals.move
         local scale=flash.scale*visuals.scale
         setPair(ui,widgets.flash,'flashScale','SetRenderScale',scale,scale)
         setPair(ui,widgets.flash,'flashTranslation','SetRenderTranslation',
@@ -537,9 +595,9 @@ function M.describeArrow(ui,index)
     local image=widgets.images[index]
     local ok,text=pcall(function()
         local transform=image.RenderTransform
-        return string.format('opacity %s, scale %.2f, at %.1f,%.1f (image %.1f), cue opacity %s, %s',
+        return string.format('opacity %s, scale %.2f, at %.1f,%.1f (unit %.1f), cue opacity %s, %s',
             tostring(MC.call(image,'GetRenderOpacity')),transform.Scale.X,
-            transform.Translation.X,transform.Translation.Y,ui.size[index],
+            transform.Translation.X,transform.Translation.Y,ui.unit,
             tostring(MC.call(widgets.box,'GetRenderOpacity')),M.describe(image))
     end)
     return ok and text or 'unreadable: '..tostring(text)
@@ -563,7 +621,7 @@ function M.destroy(ui)
     if box then MC.call(box,'SetRenderOpacity',0) end
     if layer then MC.call(layer,'ClearChildren') end
     for key,handle in pairs(handles) do
-        if key=='images' or key=='ghosts' or key=='edges' then
+        if key=='images' or key=='ghosts' or key=='edges' or key=='bands' then
             for _,image in ipairs(handle) do MC.release(image) end
         else
             MC.release(handle)

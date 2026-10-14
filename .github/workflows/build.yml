@@ -29,6 +29,9 @@ jobs:
         run: |
           find Preymonition/Scripts Preymonition/tests -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
           for test in Preymonition/tests/*_test.lua; do lua5.4 "$test"; done
+      - name: Check the settings reference
+        # docs/SETTINGS.md and MOD_SETTINGS.txt come from ModCoreTemplates' generator.
+        run: lua5.4 ModCoreTemplates/tools/settings_reference.lua Preymonition --check
   package:
     runs-on: ubuntu-latest
     steps:

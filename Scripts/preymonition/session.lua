@@ -3,9 +3,11 @@ local Animation=require('preymonition.animation')
 local Cue=require('preymonition.cue')
 local Events=require('preymonition.events')
 local Sound=require('preymonition.sound')
+local MC=require('mc')
 
 -- The game reuses its indicator widgets and updates them from C++, which UE4SS
--- hooks never see; this UE4SS cannot hook blueprint functions either. The
+-- hooks never see; the indicator blueprint's own events register with
+-- HookProcessInternal but never fire. The
 -- indicator blueprint styles the attacked arrow and its centre icon through
 -- this native Image call, so the call names the attack's direction and state.
 -- It is hooked only during combat: MCT wakes the template when combat starts
@@ -32,17 +34,6 @@ for _,name in ipairs({'trace','debug','info','warn','error','critical'}) do log[
 
 function M.setLog(logger)
     log=logger
-end
-
--- The probe's view of an indicator at each cue event; nothing without the probe.
-local observer
-function M.setObserver(callback)
-    observer=callback
-end
-local function observe(indicator,event)
-    if not observer then return end
-    local ok,why=pcall(observer,indicator,event)
-    if not ok then log.warn('observer failed on ',event,': ',why) end
 end
 
 -- Next frame when the engine tick is hooked; ExecuteWithDelay's timer is coarser.
@@ -119,15 +110,17 @@ local function styleShield(record)
     elseif not sprite then log.debug('shield sprite still not found; shield stays clear') end
 end
 
--- Plays a cue's sound for an event, when one is chosen, at the attacker behind
--- the indicator, or at the player when the indicator names none; a failure is
+-- Plays a cue's sound for an event, when one is chosen, at the attacker: the
+-- one given, else the one behind the indicator, else the player. A failure is
 -- reported once per sound and never stops the cue.
 local failedSounds={}
-local function play(record,path,indicator)
+local function play(record,path,indicator,attacker)
     if not path then return end
     local ok,why=pcall(function()
-        local found,attacker=pcall(Cue.attacker,indicator)
-        attacker=found and attacker or nil
+        if not attacker then
+            local found,behind=pcall(Cue.attacker,indicator)
+            attacker=found and behind or nil
+        end
         log.debug('sound at ',attacker and Cue.path(attacker) or 'the player')
         return Sound.play(path,Cue.context(record.ui),attacker)
     end)
@@ -139,10 +132,9 @@ local function play(record,path,indicator)
 end
 
 -- The attack resolved: its arrow goes at once, the idle cue stays.
-local function release(record,why,indicator)
+local function release(record,why)
     log.debug(why,' ',record.direction and DIRECTIONS[record.direction] or 'none')
-    observe(indicator,why..' '..(record.direction and DIRECTIONS[record.direction] or 'none'))
-    record.source,record.direction,record.critical=nil,nil,nil
+    record.source,record.direction,record.critical,record.early=nil,nil,nil,nil
     if record.model:hide(false) then pump(record) end
 end
 
@@ -153,7 +145,6 @@ local function escalate(record,indicator,path,direction)
     Cue.critical(record.ui,direction)
     record.model:critical(direction)
     log.debug('critical ',DIRECTIONS[direction],' from ',path)
-    observe(indicator,'critical '..DIRECTIONS[direction])
     pump(record)
 end
 
@@ -170,11 +161,19 @@ local function present(indicator,path,direction,event)
         escalate(record,indicator,path,direction)
         return
     end
+    record.indicator=path
+    -- The game's early warning already showed this attack: the arrow takes it
+    -- over without showing or sounding again.
+    if record.early and record.direction==direction then
+        record.early=nil
+        record.source=path
+        log.debug('show ',DIRECTIONS[direction],' from ',path,' (shown early)')
+        return
+    end
     Cue.style(record.ui,indicator,direction)
-    record.source,record.direction,record.critical=path,direction,nil
+    record.source,record.direction,record.critical,record.early=path,direction,nil,nil
     if record.model:show(direction,event.path..':'..event.sequence) then
         log.debug('show ',DIRECTIONS[direction],' from ',path)
-        observe(indicator,'show '..DIRECTIONS[direction])
         play(record,record.sounds.arrow,indicator)
         pump(record)
     end
@@ -197,18 +196,19 @@ local function onCentre(image,sprite,sequence)
     local visible=Cue.visible(indicator)
     if visible or record.skullSource==path then
         local skull=visible and sprite:find('SkullRed',1,true)~=nil
-        if skull then record.skullSource=path end
+        if skull then record.skullSource,record.earlySkull=path,nil end
         if skull~=(record.skull==true) then
             record.skull=skull
             if not skull then record.skullSource=nil end
             local ok,why=pcall(Cue.centre,record.ui,skull and 'skull' or 'shield')
             if not ok or not why then log.warn('centre sprite unavailable: ',why) end
             if skull then play(record,record.sounds.skull,indicator) end
+            record.model:unblockable(skull)
+            pump(record)
             log.debug(skull and 'unblockable attack' or 'unblockable passed')
-            observe(indicator,skull and 'unblockable attack' or 'unblockable passed')
         end
     end
-    if sprite:find('Sword',1,true) and record.source==path then release(record,'attack resolved:',indicator) end
+    if sprite:find('Sword',1,true) and record.source==path then release(record,'attack resolved:') end
 end
 
 -- An indicator arrow was just restyled, in the same frame the game shows it:
@@ -225,7 +225,7 @@ local function onArrow(image,direction,sequence)
     if not Cue.visible(indicator) then
         log.trace('arrow #',sequence,': ',DIRECTIONS[direction],' on a hidden indicator')
         for _,record in ipairs(cues) do
-            if record.source==path then release(record,'indicator hidden:',indicator) end
+            if record.source==path then release(record,'indicator hidden:') end
         end
         return true
     end
@@ -237,7 +237,7 @@ local function onArrow(image,direction,sequence)
         present(indicator,path,direction,{path=path,sequence=sequence})
     else
         for _,record in ipairs(cues) do
-            if record.source==path and record.direction==direction then release(record,'arrow went dark:',indicator) end
+            if record.source==path and record.direction==direction then release(record,'arrow went dark:') end
         end
     end
     if started then
@@ -271,11 +271,12 @@ local function endCombat()
     for _,record in ipairs(cues) do
         if Cue.valid(record.ui) then
             log.debug('combat ended; ',record.preview and 'preview stays visible' or 'fading out')
-            record.source,record.direction,record.critical=nil,nil,nil
-            record.skullSource=nil
+            record.source,record.direction,record.critical,record.early=nil,nil,nil,nil
+            record.skullSource,record.earlySkull=nil,nil
             if record.skull then
                 record.skull=nil
                 pcall(Cue.centre,record.ui,'shield')
+                record.model:unblockable(false)
             end
             record.model:hide(not record.preview)
             pump(record)
@@ -283,9 +284,21 @@ local function endCombat()
     end
 end
 
+-- Each attack's animation lasts PER_MULTIPLIER seconds times the game's parry
+-- window multiplier, read when combat starts: 280 ms at 1.4, the second
+-- difficulty. FALLBACK stands in for the multiplier when it cannot be read.
+local PER_MULTIPLIER,FALLBACK=0.2,1.4
 local function startCombat()
     for _,record in ipairs(cues) do
         if Cue.valid(record.ui) then
+            local read,multiplier=pcall(Cue.parryWindow,Cue.context(record.ui))
+            if not (read and multiplier) then
+                log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
+                multiplier=FALLBACK
+            end
+            record.model:setDuration(PER_MULTIPLIER*multiplier)
+            log.debug('parry window ',multiplier,'; animations take ',
+                string.format('%.0f',PER_MULTIPLIER*multiplier*1000),' ms')
             styleShield(record)
             if record.model:engage() then
                 log.debug('combat started; cue fading in')
@@ -338,6 +351,89 @@ local function pause()
     active=false
     pending=false
     queue:clear()
+end
+
+-- The game's early warning: for some attacks, often the first of an exchange,
+-- the player's helper indicator is told about the attack 0.1-0.9 s before the
+-- indicator arrow lights, with its direction (EARLY_DIRECTIONS maps the game's
+-- 1-4 to our arrows), whether it is unblockable and its attacker. The cue shows
+-- it then; the arrow or skull takes it over when it lights, and an early show
+-- nothing takes over goes after EARLY_TIMEOUT_MS.
+local EARLY_HOOK='/Script/Dawnwalker.DawnwalkerPlayerCharacter:ShowHelperAttackIndicator'
+local EARLY_DIRECTIONS={[1]=4,[2]=3,[3]=1,[4]=2}
+local EARLY_TIMEOUT_MS=1200
+local earlyHook=nil
+local earlies=0
+
+local function expire(record,token)
+    if record.earlyToken~=token or record.detached or not Cue.valid(record.ui) then return end
+    if record.early then
+        record.early=nil
+        release(record,'early show expired:')
+    end
+    if record.earlySkull then
+        record.earlySkull,record.skull=nil,nil
+        pcall(Cue.centre,record.ui,'shield')
+        record.model:unblockable(false)
+        pump(record)
+        log.debug('early unblockable expired')
+    end
+end
+
+local function earlyWarning(data)
+    local attack=data:get()
+    local direction=EARLY_DIRECTIONS[tonumber(attack.Direction)]
+    local unblockable=attack.bIsUnblockable==true
+    local attacker
+    local component=attack.Instigator
+    if component and component:IsValid() then attacker=MC.call(component,'GetOwner') end
+    if not (attacker and MC.valid(attacker)) then attacker=nil end
+    earlies=earlies+1
+    for _,record in ipairs(cues) do
+        if not record.detached and Cue.valid(record.ui) then
+            local shown=false
+            if unblockable then
+                if not record.skull then
+                    record.skull,record.earlySkull=true,true
+                    local ok,why=pcall(Cue.centre,record.ui,'skull')
+                    if not ok or not why then log.warn('centre sprite unavailable: ',why) end
+                    play(record,record.sounds.skull,nil,attacker)
+                    record.model:unblockable(true)
+                    shown=true
+                end
+            elseif direction and not record.source and not record.early then
+                -- The arrow's artwork and rest come from the last indicator seen.
+                local indicator=record.indicator and Cue.resolve(record.indicator)
+                if indicator then
+                    Cue.style(record.ui,indicator,direction)
+                    record.direction,record.critical,record.early=direction,nil,true
+                    record.model:show(direction,'early:'..earlies)
+                    play(record,record.sounds.arrow,nil,attacker)
+                    shown=true
+                end
+            end
+            if shown then
+                log.debug('early ',unblockable and 'unblockable' or DIRECTIONS[direction],' by ',
+                    attacker and Cue.path(attacker) or 'unknown')
+                pump(record)
+                record.earlyToken=(record.earlyToken or 0)+1
+                local token=record.earlyToken
+                local ok,why=pcall(later,EARLY_TIMEOUT_MS,function()
+                    local done,failure=Cue.pass(expire,record,token)
+                    if not done then fail('early expiry',failure) end
+                end)
+                if not ok then fail('early schedule',why) end
+            else
+                log.debug('early warning ',unblockable and 'unblockable' or tostring(attack.Direction),' not shown')
+            end
+        end
+    end
+end
+
+local function onEarlyWarning(_,data)
+    if not active or not next(cues) then return end
+    local ok,why=Cue.pass(earlyWarning,data)
+    if not ok then fail('early warning',why) end
 end
 
 local hook=nil
@@ -399,6 +495,13 @@ function M.wake()
     hook={pre,post}
     active=true
     styled,handled=0,0
+    -- The early warning is a bonus: without it the cue still follows the arrows.
+    local early,earlyPre,earlyPost=pcall(RegisterHook,EARLY_HOOK,onEarlyWarning)
+    if early and type(earlyPre)=='number' then
+        earlyHook={earlyPre,earlyPost}
+    else
+        log.warn('early warning unavailable: ',early and 'no hook id' or earlyPre)
+    end
     log.debug('arrow hook registered (ids ',pre,', ',post,'); animation steps ',frames() and 'every frame' or 'by ExecuteWithDelay')
     local ok,why=Cue.pass(startCombat)
     if not ok then error(why,0) end
@@ -413,6 +516,11 @@ function M.sleep()
         reportFailures()
         local ok,why=Cue.pass(endCombat)
         if not ok then error(why,0) end
+    end
+    if earlyHook then
+        local removed,why=pcall(UnregisterHook,EARLY_HOOK,earlyHook[1],earlyHook[2])
+        if not removed then log.warn('early warning hook removal failed: ',why) end
+        earlyHook=nil
     end
     if not hook then return end
     local removed,why=pcall(UnregisterHook,ARROW_HOOK,hook[1],hook[2])
@@ -448,10 +556,12 @@ function M.attach(hud,layer,params,onCleanup,preview)
     record.model=Animation.new({
         now=function() return Cue.now(ui) end,
         apply=function(state) Cue.apply(ui,state) end,
+        -- Only the Opportunity shield grows when it pops in.
+        grow=ui.visuals.watermark==3,
     })
     record.model:step()
     cues[#cues+1]=record
-    log.info('cue attached, size ',(params.settings or {}).BackgroundSize or 20,'%, screen ',
+    log.info('cue attached, size ',(params.settings or {}).ShieldSize or 20,'%, screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale,
         record.preview and ', preview' or '','; shield ',ui.sprite or 'not found yet',
         '; flash ',ui.flash or 'texture not found')

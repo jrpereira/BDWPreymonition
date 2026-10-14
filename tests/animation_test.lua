@@ -12,18 +12,18 @@ local function arrow(index) return model.arrows[index] end
 assert(model.opacity == 0 and arrow(1).scale == 1.5 and arrow(1).offset == 0)
 
 -- A detected arrow shows at once at full opacity and 1.5 times its size, then grows to
--- twice its size while travelling outward over 0.2s.
+-- 2.5 times, the critical size, while travelling outward over 0.2s.
 assert(model:show(1, 'attack-1'))
 near(arrow(1).opacity, 1); near(arrow(1).scale, 1.5); near(arrow(1).offset, 0)
 -- A flash shows where it appears, fading out while growing over the same travel.
 assert(model.flash.index == 1); near(model.flash.opacity, 1); near(model.flash.scale, 1)
 time = 0.1; model:step()
-near(model.opacity, 0.5); near(arrow(1).scale, 1.75); near(arrow(1).offset, 0.5)
+near(model.opacity, 0.5); near(arrow(1).scale, 2); near(arrow(1).offset, 0.5)
 near(model.flash.opacity, 0.5); near(model.flash.scale, 1.25)
 -- The two trailing arrows follow the same travel 0.04s and 0.08s behind.
 near(arrow(1).trail[1], 0.3); near(arrow(1).trail[2], 0.1)
 time = 0.25; model:step()
-near(arrow(1).opacity, 1); near(arrow(1).scale, 2); near(arrow(1).offset, 1)
+near(arrow(1).opacity, 1); near(arrow(1).scale, 2.5); near(arrow(1).offset, 1)
 near(model.flash.opacity, 0); near(model.flash.scale, 1.5)
 near(arrow(1).trail[1], 1); near(arrow(1).trail[2], 0.85)
 time = 0.3; model:step(); near(arrow(1).trail[2], 1)
@@ -69,6 +69,30 @@ time = 2.55; model:step(); near(model.opacity, 0.5); near(arrow(3).opacity, 0)
 assert(not model:engage(), 'an idle cue needs no second fade-in')
 assert(model:show(4, 'attack-4'), 'a later valid attack may show after combat end')
 time = 2.8; model:step()
-near(arrow(4).opacity, 1); near(arrow(4).scale, 2); near(arrow(4).offset, 1)
+near(arrow(4).opacity, 1); near(arrow(4).scale, 2.5); near(arrow(4).offset, 1)
 assert(applications > 0)
-print('PASS: arrow travel and flash, critical hold, resolve, combat end and start')
+-- A critical attack marks the shield critical; with growth, it grows from 1 to 2
+-- over 0.2s. A new attack or a resolve calms it at once.
+assert(not model.shield.critical and model.shield.scale == 1)
+time = 3; assert(model:show(1, 'attack-5')); assert(model:critical(1))
+assert(model.shield.critical and model.shield.scale == 1, 'without growth the shield only turns critical')
+assert(model:hide(false)); assert(not model.shield.critical)
+local grown = Animation.new({ now = function() return time end, apply = function() end, grow = true })
+grown:show(1, 'a'); grown:critical(1)
+time = 3.1; grown:step(); near(grown.shield.scale, 1.5)
+time = 3.3; grown:step(); near(grown.shield.scale, 2)
+grown:critical(1); near(grown.shield.scale, 2)
+grown:show(2, 'b'); assert(not grown.shield.critical and grown.shield.scale == 1, 'a new attack calms the shield')
+-- The unblockable skull grows to twice its size over 0.2s; passing resets it.
+time = 4; grown:unblockable(true); near(grown.skull.scale, 1)
+time = 4.1; grown:step(); near(grown.skull.scale, 1.5)
+time = 4.3; grown:step(); near(grown.skull.scale, 2)
+grown:unblockable(false); near(grown.skull.scale, 1)
+assert(not grown.tracks.skullScale, 'a passed skull needs no frames')
+-- The cue sets the duration: the next attack travels over it.
+local timed = Animation.new({ now = function() return time end, apply = function() end })
+timed:setDuration(0.126)
+time = 5; timed:show(1, 'c')
+time = 5.063; timed:step(); near(timed.arrows[1].offset, 0.5)
+time = 5.126; timed:step(); near(timed.arrows[1].offset, 1)
+print('PASS: arrow travel and flash, critical hold, resolve, combat end and start, critical shield, growing skull, set duration')
