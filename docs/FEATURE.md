@@ -31,28 +31,27 @@ clears its own content.
 
 ## Signals
 
-MCT owns the game hooks. It watches the combat target indicator through the
-native `Image:SetBrushFromAtlasInterface`, which the indicator blueprint uses to
-style its arrows and centre icon, and delivers each change as
-`MC_NPCAttackIndicator`, the template's `update` event, inside the game's call:
+MCT owns the game hooks. It watches the combat target indicator's own state
+change, `WBP_CombatTargetIndicator_C:OnObservedStubIconTypeChanged`, through
+UE4SSLuaEventBridge's hooks, and delivers each change as `MC_NPCAttackIndicator`,
+the template's `update` event, on the next engine tick, about a frame after the
+game's change:
 
-- **arrow**: a lit arrow on a visible indicator; our arrow shows.
-- **critical**: the same arrow styled again: the attack turned critical. Nothing
-  the hook reads tells this styling from the first: in play (2026-10-11) the
-  native colour stayed 1.00 0.67 0.19 with the same brush and white tint.
-- **resolve**: the centre icon turned to the sword, the shown arrow went dark, or
-  its indicator was hidden; the shown arrow goes.
-- **unblockable**: the centre icon turned to SkullRed, or back. The cue shows a
-  skull in place of the shield; it grows from its set size to twice that over
-  the animation time, then holds until the skull goes.
+- **arrow**: an attack shows on a visible indicator (icon types 1–4); our arrow
+  shows.
+- **critical**: that attack's parry window opened (5–8); MCT sends the arrow
+  first if it was not seen.
+- **resolve**: the indicator went back to the sword (0) or to a weak spot
+  (10–13), or was hidden; the shown arrow goes.
+- **unblockable**: the indicator showed the unblockable skull (9), or it went.
+  The cue shows a skull in place of the shield; it grows from its set size to
+  twice that over the animation time, then holds until the skull goes.
 
-Each event is handled during the game's call, so the cue changes in the same
-frame as the game's. An arrow lit one frame after its styling reaches the cue as
-a late arrow; one lit later still shows only with the indicator's next styling.
-The game also updates hidden twin indicators: MCT counts only an indicator that
-is itself visible, and a hidden twin never takes away the skull. A critical
-arrow from an indicator other than the one the cue shows is shown as that
-indicator's attack.
+A frame's delay is small next to the parry window, which MCT measured opening
+0.19–0.41 s after the arrow shows. The game also updates hidden twin
+indicators: MCT counts only an indicator that is itself visible, and a hidden
+twin never takes away the skull. A critical arrow from an indicator other than
+the one the cue shows is shown as that indicator's attack.
 
 MCT marks combat from `PlayerCombatComponent:OnCombatStarted` and
 `OnCombatEnded`, and also ends it when a loading screen fades in
@@ -60,18 +59,6 @@ MCT marks combat from `PlayerCombatComponent:OnCombatStarted` and
 combat end. It delivers combat as the template's `wake` and `sleep` events and
 hooks the indicator only while a template that takes `MC_NPCAttackIndicator` is
 awake, so outside combat nothing shows and the hook costs nothing.
-
-## Early warning
-
-For some attacks, often the first of an exchange, the game tells the player's
-helper indicator about the attack 0.1–0.9 s before the indicator arrow lights
-(`DawnwalkerPlayerCharacter:ShowHelperAttackIndicator`). MCT delivers it as an
-`early` event with the direction, whether it is unblockable, and the attacker.
-The cue shows the arrow, or the skull, at once and plays its sound at the
-attacker. When the indicator lights the same arrow or shows the skull, that
-detection takes over without showing or sounding again. An early show nothing
-takes over goes after 1.2 s; an early skull also goes when MCT reports the
-skull gone.
 
 ## Animation
 
@@ -92,8 +79,8 @@ Combat or Defending shield turns red, and an Opportunity shield pops in red and 
 time. A resolved arrow goes at once and the shield calms. Combat start fades the
 idle cue in to half opacity; combat end fades it out over a second.
 
-Sounds play through Wwise at the attacker: the one the early warning names,
-else the owner of the indicator's latest queued attack, else the player.
+Sounds play through Wwise at the attacker: the owner of the indicator's latest
+queued attack, else the player.
 
 Animation uses real elapsed time and absolute phase deadlines, steps once per
 frame when the engine tick is hooked, and stops once nothing moves. Each event
@@ -111,9 +98,7 @@ deepening inward to 8% of the shorter screen side. Its requests
 while an attack is shown; Directional lights only the attacked side's. An
 attack's edges light at once on its arrow request, turn red when it goes
 critical, and go out when it resolves; a resolve for another arrow or indicator
-changes nothing. An early warning lights them too, the attack takes them over,
-and one nothing takes over goes after 1.2 s. Unblockable requests are the center
-cue's. Combat end puts every edge out. Edges have no animation and no sound.
+changes nothing. Unblockable requests are the center cue's. Combat end puts every edge out. Edges have no animation and no sound.
 
 ## Validation
 

@@ -1,15 +1,4 @@
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
--- The acceptance aid's DETECT calls, by kind; taken() returns them and starts over.
-local detects={}
-package.loaded['preymonition.acceptance']={
-    detect=function(kind,path) if path then detects[#detects+1]=kind end end,
-    report=function() end,start=function() end,enabled=function() return true end,
-}
-local function taken()
-    local list=table.concat(detects,' ')
-    detects={}
-    return list
-end
 -- Weak handles return their object only while it is live, like the bridge's,
 -- and as UE4SS does, a fresh wrapper on every get: never the same table twice.
 local released=0
@@ -78,8 +67,6 @@ local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 local objects={}
 -- The game's centre icon sprites.
 local FRAMES='/Game/_Dawnwalker/UI/_Unified/Combat/Atlas/Frames/'
-local SWORD=object('T_Combat_Icon_Sword')
-local RED_SHIELD=object('T_Combat_Icon_Shield')
 local SKULL=object('T_Combat_Icon_SkullRed')
 objects[FRAMES..'T_Combat_Icon_SkullRed.T_Combat_Icon_SkullRed']=SKULL
 -- The game's attack flash texture.
@@ -170,26 +157,19 @@ end
 local scans=0
 FindAllOf=function() scans=scans+1; return {} end
 
-local hooks,removed={},0
--- This UE4SS cannot hook blueprint functions; only native ones are tried.
-local blueprintHooks=0
--- A hooked call runs the before callback, the game's own work, then the after one.
-local after={}
-RegisterHook=function(path,callback,post)
-    if path:match('^/Game/') then blueprintHooks=blueprintHooks+1; error('ProcessInternal: 0x0') end
-    after[path]=post
-    hooks[path]=function(...)
-        callback(...)
-        if post then post(...) end
-    end
-    return 1,2
-end
-UnregisterHook=function(path,pre,post)
-    assert(hooks[path] and pre==1 and post==2)
-    hooks[path]=nil
-    removed=removed+1
-    return true
-end
+-- UE4SS's own hooks are not used: MCT hooks the indicator through the event
+-- bridge, which hands each icon change to its pre callback.
+local hooks={}
+RegisterHook=function(path) hooks[path]=true; error('UE4SS hooks are not used') end
+local bridgeHooks,removed={},0
+UE4SSLuaEventBridge={
+    GetCapabilities=function() return {hooks=true,hooks_bp=true} end,
+    Hooks={Hook=function(path,options)
+        assert(options.object_paths and options.params[1]=='IconType')
+        bridgeHooks[path]=options.pre
+        return {Unhook=function() bridgeHooks[path]=nil; removed=removed+1 end}
+    end},
+}
 local delayed={}
 ExecuteWithDelay=function(milliseconds,callback) delayed[#delayed+1]=callback end
 ExecuteInGameThread=function(callback) callback() end
@@ -206,23 +186,14 @@ local function settle(seconds)
     end
     error('deferred work did not settle')
 end
-local ARROW='/Script/UMG.Image:SetBrushFromAtlasInterface'
-local SHOW={}
--- SHOW styles the indicator's lit arrow, as the game blueprint does for an attack.
-local function fire(path,target)
-    if path==SHOW then
-        local lit,best=nil,0
-        for _,key in ipairs(ARROWS) do
-            local strength=target[key].ColorAndOpacity.R
-            if strength>best then lit,best=target[key],strength end
-        end
-        path,target=ARROW,lit
-    end
-    hooks[path]({get=function() return target end})
+-- The indicator's icon types: the game's 1-4 attack from the left, right, top
+-- and bottom, 5-8 the same in the parry window, 9 the unblockable skull and 0
+-- the sword. The bridge delivers each change on the next tick; here at once.
+local ICON=require('mc.attack_indicator').ICON
+local LEFT,RIGHT,TOP,BOTTOM,PARRY,SKULL_ICON,SWORD_ICON=1,2,3,4,4,9,0
+local function icon(target,value)
+    bridgeHooks[ICON]({object={path=target.name},params={IconType={value=value}}})
 end
-local function param(value) return {get=function() return value end} end
--- The centre icon is about to change; the hook only sees the sprite argument.
-local function centre(target,icon) hooks[ARROW]({get=function() return target.Reticle end},param(icon)) end
 
 hudTree=object('WidgetTree')
 local hud=object('HUD',{WidgetTree=hudTree})
@@ -231,7 +202,7 @@ local template=dofile('Preymonition/Scripts/mc_center.lua')
 assert(next(hooks)==nil,'nothing is hooked outside combat')
 -- MCT owns combat: it reaches the template as its wake and sleep events, and
 -- MCT's attack indicator source, started once the template is awake, delivers
--- MC_NPCAttackIndicator as its update event from inside the game's call.
+-- MC_NPCAttackIndicator as its update event.
 -- Its log goes to sourceLog once a check sets it.
 local sourceLog
 local source=require('mc.attack_indicator').new(_G,function(event)
@@ -247,14 +218,18 @@ local function endCombat()
     template.events.sleep({},{name='sleep',signal='MC_CombatEnd'})
     source:stop()
 end
+local function hookCount()
+    local count=0
+    for _ in pairs(bridgeHooks) do count=count+1 end
+    return count
+end
+assert(hookCount()==0,'nothing is hooked outside combat')
 startCombat()
-assert(hooks[ARROW],'combat hooks the arrow styling')
-assert(blueprintHooks==0,'no blueprint function is hooked')
-local hookCount=0
-for _ in pairs(hooks) do hookCount=hookCount+1 end
-assert(hookCount==2,'the styling call and the early warning; nothing is hooked just to trace')
+assert(bridgeHooks[ICON] and hookCount()==1 and next(hooks)==nil,
+    'combat hooks the indicator icon change through the bridge, and nothing else')
 
-fire(SHOW,indicator)
+icon(indicator,LEFT)
+icon(indicator,SWORD_ICON)
 assert(#delayed==0,'events are ignored until a cue is attached')
 
 local cleanups={}
@@ -296,11 +271,10 @@ local function cost(callback)
     return calls.methods-methods,calls.setters-setters,calls.finds-finds
 end
 local budget={}
--- The arrow is handled during the game's styling call: shown in that same
--- frame, before any deferred work runs.
-budget.onset={cost(function() fire(SHOW,indicator) end)}
+-- The arrow is handled as its event arrives, before any deferred work runs.
+budget.onset={cost(function() icon(indicator,LEFT) end)}
 local left=arrowOf(box,3)
-assert(left.RenderOpacity==1,'the arrow shows during the game call itself')
+assert(left.RenderOpacity==1,'the arrow shows as its event arrives')
 local flash=flashOf(box)
 -- Movement is measured in units of 5% of the shorter screen side: 54 at 1080.
 assert(flash.RenderOpacity==1 and flash.RenderScale.X==1 and math.abs(flash.RenderTranslation.X+54)<1e-6,
@@ -320,18 +294,19 @@ assert(math.abs(left.RenderTranslation.X+162)<1e-6 and math.abs(left.RenderTrans
     'the left arrow travels out to three units from its rest')
 assert(arrowOf(box,1).RenderOpacity==0,'other arrows stay hidden')
 
--- The centre icon turning to the sword resolves the attack.
-budget.resolve={cost(function() centre(indicator,SWORD) end)}
--- Native work per event stays within budget: methods, of which setters, and
--- object lookups. The frame counts no clock lookup: the clock is kept.
+-- The indicator turning to the sword resolves the attack.
+budget.resolve={cost(function() icon(indicator,SWORD_ICON) end)}
+-- Native work per event, MCT's source included, stays within budget: methods,
+-- of which setters, and object lookups. The frame counts no clock lookup: the
+-- clock is kept.
 local function within(name,methods,setters,finds)
     local spent=budget[name]
     assert(spent[1]<=methods and spent[2]<=setters and spent[3]<=finds,
         name..' costs '..table.concat(spent,'/')..', over '..methods..'/'..setters..'/'..finds)
 end
-within('onset',60,14,0)
+within('onset',60,14,1)
 within('frame',22,6,0)
-within('resolve',42,6,0)
+within('resolve',42,6,1)
 run()
 assert(math.abs(box.RenderOpacity-0.5)<1e-6,'a resolved attack keeps the idle cue')
 assert(left.RenderOpacity==0 and left.RenderScale.X==1.5,'a resolved attack puts the arrow out at once')
@@ -340,25 +315,25 @@ endCombat()
 run()
 settle(0.05)
 assert(box.RenderOpacity==0 and left.RenderOpacity==0,'combat end fades and resets the cue')
-assert(hooks[ARROW]==nil and #delayed==0,'combat end unhooks the arrow styling')
+assert(bridgeHooks[ICON]==nil and #delayed==0,'combat end unhooks the indicator')
 
 -- After combat end, only a combat start lets attacks through again.
 startCombat()
 run()
 settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6 and left.RenderOpacity==0,'combat start shows the idle cue')
-fire(SHOW,indicator)
+icon(indicator,LEFT)
 run()
 settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6 and left.RenderOpacity==1,'combat start re-enables the cue')
-local hooked=hooks[ARROW]
+local hooked=bridgeHooks[ICON]
 startCombat()
 run()
-assert(#delayed==0 and hooks[ARROW]==hooked,'a second combat start changes nothing')
+assert(#delayed==0 and bridgeHooks[ICON]==hooked,'a second combat start changes nothing')
 -- Combat ending or starting mid-animation never strands the animation.
-centre(indicator,SWORD)
+icon(indicator,SWORD_ICON)
 settle(0.05)
-fire(SHOW,indicator)
+icon(indicator,LEFT)
 assert(#delayed>0,'an arrow animation is under way')
 endCombat()
 settle(0.05)
@@ -384,108 +359,76 @@ cleanups={}
 attach(0)
 assert(#delayed==0 and layer.children[1].RenderOpacity==0,'a reattached cue waits for the next arrow')
 
--- Only indicator arrows count: other atlas images and arrows elsewhere are ignored.
+-- An indicator in view shows its attack; a hidden one's changes are not attacks.
 local other=newIndicator('WBP_CombatTargetIndicator_C_2','BottomArrow')
-fire(ARROW,object('Portrait',{}))
-run()
-local stray=object('Menu.TopArrow',{fname='TopArrow',outer=object('Menu.WidgetTree',{outer=object('Menu')})})
-objects[stray.name]=stray
-fire(ARROW,stray)
-run()
-settle(0.05)
 local bottom=arrowOf(layer.children[1],2)
-assert(bottom.RenderOpacity==0,'only indicator arrows move the cue')
-fire(SHOW,other)
+icon(other,BOTTOM)
 assert(math.abs(bottom.RenderTranslation.Y-(5+27))<1e-6,'the bottom arrow shows up half a unit out')
 run()
 settle(0.05)
-assert(math.abs(bottom.RenderOpacity-1)<1e-6,'a styled indicator arrow shows its direction')
+assert(math.abs(bottom.RenderOpacity-1)<1e-6,'an indicator attack shows its direction')
 assert(math.abs(bottom.RenderTranslation.Y-(5+81))<1e-6,'and travels half as far, to a unit and a half')
 local hidden=newIndicator('WBP_CombatTargetIndicator_C_3','RightArrow')
-hidden.RightArrow.visible=false
-fire(SHOW,hidden)
+hidden.visible=false
+icon(hidden,RIGHT)
 run()
 settle(0.05)
 assert(arrowOf(layer.children[1],4).RenderOpacity==0
-    and math.abs(bottom.RenderOpacity-1)<1e-6,'an arrow styled while hidden is not an attack')
+    and math.abs(bottom.RenderOpacity-1)<1e-6,'an attack on a hidden indicator is not shown')
 
-
--- The game styles an attack's arrow twice; the second time it turned red:
--- at once 2.5 times its size in the game's red with the new brush, where it
--- travelled, held until resolved.
-centre(other,RED_SHIELD)
-run()
-assert(math.abs(bottom.RenderOpacity-1)<1e-6,'the red centre icon at an attack changes nothing yet')
-taken()
-local critical={ImageSize={X=40,Y=30}}
-other.BottomArrow.Brush=critical
-fire(ARROW,other.BottomArrow)
+-- The parry window opens: the arrow turns red at once, 2.5 times its size,
+-- where it travelled, held until resolved.
+icon(other,BOTTOM+PARRY)
 run()
 assert(bottom.Brush==ARROW_BRUSH and bottom.ColorAndOpacity.R==1 and bottom.ColorAndOpacity.G==0.2,
     'a critical arrow turns red at once, keeping the designed artwork')
 assert(math.abs(bottom.RenderScale.X-2.5)<1e-6 and math.abs(bottom.RenderOpacity-1)<1e-6
     and math.abs(bottom.RenderTranslation.Y-(5+81))<1e-6,'a critical arrow jumps to 2.5 times where it travelled')
 assert(#delayed==0,'a critical arrow needs no frames: it does not pulse')
--- A later styling of the same attack changes nothing.
-other.BottomArrow.Brush=ARROW_BRUSH
-fire(ARROW,other.BottomArrow)
+-- The same attack out of its window again changes nothing.
+icon(other,BOTTOM)
 run()
-assert(bottom.ColorAndOpacity.G==0.2,'a later styling leaves the critical arrow')
--- The centre icon turning to the sword means no attack is pending: resolved.
-centre(other,SWORD)
+assert(bottom.ColorAndOpacity.G==0.2,'the critical arrow holds')
+-- The sword means no attack is pending: resolved.
+icon(other,SWORD_ICON)
 run()
 assert(bottom.RenderOpacity==0 and bottom.RenderScale.X==1.5 and math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,
     'a resolved attack puts its arrow out at once and keeps the idle cue')
-assert(taken()=='critical resolve','the acceptance aid sees the critical and the resolve, once each')
 settle(0.05)
--- Turning a showing arrow dark also resolves it.
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
+icon(other,BOTTOM)
 run()
 settle(0.05)
-assert(math.abs(bottom.RenderOpacity-1)<1e-6,'lit again, it is a new attack')
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
-fire(ARROW,other.BottomArrow)
+assert(math.abs(bottom.RenderOpacity-1)<1e-6,'a new attack shows again')
+-- A weak spot is no attack either.
+icon(other,11)
 run()
-assert(bottom.RenderOpacity==0,'a dark arrow puts it out at once')
-assert(taken()=='arrow','a new attack is detected as an arrow; a dark arrow is no game icon change')
+assert(bottom.RenderOpacity==0,'a weak spot resolves the attack')
 settle(0.05)
 
 -- One frame can resolve an attack and start the next: handled in the game's
 -- order, the new arrow survives the sword that resolved the old one.
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
-centre(other,RED_SHIELD)
-centre(other,SWORD)
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
-other.LeftArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.LeftArrow)
-centre(other,RED_SHIELD)
+icon(other,BOTTOM)
+icon(other,BOTTOM+PARRY)
+icon(other,SWORD_ICON)
+icon(other,LEFT)
 local otherLeft=arrowOf(layer.children[1],3)
 assert(otherLeft.RenderOpacity==1 and bottom.RenderOpacity==0,'the next attack shows in the same frame')
 settle(0.05)
 assert(otherLeft.RenderOpacity==1,'and is still shown afterwards')
-centre(other,SWORD)
-other.LeftArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+icon(other,SWORD_ICON)
 settle(0.05)
 
--- An arrow coloured only after its brush is still dark during the call; it is
--- checked again next frame and shown then.
-fire(ARROW,other.BottomArrow)
-assert(bottom.RenderOpacity==0 and #delayed==1,'an arrow not lit yet is checked next frame')
-other.BottomArrow.ColorAndOpacity=color(0.9)
-run()
-assert(bottom.RenderOpacity==1,'lit by then, it shows')
-settle(0.05)
-centre(other,SWORD)
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+-- A parry window whose arrow was never seen shows the arrow red at once.
+icon(other,TOP+PARRY)
+local otherTop=arrowOf(layer.children[1],1)
+assert(otherTop.RenderOpacity==1 and otherTop.ColorAndOpacity.G==0.2,'arrow and window together show it critical')
+icon(other,SWORD_ICON)
 settle(0.05)
 
 -- An unblockable attack: the centre turns to a skull in place, growing from its
 -- size to twice that over 0.2s, then holding.
 local cueShield=shieldOf(layer.children[1])
-taken()
-centre(other,SKULL)
+icon(other,SKULL_ICON)
 assert(cueShield.BrushFromAtlasInterface==SKULL and math.abs(cueShield.RenderScale.X-1)<1e-6,
     'an unblockable attack shows the skull at its size')
 clock=clock+0.1
@@ -493,13 +436,12 @@ run()
 assert(math.abs(cueShield.RenderScale.X-1.5)<1e-6 and cueShield.RenderTranslation==nil,'it grows in place')
 settle(0.05)
 assert(math.abs(cueShield.RenderScale.X-2)<1e-6 and #delayed==0,'to twice its size, then holds')
-centre(other,SWORD)
+icon(other,SWORD_ICON)
 run()
 assert(math.abs(cueShield.RenderScale.X-1)<1e-6,'the shield returns at its size')
 assert(cueShield.BrushFromAtlasInterface==sprite,'the shield returns once it passes')
-assert(taken()=='skull resolve','the acceptance aid sees the skull and its sword')
 settle(0.05)
-centre(other,SKULL)
+icon(other,SKULL_ICON)
 run()
 endCombat()
 run()
@@ -510,36 +452,39 @@ run()
 settle(0.05)
 
 -- The game gives a hidden indicator the same updates; only the visible one counts.
-taken()
 local twin=newIndicator('WBP_CombatTargetIndicator_C_4','BottomArrow')
 twin.visible=false
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
-fire(ARROW,twin.BottomArrow)
-centre(twin,SKULL)
+icon(other,BOTTOM)
+icon(twin,BOTTOM)
+icon(twin,SKULL_ICON)
 assert(cueShield.BrushFromAtlasInterface==sprite,'a hidden indicator shows no skull')
-fire(ARROW,other.BottomArrow)
-fire(ARROW,twin.BottomArrow)
+icon(other,BOTTOM+PARRY)
+icon(twin,BOTTOM+PARRY)
 assert(bottom.ColorAndOpacity.G==0.2 and math.abs(bottom.RenderScale.X-2.5)<1e-6,
     'the visible indicator still turns critical')
-centre(twin,SWORD)
+icon(twin,SWORD_ICON)
 assert(bottom.RenderOpacity==1,'a hidden indicator resolves nothing it did not show')
-assert(taken()=='arrow critical','the acceptance aid reports the visible indicator only')
 -- Its own indicator hidden, as when an attack is parried, the arrow goes.
 other.visible=false
-fire(ARROW,other.BottomArrow)
-assert(bottom.RenderOpacity==0,'an arrow styled on its hidden source indicator puts it out')
+icon(other,BOTTOM)
+assert(bottom.RenderOpacity==0,'a change on its hidden source indicator puts it out')
 other.visible=true
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+icon(other,SWORD_ICON)
 settle(0.05)
 -- Nor does a hidden twin take away the skull its visible indicator shows.
-centre(other,SKULL)
+icon(other,SKULL_ICON)
 assert(cueShield.BrushFromAtlasInterface==SKULL)
-centre(twin,SWORD)
-centre(twin,RED_SHIELD)
+icon(twin,SWORD_ICON)
+icon(twin,BOTTOM+PARRY)
 assert(cueShield.BrushFromAtlasInterface==SKULL,'a hidden twin leaves the skull')
-centre(other,SWORD)
+icon(other,SWORD_ICON)
 assert(cueShield.BrushFromAtlasInterface==sprite,'its own indicator takes it away')
+-- A skull followed straight by an arrow gives way to it.
+icon(other,SKULL_ICON)
+icon(other,BOTTOM)
+assert(cueShield.BrushFromAtlasInterface==sprite and bottom.RenderOpacity==1,'an arrow after the skull returns the shield')
+icon(other,SWORD_ICON)
+settle(0.05)
 
 -- From here on deferred work runs per frame, as when the engine tick is hooked.
 local delays=0
@@ -553,7 +498,7 @@ ExecuteWithDelay=function(...) delays=delays+1; return executeWithDelay(...) end
 
 -- A collected HUD stops pending animation without touching the cue.
 local cue=layer.children[1]
-fire(SHOW,indicator)
+icon(indicator,LEFT)
 run()
 hud.invalid=true
 local before=cue.RenderOpacity
@@ -582,8 +527,7 @@ function combat:GetOwner() return enemy end
 local attacks={{Instigator=object('Gone',{invalid=true})},{Instigator=combat},{Instigator=nil}}
 function attacks:GetArrayNum() return 3 end
 other.AttackQueue=attacks
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
+icon(other,BOTTOM)
 local tunedBottom=arrowOf(tuned,2)
 assert(math.abs(tunedBottom.RenderScale.X-3)<1e-6 and math.abs(tunedBottom.RenderTranslation.Y-(5+13.5))<1e-6,
     'arrow size and movement scale the arrow where it appears')
@@ -595,13 +539,13 @@ settle(0.05)
 assert(math.abs(tunedBottom.RenderScale.X-5)<1e-6 and math.abs(tunedBottom.RenderTranslation.Y-(5+40.5))<1e-6,
     'and where it ends')
 assert(flashOf(tuned).RenderOpacity==0,'with the glow off nothing flashes')
-centre(other,SKULL)
+icon(other,SKULL_ICON)
 assert(shieldOf(tuned).RenderScale.X==1.5 and #posted==2 and posted[2].event==BOOM_SOUND
     and posted[2].location.Z==3,'the unblockable skull takes its size and plays its sound')
-centre(other,SWORD)
+icon(other,SWORD_ICON)
 assert(shieldOf(tuned).RenderScale.X==1 and shieldOf(tuned).ColorAndOpacity.A==0.2,
     'the shield returns at its size and setting')
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+icon(other,SWORD_ICON)
 settle(0.05)
 
 -- With the overlay style off, an attack still plays its sound but shows no arrow or flash.
@@ -614,13 +558,12 @@ startCombat()
 run()
 settle(0.05)
 local before=#posted
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
+icon(other,BOTTOM)
 settle(0.05)
 assert(arrowOf(hiddenArrows,2).RenderOpacity==0 and flashOf(hiddenArrows).RenderOpacity==0,
     'the overlay style off shows no arrow or flash')
 assert(#posted==before+1,'and the parry sound still plays')
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
+icon(other,SWORD_ICON)
 settle(0.05)
 
 -- The Glow style moves the game's flash in place of the arrow; the Fade trail
@@ -635,8 +578,7 @@ endCombat()
 startCombat()
 run()
 settle(0.05)
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
+icon(other,BOTTOM)
 local glowArrow,near,far=arrowOf(looks,2),trailOf(looks,2,1),trailOf(looks,2,2)
 assert(glowArrow.BrushFromTexture==FLASH and near.BrushFromTexture==FLASH,'the Glow style draws the flash')
 assert(flashOf(looks).RenderOpacity==0,'the Fade trail shows no appearing flash')
@@ -649,14 +591,12 @@ assert(near.RenderTranslation.Y<glowArrow.RenderTranslation.Y and far.RenderTran
     'and follows behind it')
 settle(0.05)
 assert(math.abs(far.RenderTranslation.Y-glowArrow.RenderTranslation.Y)<1e-6,'catching up once the arrow stops')
-other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
-fire(ARROW,other.BottomArrow)
+icon(other,SWORD_ICON)
 settle(0.05)
 assert(far.RenderOpacity==0,'the trail goes with the attack')
 
--- A critical attack: the arrow turns red, and the shield
--- follows its setting. Each case styles the attack's arrow twice, as the game
--- does, and resolves it.
+-- A critical attack: the arrow turns red, and the shield follows its setting.
+-- Each case shows the attack, opens its parry window and resolves it.
 local function criticalAttack(settings)
     for index=#cleanups,1,-1 do cleanups[index]() end
     cleanups={}
@@ -666,17 +606,15 @@ local function criticalAttack(settings)
     startCombat()
     run()
     settle(0.05)
-    other.BottomArrow.ColorAndOpacity=color(0.9)
-    fire(ARROW,other.BottomArrow)
+    icon(other,BOTTOM)
     settle(0.05)
     local before={color=shieldOf(cue).ColorAndOpacity,scale=shieldOf(cue).RenderScale}
-    fire(ARROW,other.BottomArrow)
+    icon(other,BOTTOM+PARRY)
     run()
     return cue,before
 end
 local function resolveAttack()
-    other.BottomArrow.ColorAndOpacity={R=0.17,G=0.02,B=0.02,A=0.8}
-    fire(ARROW,other.BottomArrow)
+    icon(other,SWORD_ICON)
     settle(0.05)
 end
 local function red(color) return color.R==1 and color.G==0.2 and color.B==0 end
@@ -715,12 +653,12 @@ assert(shieldOf(defending).ColorAndOpacity.A==0,'and hides once the attack resol
 -- Off: no shield, even for a critical attack; the skull still shows.
 local hidden=criticalAttack({GeneralShield=0})
 assert(shieldOf(hidden).ColorAndOpacity.A==0,'with the shield off none shows')
-centre(other,SKULL)
+icon(other,SKULL_ICON)
 assert(shieldOf(hidden).BrushFromAtlasInterface==SKULL and shieldOf(hidden).ColorAndOpacity.A==1,
     'the skull takes the centre')
 settle(0.05)
 assert(shieldOf(hidden).ColorAndOpacity.A==1,'and the critical shield never covers it')
-centre(other,SWORD)
+icon(other,SWORD_ICON)
 resolveAttack()
 
 -- Animations take 200 ms times the parry window multiplier read when combat
@@ -729,8 +667,7 @@ for _,multiplier in ipairs({1.4,false}) do
     parryMultiplier=multiplier or nil
     local timed=criticalAttack({})
     resolveAttack()
-    other.BottomArrow.ColorAndOpacity=color(0.9)
-    fire(ARROW,other.BottomArrow)
+    icon(other,BOTTOM)
     local arrow=arrowOf(timed,2)
     local half=0.14
     clock=clock+half
@@ -743,48 +680,8 @@ for _,multiplier in ipairs({1.4,false}) do
 end
 parryMultiplier=1
 
--- The game's early warning, for some attacks before the arrow lights: the cue
--- shows the attack then, with its sound at the attacker; the arrow takes it over
--- without a second show or sound. One nothing takes over expires.
-local EARLY='/Script/Dawnwalker.DawnwalkerPlayerCharacter:ShowHelperAttackIndicator'
-assert(hooks[EARLY],'combat hooks the early warning')
-local function warn(direction,unblockable)
-    hooks[EARLY](param(player),param({Direction=direction,bIsUnblockable=unblockable,Instigator=combat}))
-end
-local early=criticalAttack({ParrySound=2,UnblockableSound=2})
-resolveAttack()
-local before=#posted
-warn(4,false)
-local earlyBottom=arrowOf(early,2)
-assert(earlyBottom.RenderOpacity==1 and arrowOf(early,1).RenderOpacity==0,'the game\'s 4 is the bottom arrow, shown at once')
-assert(#posted==before+1 and posted[#posted].location.Z==9,'its sound plays at the attacker')
-other.BottomArrow.ColorAndOpacity=color(0.9)
-fire(ARROW,other.BottomArrow)
-assert(#posted==before+1 and earlyBottom.RenderOpacity==1,'the lit arrow takes it over without a second sound')
-fire(ARROW,other.BottomArrow)
-assert(red(earlyBottom.ColorAndOpacity),'and turns critical on its second styling')
-resolveAttack()
-assert(earlyBottom.RenderOpacity==0,'and resolves as usual')
-warn(1,false)
-local earlyRight=arrowOf(early,4)
-assert(earlyRight.RenderOpacity==1,'the game\'s 1 is the right arrow')
-settle(0.05)
-assert(earlyRight.RenderOpacity==0,'an early show nothing takes over expires')
--- Unblockable: the skull shows early and its sound plays once.
-before=#posted
-warn(0,true)
-assert(shieldOf(early).BrushFromAtlasInterface==SKULL and #posted==before+1,'an early unblockable shows the skull')
-centre(other,SKULL)
-assert(#posted==before+1,'the skull icon takes it over without a second sound')
-centre(other,SWORD)
-settle(0.05)
-assert(shieldOf(early).BrushFromAtlasInterface~=SKULL,'and it passes as usual')
-warn(0,true)
-settle(0.05)
-assert(shieldOf(early).BrushFromAtlasInterface~=SKULL,'an early skull nothing takes over expires')
-
--- A lasting fault inside the game's call is logged once per kind; the repeats
--- are counted when combat ends.
+-- A lasting fault handling events is logged once per kind; the repeats are
+-- counted when combat ends. A direction the cue has no arrow for faults.
 local Session=require('preymonition.session')
 local logged={}
 sourceLog=setmetatable({enabled=function() return false end},{__index=function(_,level)
@@ -795,8 +692,11 @@ sourceLog=setmetatable({enabled=function() return false end},{__index=function(_
     end
 end})
 Session.setLog(sourceLog)
-local broken={get=function() error('unreadable') end}
-for _=1,3 do hooks[ARROW](broken) end
+for index=1,3 do
+    for _,kind in ipairs({'arrow','critical'}) do
+        template.events.update({},{kind=kind,direction=99,path=kind..index,indicator=other,sequence=0})
+    end
+end
 local errors=0
 for _,line in ipairs(logged) do if line:match('^error') then errors=errors+1 end end
 assert(errors==2,'one error per kind, not one per call')
@@ -808,15 +708,15 @@ startCombat()
 
 for index=#cleanups,1,-1 do cleanups[index]() end
 assert(scans==0,'nothing scans for objects')
-assert(delays==4,'with the engine tick hooked only early warnings wait on ExecuteWithDelay, to expire')
--- Eleven handles per cue (thirteen cues), plus eight trailing arrows.
-assert(released==11*13+8,'each detached cue releases its handles')
+assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
+-- Eleven handles per cue (twelve cues), plus eight trailing arrows.
+assert(released==11*12+8,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
-assert(removed==2 and next(hooks)==nil,'sleep unregisters both hooks')
+assert(removed==1 and hookCount()==0,'sleep unhooks the indicator')
 endCombat()
-assert(removed==2,'a second sleep has nothing left to remove')
+assert(removed==1,'a second sleep has nothing left to remove')
 
 -- Position: Below puts the box's bottom 10% of the height above the bottom
 -- edge; Above puts its top 10% below the top edge.
@@ -848,12 +748,8 @@ for index=#cleanups,1,-1 do cleanups[index]() end
 local Session=require('preymonition.session')
 Session.setLog(dofile('Preymonition/Scripts/vendor/mc_log.lua').wrap(function() end))
 startCombat()
-hookCount=0
-for _ in pairs(hooks) do hookCount=hookCount+1 end
-assert(hookCount==2,'TRACE adds no hooks')
+assert(hookCount()==1 and next(hooks)==nil,'TRACE adds no hooks')
 removed=0
 endCombat()
-assert(removed==2 and next(hooks)==nil,'and unhooked with the rest')
-local fire_ok=pcall(fire,SHOW,indicator)
-assert(not fire_ok,'no hook remains registered')
+assert(removed==1 and hookCount()==0,'and unhooked with the rest')
 print('PASS: Preymonition session hooks only in combat, follows attacks, resolves, reattach and cleanup')

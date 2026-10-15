@@ -2,11 +2,6 @@
 local Logging=require('preymonition.logging')
 local log=Logging.new('Preymonition')
 local Session=require('preymonition.session')
--- Developer aid: an acceptance.txt next to mod.json logs detections and the
--- event bridge's indicator hook side by side (preymonition/acceptance.lua).
-local acceptance=io.open(Logging.root..'/acceptance.txt','r')
-if acceptance then acceptance:close() end
-local Acceptance=acceptance and require('preymonition.acceptance')
 local Sound=require('preymonition.sound')
 Session.setLog(log)
 
@@ -26,10 +21,7 @@ local template={
     -- npc.attacks wakes its templates when combat starts and puts them to sleep
     -- when it ends; in between, MC_NPCAttackIndicator arrives as update.
     events={
-        wake=function()
-            if Acceptance then Acceptance.start(log) end
-            Session.wake()
-        end,
+        wake=function() Session.wake() end,
         sleep=function() Session.sleep() end,
         update=function(_,event) Session.update(event) end,
     },
@@ -56,8 +48,7 @@ local template={
     },
 }
 
-log.debug('template loaded; level ',log.level,', acceptance ',acceptance~=nil)
-if Acceptance then Acceptance.start(log) end
+log.debug('template loaded; level ',log.level)
 
 template.attach=function(objects,params,original)
     Session.attach(objects.hud,objects.cue,params,assert(params.onCleanup,'managed cleanup unavailable'))

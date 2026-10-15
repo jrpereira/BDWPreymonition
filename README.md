@@ -12,9 +12,7 @@ Preymonition adds an arrow cue near the center of the screen without
 replacing the game's original warning. When an attack comes, an arrow flashes in
 from its direction and turns red when the attack becomes critical. It vanishes
 once the attack lands or is deflected, so an empty cue means nothing is incoming.
-Unblockable attacks show a skull. For some attacks the game gives an early
-warning, and the cue shows them up to almost a second before the game's own
-indicator does. The cue fades when combat ends.
+Unblockable attacks show a skull. The cue fades when combat ends.
 
 It makes the warning easier to keep in view. Blocking, dodging, and taking the
 credit remain your responsibility.
@@ -25,10 +23,11 @@ credit remain your responsibility.
   [Dawnwalker Mod Menu requirements](https://www.nexusmods.com/thebloodofdawnwalker/mods/271).
 - [Dawnwalker Mod Menu](https://www.nexusmods.com/thebloodofdawnwalker/mods/271)
   for the settings page.
-- [ModCore Settings](https://www.nexusmods.com/thebloodofdawnwalker/mods/590).
-- [ModCore Templates](https://www.nexusmods.com/thebloodofdawnwalker/mods/641)
+- [ModCore Settings](https://www.nexusmods.com/thebloodofdawnwalker/mods/590)
   1.3.0 or newer.
-- [UE4SS Lua Event Bridge](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.0.12 or newer, which
+- [ModCore Templates](https://www.nexusmods.com/thebloodofdawnwalker/mods/641)
+  1.4.0 or newer.
+- [UE4SS Lua Event Bridge](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.1.0 or newer, which
   ModCore Templates also requires. Without it no cue appears.
 
 ## Installation

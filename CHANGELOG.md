@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.2.0
+
+- Requires ModCore Templates 1.4.0 or later, which follows the indicator's own state
+  change through UE4SSLuaEventBridge function hooks, and UE4SSLuaEventBridge 1.1.0 or
+  later. The cue changes on the next engine tick, about a frame after the game's indicator.
+- The early warning is gone, from both the center cue and the edges: the game's early
+  warning arrives in the same frame as the attack's arrow.
+- The `acceptance.txt` developer aid is gone.
+
 ## v1.1.1
 
 - Requires ModCore Settings 1.3.0 or later, which plays the previewing sound choices and

@@ -9,7 +9,6 @@
     "Scripts/main.lua": "Scripts/main.lua",
     "Scripts/mc_center.lua": "Scripts/mc_center.lua",
     "Scripts/mc_edges.lua": "Scripts/mc_edges.lua",
-    "Scripts/preymonition/acceptance.lua": "Scripts/preymonition/acceptance.lua",
     "Scripts/preymonition/animation.lua": "Scripts/preymonition/animation.lua",
     "Scripts/preymonition/cue.lua": "Scripts/preymonition/cue.lua",
     "Scripts/preymonition/edges.lua": "Scripts/preymonition/edges.lua",

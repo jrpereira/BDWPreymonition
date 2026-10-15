@@ -4,8 +4,6 @@
 -- red, and they go out as soon as it resolves.
 local Render=require('preymonition.edges_render')
 
--- An early warning nothing takes over goes after this, as the center cue's does.
-local EARLY_TIMEOUT_MS=1200
 local FRAMED,DIRECTIONAL=1,2
 local ALL={}
 for index=1,Render.EDGES do ALL[index]=true end
@@ -38,31 +36,26 @@ local function render(record)
 end
 
 local function clear(record)
-    record.source,record.direction,record.critical,record.early=nil,nil,nil,nil
+    record.source,record.direction,record.critical=nil,nil,nil
     render(record)
 end
 
--- The records in the indicator's world, or every record without one.
+-- The records in the indicator's world.
 local function each(indicator,callback)
     for _,record in ipairs(records) do
-        if Render.valid(record.ui) and (indicator==nil or Render.sameWorld(record.ui,indicator)) then
+        if Render.valid(record.ui) and Render.sameWorld(record.ui,indicator) then
             callback(record)
         end
     end
 end
 
-local function expire(record,token)
-    if record.earlyToken~=token or not record.early or not Render.valid(record.ui) then return end
-    clear(record)
-end
-
 local handlers={}
 
--- An attack shows: its edges light. The cue's own attack styled again, or any
--- critical request, turns them red.
+-- An attack shows: its edges light. Its parry window, or any critical request,
+-- turns them red.
 function handlers.arrow(event)
     each(event.indicator,function(record)
-        record.source,record.direction,record.critical,record.early=event.path,event.direction,nil,nil
+        record.source,record.direction,record.critical=event.path,event.direction,nil
         render(record)
     end)
 end
@@ -70,7 +63,7 @@ end
 function handlers.critical(event)
     each(event.indicator,function(record)
         if record.source~=event.path or record.direction~=event.direction then
-            record.source,record.direction,record.early=event.path,event.direction,nil
+            record.source,record.direction=event.path,event.direction
         end
         record.critical=true
         render(record)
@@ -79,33 +72,11 @@ end
 
 function handlers.resolve(event)
     each(event.indicator,function(record)
-        if record.source==event.path and (event.reason~='dark' or record.direction==event.direction) then
-            clear(record)
-        end
+        if record.source==event.path then clear(record) end
     end)
 end
 
--- The game's early warning lights the edges before the indicator does; the
--- attack takes them over when it shows, or they go after EARLY_TIMEOUT_MS.
-function handlers.early(event)
-    if not event.direction then return end
-    each(nil,function(record)
-        if record.source then return end
-        record.direction,record.critical,record.early=event.direction,nil,true
-        render(record)
-        record.earlyToken=(record.earlyToken or 0)+1
-        local token=record.earlyToken
-        local ok,why=pcall(ExecuteWithDelay,EARLY_TIMEOUT_MS,function()
-            ExecuteInGameThread(function()
-                local done,failure=pcall(expire,record,token)
-                if not done then fail('early expiry',failure) end
-            end)
-        end)
-        if not ok then fail('early schedule',why) end
-    end)
-end
-
--- One MC_NPCAttackIndicator request, inside the game's call.
+-- One MC_NPCAttackIndicator request.
 function M.update(event)
     if not (active and next(records)) then return end
     local handler=handlers[event.kind]
