@@ -24,10 +24,10 @@ credit remain your responsibility.
 - [Dawnwalker Mod Menu](https://www.nexusmods.com/thebloodofdawnwalker/mods/271)
   for the settings page.
 - [ModCore Settings](https://www.nexusmods.com/thebloodofdawnwalker/mods/590)
-  1.3.1 or newer.
+  1.3.0 or newer.
 - [ModCore Templates](https://www.nexusmods.com/thebloodofdawnwalker/mods/641)
-  1.4.1 or newer.
-- [UE4SS Lua Event Bridge](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.1.0 or newer, which
+  1.4.0 or newer.
+- [UE4SS Lua Event Bridge](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.2.0 or newer, which
   ModCore Templates also requires. Without it no cue appears.
 
 ## Installation

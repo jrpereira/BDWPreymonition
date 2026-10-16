@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.2
+
+- Requires UE4SSLuaEventBridge 1.2.0 or later. Requirements follow minor versions
+  now, so ModCore Settings 1.3.0 and ModCore Templates 1.4.0 or later are enough. No change to cues or settings.
+
 ## v1.2.1
 
 - Requires ModCore Settings 1.3.1 or later and ModCore Templates 1.4.1 or later. No change to cues or settings.
