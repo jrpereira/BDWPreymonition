@@ -64,7 +64,7 @@ assert(parry.choices[1].label=='None' and parry.choices[1].sound=='none'
     and parry.choices[4]==nil,'parry sounds preview')
 local skull=assert(rows[centerDefinition.settings.UnblockableSound])
 assert(skull.choices[2].label=='Growl' and skull.choices[3].sound:match('UI_PauseMenu_Resume'),'unblockable sounds preview')
--- General Options and Screen Edges show no heading: their rows sit under the template's toggle.
+-- Center's standalone settings and Screen Edges show no heading: their rows sit under the template's toggle.
 local function groupOf(groups,id)
     for _,group in ipairs(groups or {}) do
         if group.id==id then return group end
@@ -75,7 +75,7 @@ end
 local function headingOf(field)
     return assert(groupOf(page.menu.groups,assert(rows[field]).group),'no group for '..field).heading
 end
-assert(headingOf(centerDefinition.settings.GeneralScale)==false,'General Options has no heading')
+assert(headingOf(centerDefinition.settings.GeneralScale)==false,'Shield Scale has no heading')
 assert(headingOf(edgesDefinition.settings.EdgeStyle)==false,'Screen Edges has no heading')
 assert(headingOf(centerDefinition.settings.ParryStyle)~=false,'Parry & Block keeps its heading')
 print('PASS: Preymonition registers the Center and Edges templates in npc.attacks with their settings')

@@ -16,8 +16,6 @@ Repeat the incoming attack direction near the center of the screen.
 - **Turn on:** set Center Overlay (`MCT_Preymonition_Center_Enabled`) to Enabled (`1`).
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
 
-#### General Options
-
 | Setting | Options | Default | Key |
 |---|---|---|---|
 | Position | Below (`0`), Middle (`1`), Above (`2`) | Middle | `MCT_Preymonition_Center_GeneralPosition` |

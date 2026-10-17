@@ -30,9 +30,9 @@ Install these before Preymonition:
 
 Combat Preymonition has two parts, each with its own [b]Enabled[/b]: the [b]Center[/b] cue and the screen [b]Edges[/b]. Open [b]Mod Settings → Combat Preymonition[/b], set [b]Enabled[/b] under [b]Center[/b], [b]Edges[/b] or both to [b]Yes[/b], and choose [b]Apply[/b]. Adjust each part's settings on the same page and choose [b]Apply[/b] after changing them. Percentages scale the standard look; 100% leaves it unchanged, except Scale, which adds to it: 0% leaves it unchanged.
 [list]
-[*][b]General Options → Scale[/b]: −50%–200% ([b]0%[/b]), the shield's size.
-[*][b]General Options → Position[/b]: Below, [b]Middle[/b] or Above.
-[*][b]General Options → Display Shield[/b]: [b]Off[/b], In Combat, Defending or Opportunity.
+[*][b]Shield Scale[/b]: −50%–200% ([b]0%[/b]), the shield's size.
+[*][b]Position[/b]: Below, [b]Middle[/b] or Above.
+[*][b]Shield Visible[/b]: [b]Off[/b], In Combat, Defending or Opportunity.
 [*][b]Parry & Block → Indicator Style[/b]: Off, [b]Arrows[/b] or Glow.
 [*][b]Parry & Block → Size[/b] and [b]Indicator Movement[/b]: 50%–200% ([b]100%[/b]).
 [*][b]Parry & Block → Trailing effect[/b]: Off, [b]Glow[/b] or Fade.
