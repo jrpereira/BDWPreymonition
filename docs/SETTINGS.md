@@ -8,49 +8,49 @@ Change these settings in the mod menu and press Apply. Each template below names
 
 ## Templates in this module
 
-### Center
+### Center Overlay
 
 Repeat the incoming attack direction near the center of the screen.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
-- **Turn on:** set Enabled (`MCT_Center_Enabled`) to Yes (`1`).
+- **Turn on:** set Center Overlay (`MCT_Preymonition_Center_Enabled`) to Enabled (`1`).
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
 
 #### General Options
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Scale | -50% to 200%, in steps of 10 | 0% | `MCT_Center_GeneralScale` |
-| Position | Below (`0`), Middle (`1`), Above (`2`) | Middle | `MCT_Center_GeneralPosition` |
-| Display Shield | Off (`0`), In Combat (`1`), Defending (`2`), Opportunity (`3`) | Off | `MCT_Center_GeneralShield` |
+| Position | Below (`0`), Middle (`1`), Above (`2`) | Middle | `MCT_Preymonition_Center_GeneralPosition` |
+| Shield Visible | Off (`0`), In Combat (`1`), Defending (`2`), Opportunity (`3`) | Off | `MCT_Preymonition_Center_GeneralShield` |
+| Shield Scale | -50% to 200%, in steps of 10 | 0% | `MCT_Preymonition_Center_GeneralScale` |
 
 #### Parry & Block
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Indicator Style | Off (`0`), Arrows (`1`), Glow (`2`) | Arrows | `MCT_Center_ParryStyle` |
-| Size | 50% to 200%, in steps of 10 | 100% | `MCT_Center_ParrySize` |
-| Indicator Movement | 50% to 200%, in steps of 10 | 100% | `MCT_Center_ParryMovement` |
-| Trailing effect | Off (`0`), Glow (`1`), Fade (`2`) | Glow | `MCT_Center_ParryTrail` |
-| Play sound | None (`0`), Chime (`1`), Swish (`2`) | None | `MCT_Center_ParrySound` |
+| Indicator Style | Off (`0`), Arrows (`1`), Glow (`2`) | Arrows | `MCT_Preymonition_Center_ParryStyle` |
+| Size | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_ParrySize` |
+| Indicator Movement | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_ParryMovement` |
+| Trailing effect | Off (`0`), Glow (`1`), Fade (`2`) | Glow | `MCT_Preymonition_Center_ParryTrail` |
+| Play sound | None (`0`), Chime (`1`), Swish (`2`) | None | `MCT_Preymonition_Center_ParrySound` |
 
 #### Unblockable Attack
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Unblockable size | 50% to 200%, in steps of 10 | 100% | `MCT_Center_UnblockableSize` |
-| Play sound | None (`0`), Growl (`1`), Boom (`2`) | None | `MCT_Center_UnblockableSound` |
+| Unblockable size | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_UnblockableSize` |
+| Play sound | None (`0`), Growl (`1`), Boom (`2`) | None | `MCT_Preymonition_Center_UnblockableSound` |
 
-### Edges
+### Edges Overlay
 
 Light the screen edges while an attack is incoming.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
-- **Turn on:** set Enabled (`MCT_Edges_Enabled`) to Yes (`1`).
+- **Turn on:** set Edges Overlay (`MCT_Preymonition_Edges_Enabled`) to Enabled (`1`).
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
 
 #### Screen Edges
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Edge Style | Framed (`1`), Directional (`2`) | Framed | `MCT_Edges_EdgeStyle` |
+| Edge Style | Framed (`1`), Directional (`2`) | Framed | `MCT_Preymonition_Edges_EdgeStyle` |

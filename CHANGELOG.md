@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.3
+
+- Requires ModCore Settings 1.4.0 or later and ModCore Templates 1.5.0 or later, which name
+  templates by `id` and `label`. Center and Edges declare them (Center Overlay, Edges Overlay).
+  Center's General Options and Edges' Screen Edges show no heading, so their rows sit directly
+  under the template's toggle. Center's Display Shield is now Shield Visible and Scale is
+  Shield Scale.
+
 ## v1.2.2
 
 - Requires UE4SSLuaEventBridge 1.2.0 or later. Requirements follow minor versions

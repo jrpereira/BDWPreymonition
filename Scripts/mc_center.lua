@@ -10,7 +10,8 @@ local PERCENT={min=50,max=200,step=10,suffix='%'}
 -- The center cue: the incoming attack's direction near the screen's center.
 -- The screen edges are a template of their own (mc_edges.lua).
 local template={
-    name='Center',
+    id='Center',
+    label='Center Overlay',
     description='Repeat the incoming attack direction near the center of the screen.',
     category='npc.attacks',
     -- Before the edges (11): MCT attaches, wakes and updates it first.
@@ -27,12 +28,12 @@ local template={
     },
     -- Percentages scale the current look; 100% is unchanged. Scale adds to it: 0% is unchanged.
     menu={
-        -- Scale resizes the shield only: 0% is 40% of the shorter screen side.
-        {id='General', label='General Options', fields={
-            {id='.Scale', label='Scale', values={min=-50,max=200,step=10,suffix='%'}, default=0},
+        {id='General', label='General Options', heading=false, fields={
             {id='.Position', label='Position', values={[0]='Below',[1]='Middle',[2]='Above'}, default=1},
-            {id='.Shield', label='Display Shield',
+            {id='.Shield', label='Shield Visible',
                 values={[0]='Off',[1]='In Combat',[2]='Defending',[3]='Opportunity'}, default=0},
+            -- Scale resizes the shield only: 0% is 40% of the shorter screen side.
+            {id='.Scale', label='Shield Scale', values={min=-50,max=200,step=10,suffix='%'}, default=0},
         }},
         {id='Parry', label='Parry & Block', fields={
             {id='.Style', label='Indicator Style', values={[0]='Off',[1]='Arrows',[2]='Glow'}, default=1},

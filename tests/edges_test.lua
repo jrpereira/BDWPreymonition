@@ -39,7 +39,7 @@ FName=function(value) return {ToString=function() return value end} end
 ExecuteWithDelay=function() error('edges defer nothing') end
 
 local template=dofile('Preymonition/Scripts/mc_edges.lua')
-assert(template.name=='Edges' and template.category=='npc.attacks')
+assert(template.id=='Edges' and template.label=='Edges Overlay' and template.category=='npc.attacks')
 local hud=object('HUD',{WidgetTree=object('WidgetTree')})
 local cleanups={}
 local function attach(style)

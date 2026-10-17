@@ -4,7 +4,7 @@ local definitions,entries=dofile('Preymonition/tests/load_templates.lua')()
 assert(#definitions==2 and entries[1].path:match('Preymonition/Scripts/mc_center%.lua$')
     and entries[2].path:match('Preymonition/Scripts/mc_edges%.lua$'))
 local center,edges=definitions[1],definitions[2]
-assert(center.name=='Center' and edges.name=='Edges')
+assert(center.id=='Center' and center.label=='Center Overlay' and edges.id=='Edges' and edges.label=='Edges Overlay')
 assert(center.priority==10 and edges.priority==11,'the center cue comes before the edges')
 local category=dofile('ModCoreTemplates/Scripts/categories/npc_attacks.lua')
 local graph=require('mc.selectors').compile(category.objects)
@@ -64,4 +64,18 @@ assert(parry.choices[1].label=='None' and parry.choices[1].sound=='none'
     and parry.choices[4]==nil,'parry sounds preview')
 local skull=assert(rows[centerDefinition.settings.UnblockableSound])
 assert(skull.choices[2].label=='Growl' and skull.choices[3].sound:match('UI_PauseMenu_Resume'),'unblockable sounds preview')
+-- General Options and Screen Edges show no heading: their rows sit under the template's toggle.
+local function groupOf(groups,id)
+    for _,group in ipairs(groups or {}) do
+        if group.id==id then return group end
+        local found=groupOf(group.groups,id)
+        if found then return found end
+    end
+end
+local function headingOf(field)
+    return assert(groupOf(page.menu.groups,assert(rows[field]).group),'no group for '..field).heading
+end
+assert(headingOf(centerDefinition.settings.GeneralScale)==false,'General Options has no heading')
+assert(headingOf(edgesDefinition.settings.EdgeStyle)==false,'Screen Edges has no heading')
+assert(headingOf(centerDefinition.settings.ParryStyle)~=false,'Parry & Block keeps its heading')
 print('PASS: Preymonition registers the Center and Edges templates in npc.attacks with their settings')

@@ -6,7 +6,8 @@ Edges.setLog(log)
 -- The screen edges glow while an attack is incoming. The center cue is a
 -- template of its own (mc_center.lua).
 local template={
-    name='Edges',
+    id='Edges',
+    label='Edges Overlay',
     description='Light the screen edges while an attack is incoming.',
     category='npc.attacks',
     -- After the center cue (10).
@@ -20,7 +21,7 @@ local template={
         update=function(_,event) Edges.update(event) end,
     },
     menu={
-        {id='Edge', label='Screen Edges', fields={
+        {id='Edge', label='Screen Edges', heading=false, fields={
             {id='.Style', label='Edge Style', values={[1]='Framed',[2]='Directional'}, default=1},
         }},
     },
