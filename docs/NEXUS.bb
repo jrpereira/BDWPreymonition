@@ -32,13 +32,13 @@ Combat Preymonition has two parts, each with its own [b]Enabled[/b]: the [b]Cent
 [list]
 [*][b]Shield Scale[/b]: −50%–200% ([b]0%[/b]), the shield's size.
 [*][b]Position[/b]: Below, [b]Middle[/b] or Above.
-[*][b]Shield Visible[/b]: [b]Off[/b], In Combat, Defending or Opportunity.
-[*][b]Parry & Block → Indicator Style[/b]: Off, [b]Arrows[/b] or Glow.
-[*][b]Parry & Block → Size[/b] and [b]Indicator Movement[/b]: 50%–200% ([b]100%[/b]).
+[*][b]Shield Visible[/b]: Off, In Combat, [b]Defending[/b] or Critical.
+[*][b]Parry & Block → Indicator Style[/b]: Off or [b]Arrows[/b].
+[*][b]Parry & Block → Indicator Size[/b] and [b]Indicator Movement[/b]: 50%–200% ([b]100%[/b]).
 [*][b]Parry & Block → Trailing effect[/b]: Off, [b]Glow[/b] or Fade.
-[*][b]Parry & Block → Play sound[/b]: [b]None[/b], Chime or Swish.
-[*][b]Unblockable size[/b]: 50%–200% ([b]100%[/b]), the skull's size.
-[*][b]Play sound[/b] for unblockable attacks: [b]None[/b], Growl or Boom.
+[*][b]Parry & Block → Play sound[/b]: None, [b]Chime[/b] or Swish.
+[*][b]Unblockable size[/b]: 50%–200% ([b]120%[/b]), the skull's size.
+[*][b]Play sound[/b] for unblockable attacks: None, [b]Growl[/b] or Boom.
 [*][b]Edges → Edge Style[/b]: [b]Framed[/b] (every edge) or Directional (the attack's side).
 [/list]
 

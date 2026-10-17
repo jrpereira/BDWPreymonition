@@ -75,7 +75,7 @@ shows where the arrow appears and fades out while growing to 1.5 times its size.
 
 Critical turns the arrow red, and 2.5 times its size if its travel has not got
 there, until the attack resolves, as the game turns its shield red. An In
-Combat or Defending shield turns red, and an Opportunity shield pops in red and grows to twice its size over the animation
+Combat or Defending shield turns red, and a Critical shield pops in red and grows to twice its size over the animation
 time. A resolved arrow goes at once and the shield calms. Combat start fades the
 idle cue in to half opacity; combat end fades it out over a second.
 

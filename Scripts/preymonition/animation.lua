@@ -19,6 +19,12 @@ local SHIELD_GROWN = 2
 -- one before.
 local TRAIL, LAG = 2, 0.2
 
+-- An arrow's scale on the flash's sizes, for the Glow style: REST is the flash's
+-- starting size (1) and GROWN its grown size, FLASH_GROWN.
+function M.glowScale(scale)
+    return 1 + (scale - REST) * (FLASH_GROWN - 1) / (GROWN - REST)
+end
+
 local function clamp(value)
     return math.max(0, math.min(1, value))
 end

@@ -19,25 +19,25 @@ Repeat the incoming attack direction near the center of the screen.
 | Setting | Options | Default | Key |
 |---|---|---|---|
 | Position | Below (`0`), Middle (`1`), Above (`2`) | Middle | `MCT_Preymonition_Center_GeneralPosition` |
-| Shield Visible | Off (`0`), In Combat (`1`), Defending (`2`), Opportunity (`3`) | Off | `MCT_Preymonition_Center_GeneralShield` |
+| Shield Visible | Off (`0`), In Combat (`1`), Defending (`2`), Critical (`3`) | Defending | `MCT_Preymonition_Center_GeneralShield` |
 | Shield Scale | -50% to 200%, in steps of 10 | 0% | `MCT_Preymonition_Center_GeneralScale` |
 
 #### Parry & Block
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Indicator Style | Off (`0`), Arrows (`1`), Glow (`2`) | Arrows | `MCT_Preymonition_Center_ParryStyle` |
-| Size | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_ParrySize` |
+| Indicator Style | Off (`0`), Arrows (`1`) | Arrows | `MCT_Preymonition_Center_ParryStyle` |
+| Indicator Size | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_ParrySize` |
 | Indicator Movement | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_ParryMovement` |
 | Trailing effect | Off (`0`), Glow (`1`), Fade (`2`) | Glow | `MCT_Preymonition_Center_ParryTrail` |
-| Play sound | None (`0`), Chime (`1`), Swish (`2`) | None | `MCT_Preymonition_Center_ParrySound` |
+| Play sound | None (`0`), Chime (`1`), Swish (`2`) | Chime | `MCT_Preymonition_Center_ParrySound` |
 
 #### Unblockable Attack
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Unblockable size | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_UnblockableSize` |
-| Play sound | None (`0`), Growl (`1`), Boom (`2`) | None | `MCT_Preymonition_Center_UnblockableSound` |
+| Unblockable size | 50% to 200%, in steps of 10 | 120% | `MCT_Preymonition_Center_UnblockableSize` |
+| Play sound | None (`0`), Growl (`1`), Boom (`2`) | Growl | `MCT_Preymonition_Center_UnblockableSound` |
 
 ### Edges Overlay
 

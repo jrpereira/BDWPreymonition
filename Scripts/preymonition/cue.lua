@@ -1,5 +1,6 @@
 -- Shield cue widgets, and the few reads of the game it needs.
 local MC=require('mc')
+local Animation=require('preymonition.animation')
 
 local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 -- The native lit arrow colour, which a shown arrow takes.
@@ -217,10 +218,10 @@ end
 local function config(settings)
     local function percent(key) return (settings[key] or 100)/100 end
     local style,trail=settings.ParryStyle or 1,settings.ParryTrail or 1
-    -- Display Shield: 0 Off never shows it, 1 In Combat shows it faintly, 2
-    -- Defending shows it faintly while an attack is shown, 3 Opportunity reveals
+    -- Shield Visible: 0 Off never shows it, 1 In Combat shows it faintly, 2
+    -- Defending shows it faintly while an attack is shown, 3 Critical reveals
     -- it only for a critical attack. Each turns it red while the attack is critical.
-    local watermark=settings.GeneralShield or 0
+    local watermark=settings.GeneralShield or 2
     return {
         shieldColor=watermark==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
         watermark=watermark,
@@ -451,7 +452,8 @@ function M.apply(ui,state)
     for index,arrow in ipairs(state.arrows) do
         local base,out=ui.base[index],OUTWARD[index]
         local from,to=DISTANCE[index][1],DISTANCE[index][2]
-        local scale=arrow.scale*visuals.scale
+        -- The Glow style sizes its glow like the trail's flash.
+        local scale=(visuals.glowStyle and Animation.glowScale(arrow.scale) or arrow.scale)*visuals.scale
         local opacity=visuals.arrows and arrow.opacity or 0
         for image,widget in ipairs(arrowImages(ui,widgets,index)) do
             local keys=KEYS[index][image]
@@ -465,7 +467,7 @@ function M.apply(ui,state)
         lit=math.max(lit,arrow.opacity)
     end
     -- A critical attack turns the shield red: In Combat and Defending turn it
-    -- red, Opportunity pops it in red and grows it; Off keeps it clear.
+    -- red, Critical pops it in red and grows it; Off keeps it clear.
     -- Defending shows it faintly while an attack is shown.
     local shield=state.shield
     local critical=shield.critical and visuals.watermark~=0

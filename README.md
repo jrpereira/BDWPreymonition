@@ -55,16 +55,16 @@ in `SETTINGS.md`, next to this file in the installed mod.
 
 | Setting | Choices |
 |---|---|
-| **General Options → Scale** | −50%–200% (**0%**): resizes the shield; 0% is the standard size, 40% of the shorter screen side. Arrows keep their size (see Parry & Block → Size) and the skull its own (Unblockable size). |
-| **General Options → Position** | Below (the cue's bottom 10% of the screen height above the bottom edge), **Middle** (centred on the screen's middle), or Above (its top 10% below the top edge). |
-| **General Options → Display Shield** | **Off**; In Combat (a faint shield behind the arrows throughout combat); Defending (the faint shield while an attack is shown); or Opportunity (a shield that pops in only when an attack turns critical, growing to twice its size). Each turns red while the attack is critical, and the skull replaces it during an unblockable attack. |
-| **Parry & Block → Indicator Style** | Off, **Arrows**, or Glow: Glow moves the game's attack flash in place of the arrow. |
-| **Parry & Block → Size** | 50%–200% (**100%**): the arrows' size. |
+| **Shield Scale** | −50%–200% (**0%**): resizes the shield; 0% is the standard size, 40% of the shorter screen side. Arrows keep their size (see Parry & Block → Indicator Size) and the skull its own (Unblockable size). |
+| **Position** | Below (the cue's bottom 10% of the screen height above the bottom edge), **Middle** (centred on the screen's middle), or Above (its top 10% below the top edge). |
+| **Shield Visible** | Off; In Combat (a faint shield behind the arrows throughout combat); **Defending** (the faint shield while an attack is shown); or Critical (a shield that pops in only when an attack turns critical, growing to twice its size). Each turns red while the attack is critical, and the skull replaces it during an unblockable attack. |
+| **Parry & Block → Indicator Style** | Off or **Arrows**. |
+| **Parry & Block → Indicator Size** | 50%–200% (**100%**): the arrows' size. |
 | **Parry & Block → Indicator Movement** | 50%–200% (**100%**): how far arrows travel. |
 | **Parry & Block → Trailing effect** | Off, **Glow** (a flash where an arrow appears), or Fade (two fainter arrows trail it, at half and a quarter of its opacity). |
-| **Parry & Block → Play sound** | **None**, Chime, or Swish, when an attack appears, played at the attacker. |
-| **Unblockable size** | 50%–200% (**100%**): the skull's size as it appears; it grows to twice that as it appears. |
-| **Play sound** (unblockable) | **None**, Growl, or Boom, when the skull appears, played at the attacker. |
+| **Parry & Block → Play sound** | None, **Chime**, or Swish, when an attack appears, played at the attacker. |
+| **Unblockable size** | 50%–200% (**120%**): the skull's size as it appears; it grows to twice that as it appears. |
+| **Play sound** (unblockable) | None, **Growl**, or Boom, when the skull appears, played at the attacker. |
 | **Edges → Screen Edges → Edge Style** | **Framed** (every screen edge glows during an attack) or Directional (only the edge on the attack's side); red while the attack is critical. |
 
 ## If the cue does not appear

@@ -41,8 +41,8 @@ local function defaults(definition,expected)
         assert(row.default==default,key..' defaults to '..tostring(row.default))
     end
 end
-defaults(centerDefinition,{ParrySound=0,ParryStyle=1,ParrySize=100,ParryMovement=100,ParryTrail=1,
-    UnblockableSize=100,UnblockableSound=0,GeneralScale=0,GeneralPosition=1,GeneralShield=0})
+defaults(centerDefinition,{ParrySound=1,ParryStyle=1,ParrySize=100,ParryMovement=100,ParryTrail=1,
+    UnblockableSize=120,UnblockableSound=1,GeneralScale=0,GeneralPosition=1,GeneralShield=2})
 assert(centerDefinition.settings.ParryEdges==nil,'the center cue has no edge setting')
 defaults(edgesDefinition,{EdgeStyle=1})
 

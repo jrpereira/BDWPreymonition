@@ -619,11 +619,11 @@ local function resolveAttack()
 end
 local function red(color) return color.R==1 and color.G==0.2 and color.B==0 end
 
--- Opportunity: hidden until critical, then pops in red and grows to twice its size.
+-- Critical: hidden until critical, then pops in red and grows to twice its size.
 local dynamic,before=criticalAttack({GeneralShield=3})
-assert(before.color.A==0,'an Opportunity shield waits unseen')
+assert(before.color.A==0,'a Critical shield waits unseen')
 assert(red(shieldOf(dynamic).ColorAndOpacity) and shieldOf(dynamic).ColorAndOpacity.A==1
-    and math.abs(shieldOf(dynamic).RenderScale.X-1)<1e-6,'an Opportunity shield pops in red at its size')
+    and math.abs(shieldOf(dynamic).RenderScale.X-1)<1e-6,'a Critical shield pops in red at its size')
 assert(red(arrowOf(dynamic,2).ColorAndOpacity),'the arrow turns red too')
 clock=clock+0.1
 run()

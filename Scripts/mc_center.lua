@@ -30,19 +30,19 @@ local template={
     menu={
         {id='GeneralPosition', label='Position', values={[0]='Below',[1]='Middle',[2]='Above'}, default=1},
         {id='GeneralShield', label='Shield Visible',
-            values={[0]='Off',[1]='In Combat',[2]='Defending',[3]='Opportunity'}, default=0},
+            values={[0]='Off',[1]='In Combat',[2]='Defending',[3]='Critical'}, default=2},
         -- Scale resizes the shield only: 0% is 40% of the shorter screen side.
         {id='GeneralScale', label='Shield Scale', values={min=-50,max=200,step=10,suffix='%'}, default=0},
         {id='Parry', label='Parry & Block', fields={
-            {id='.Style', label='Indicator Style', values={[0]='Off',[1]='Arrows',[2]='Glow'}, default=1},
-            {id='.Size', label='Size', values=PERCENT, default=100},
+            {id='.Style', label='Indicator Style', values={[0]='Off',[1]='Arrows'}, default=1},
+            {id='.Size', label='Indicator Size', values=PERCENT, default=100},
             {id='.Movement', label='Indicator Movement', values=PERCENT, default=100},
             {id='.Trail', label='Trailing effect', values={[0]='Off',[1]='Glow',[2]='Fade'}, default=1},
-            {id='.Sound', label='Play sound', values=Sound.choices(Sound.ARROW_LABELS,Sound.ARROW), default=0},
+            {id='.Sound', label='Play sound', values=Sound.choices(Sound.ARROW_LABELS,Sound.ARROW), default=1},
         }},
         {id='Unblockable', label='Unblockable Attack', fields={
-            {id='.Size', label='Unblockable size', values=PERCENT, default=100},
-            {id='.Sound', label='Play sound', values=Sound.choices(Sound.UNBLOCKABLE_LABELS,Sound.UNBLOCKABLE), default=0},
+            {id='.Size', label='Unblockable size', values=PERCENT, default=120},
+            {id='.Sound', label='Play sound', values=Sound.choices(Sound.UNBLOCKABLE_LABELS,Sound.UNBLOCKABLE), default=1},
         }},
     },
 }

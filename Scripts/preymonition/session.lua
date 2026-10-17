@@ -300,7 +300,7 @@ function M.attach(hud,layer,params,onCleanup)
     record.model=Animation.new({
         now=function() return Cue.now(ui) end,
         apply=function(state) Cue.apply(ui,state) end,
-        -- Only the Opportunity shield grows when it pops in.
+        -- Only the Critical shield grows when it pops in.
         grow=ui.visuals.watermark==3,
     })
     record.model:step()
