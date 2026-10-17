@@ -7,10 +7,10 @@
   Center's Position, Shield Visible and Shield Scale are standalone settings and Edges' Screen
   Edges shows no heading, so their rows sit directly under the template's toggle. Center's
   Display Shield is now Shield Visible and its Opportunity option is Critical, Scale is Shield
-  Scale and Parry & Block's Size is Indicator Size.
+  Scale, and Parry & Block's Size and Unblockable size are both Indicator Size.
 - Sounds play by default: Chime for parry and block cues, Growl for unblockable attacks.
 - Indicator Style no longer offers Glow; a saved Glow falls back to Arrows.
-- Shield Visible defaults to Defending and Unblockable size to 120%.
+- Shield Visible defaults to Defending and Unblockable Attack's Indicator Size to 120%.
 
 ## v1.2.2
 

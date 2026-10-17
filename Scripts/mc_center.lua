@@ -41,7 +41,7 @@ local template={
             {id='.Sound', label='Play sound', values=Sound.choices(Sound.ARROW_LABELS,Sound.ARROW), default=1},
         }},
         {id='Unblockable', label='Unblockable Attack', fields={
-            {id='.Size', label='Unblockable size', values=PERCENT, default=120},
+            {id='.Size', label='Indicator Size', values=PERCENT, default=120},
             {id='.Sound', label='Play sound', values=Sound.choices(Sound.UNBLOCKABLE_LABELS,Sound.UNBLOCKABLE), default=1},
         }},
     },

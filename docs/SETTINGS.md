@@ -36,7 +36,7 @@ Repeat the incoming attack direction near the center of the screen.
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Unblockable size | 50% to 200%, in steps of 10 | 120% | `MCT_Preymonition_Center_UnblockableSize` |
+| Indicator Size | 50% to 200%, in steps of 10 | 120% | `MCT_Preymonition_Center_UnblockableSize` |
 | Play sound | None (`0`), Growl (`1`), Boom (`2`) | Growl | `MCT_Preymonition_Center_UnblockableSound` |
 
 ### Edges Overlay

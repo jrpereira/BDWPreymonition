@@ -55,7 +55,7 @@ in `SETTINGS.md`, next to this file in the installed mod.
 
 | Setting | Choices |
 |---|---|
-| **Shield Scale** | −50%–200% (**0%**): resizes the shield; 0% is the standard size, 40% of the shorter screen side. Arrows keep their size (see Parry & Block → Indicator Size) and the skull its own (Unblockable size). |
+| **Shield Scale** | −50%–200% (**0%**): resizes the shield; 0% is the standard size, 40% of the shorter screen side. Arrows keep their size (see Parry & Block → Indicator Size) and the skull its own (Unblockable Attack → Indicator Size). |
 | **Position** | Below (the cue's bottom 10% of the screen height above the bottom edge), **Middle** (centred on the screen's middle), or Above (its top 10% below the top edge). |
 | **Shield Visible** | Off; In Combat (a faint shield behind the arrows throughout combat); **Defending** (the faint shield while an attack is shown); or Critical (a shield that pops in only when an attack turns critical, growing to twice its size). Each turns red while the attack is critical, and the skull replaces it during an unblockable attack. |
 | **Parry & Block → Indicator Style** | Off or **Arrows**. |
@@ -63,8 +63,8 @@ in `SETTINGS.md`, next to this file in the installed mod.
 | **Parry & Block → Indicator Movement** | 50%–200% (**100%**): how far arrows travel. |
 | **Parry & Block → Trailing effect** | Off, **Glow** (a flash where an arrow appears), or Fade (two fainter arrows trail it, at half and a quarter of its opacity). |
 | **Parry & Block → Play sound** | None, **Chime**, or Swish, when an attack appears, played at the attacker. |
-| **Unblockable size** | 50%–200% (**120%**): the skull's size as it appears; it grows to twice that as it appears. |
-| **Play sound** (unblockable) | None, **Growl**, or Boom, when the skull appears, played at the attacker. |
+| **Unblockable Attack → Indicator Size** | 50%–200% (**120%**): the skull's size as it appears; it grows to twice that as it appears. |
+| **Unblockable Attack → Play sound** | None, **Growl**, or Boom, when the skull appears, played at the attacker. |
 | **Edges → Screen Edges → Edge Style** | **Framed** (every screen edge glows during an attack) or Directional (only the edge on the attack's side); red while the attack is critical. |
 
 ## If the cue does not appear

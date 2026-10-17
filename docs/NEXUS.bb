@@ -37,8 +37,8 @@ Combat Preymonition has two parts, each with its own [b]Enabled[/b]: the [b]Cent
 [*][b]Parry & Block → Indicator Size[/b] and [b]Indicator Movement[/b]: 50%–200% ([b]100%[/b]).
 [*][b]Parry & Block → Trailing effect[/b]: Off, [b]Glow[/b] or Fade.
 [*][b]Parry & Block → Play sound[/b]: None, [b]Chime[/b] or Swish.
-[*][b]Unblockable size[/b]: 50%–200% ([b]120%[/b]), the skull's size.
-[*][b]Play sound[/b] for unblockable attacks: None, [b]Growl[/b] or Boom.
+[*][b]Unblockable Attack → Indicator Size[/b]: 50%–200% ([b]120%[/b]), the skull's size.
+[*][b]Unblockable Attack → Play sound[/b]: None, [b]Growl[/b] or Boom.
 [*][b]Edges → Edge Style[/b]: [b]Framed[/b] (every edge) or Directional (the attack's side).
 [/list]
 
