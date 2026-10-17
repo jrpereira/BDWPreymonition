@@ -28,13 +28,11 @@ local template={
     },
     -- Percentages scale the current look; 100% is unchanged. Scale adds to it: 0% is unchanged.
     menu={
-        {id='General', label='General Options', heading=false, fields={
-            {id='.Position', label='Position', values={[0]='Below',[1]='Middle',[2]='Above'}, default=1},
-            {id='.Shield', label='Shield Visible',
-                values={[0]='Off',[1]='In Combat',[2]='Defending',[3]='Opportunity'}, default=0},
-            -- Scale resizes the shield only: 0% is 40% of the shorter screen side.
-            {id='.Scale', label='Shield Scale', values={min=-50,max=200,step=10,suffix='%'}, default=0},
-        }},
+        {id='GeneralPosition', label='Position', values={[0]='Below',[1]='Middle',[2]='Above'}, default=1},
+        {id='GeneralShield', label='Shield Visible',
+            values={[0]='Off',[1]='In Combat',[2]='Defending',[3]='Opportunity'}, default=0},
+        -- Scale resizes the shield only: 0% is 40% of the shorter screen side.
+        {id='GeneralScale', label='Shield Scale', values={min=-50,max=200,step=10,suffix='%'}, default=0},
         {id='Parry', label='Parry & Block', fields={
             {id='.Style', label='Indicator Style', values={[0]='Off',[1]='Arrows',[2]='Glow'}, default=1},
             {id='.Size', label='Size', values=PERCENT, default=100},
