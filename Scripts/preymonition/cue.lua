@@ -1,33 +1,39 @@
 -- Shield cue widgets, and the few reads of the game it needs.
 local MC=require('mc')
-local Animation=require('preymonition.animation')
+local Drawn=require('preymonition.drawn')
+local Fancy=require('preymonition.fancy')
 
 local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 -- The native lit arrow colour, which a shown arrow takes.
 local LIT_COLOR={R=1,G=0.67,B=0.19,A=1}
 -- A critical attack's arrow, in the game's red, applied the moment it goes critical.
 local CRITICAL_COLOR={R=1,G=0.2,B=0,A=1}
--- Screen direction each arrow travels in, matching ARROWS.
-local OUTWARD={{X=0,Y=-1},{X=0,Y=1},{X=-1,Y=0},{X=1,Y=0}}
--- Where each arrow shows up and where its travel ends, in movement units out
--- from the native rest; the bottom arrow moves half as far. A unit is UNIT of the
--- shorter screen side.
-local DISTANCE={{1,3},{0.5,1.5},{1,3},{1,3}}
+-- Screen direction each arrow travels in, matching ARROWS. The game's LeftArrow
+-- and RightArrow show on the opposite sides of the screen (seen 2026-10-18).
+local OUTWARD={{X=0,Y=-1},{X=0,Y=1},{X=1,Y=0},{X=-1,Y=0}}
+-- Distances run out from the cue's centre. A unit is UNIT of the screen along the
+-- arrow's axis: the height for Top and Bottom, the width for Left and Right. An
+-- arrow shows up with its back edge APPEAR units out; Movement takes its tip, the
+-- edge furthest along its travel, a share of the way on to REACH units.
 local UNIT=0.05
+local APPEAR,REACH=1,7
+-- Sizes are in units of the screen height, the same for every arrow. Indicator Size
+-- sets an arrow's starting and grown sizes on one scale: 0% is 1 unit, 100% is 5.
+local SIZE={1,5}
+-- Where each arrow travels on the screen: 1 vertical (height), 2 horizontal (width).
+local AXIS={2,2,1,1}
+-- The Perspective style lays the cue flat on a plane parallel to the ground,
+-- through the character's waist, seen from a camera TILT degrees above it at
+-- DISTANCE screen heights from the cue's centre. Up on the screen is away from
+-- the camera; positions and shapes keep their flat sizes at the centre.
+local PERSPECTIVE={tilt=20,distance=0.5}
 -- What apply last wrote to each arrow, by these keys in ui.applied.
--- Per direction: the arrow's keys, then each trailing arrow's.
 local KEYS={}
 for index=1,#ARROWS do
-    KEYS[index]={}
-    for image=0,2 do
-        local tag=index..'_'..image
-        KEYS[index][image+1]={opacity='opacity'..tag,scale='scale'..tag,translation='translation'..tag}
-    end
+    KEYS[index]={opacity='opacity'..index,scale='scale'..index,translation='translation'..index}
 end
-local arrowImages
+local arrowSize,fit,tipDistance,projector,groundMap,paintParts
 local GAMEPLAY_STATICS='/Script/Engine.Default__GameplayStatics'
--- The game's attack flash, shown behind an arrow where it appears.
-local FLASH_PATH='/Game/_Dawnwalker/UI/_Unified/Combat/Textures/T_Mask_AttackIndicator_Flash.T_Mask_AttackIndicator_Flash'
 -- Widget names stay unique across Lua reloads: generation restarts with the
 -- Lua state, while a HUD that survives the reload still holds the old names.
 local generation=0
@@ -136,10 +142,10 @@ end
 -- The cue's widgets as live wrappers for this call, or nil once any is gone.
 -- The cue keeps them only as weak handles: a kept wrapper reads freed memory
 -- after its HUD is collected, as on a level load.
-local LISTS={'images','ghosts'}
+local LISTS={'images'}
 local function resolve(ui)
     local widgets={}
-    for _,key in ipairs({'hud','layer','box','stack','shield','arrows','flash'}) do
+    for _,key in ipairs({'hud','layer','box','stack','shield','arrows'}) do
         widgets[key]=MC.get(ui.handles[key])
         if not widgets[key] then return nil end
     end
@@ -198,9 +204,6 @@ local SHIELD_SHOWN,SHIELD_HIDDEN={R=1,G=1,B=1,A=0.2},{R=1,G=1,B=1,A=0}
 local SHIELD_CRITICAL={R=1,G=0.2,B=0,A=1}
 local SKULL_COLOR={R=1,G=1,B=1,A=1}
 
--- The trailing arrows of the Fade effect: how much of the main arrow's
--- opacity each keeps, nearest first.
-local GHOSTS={0.5,0.25}
 -- The cue box, and the shield at Scale 0%, as a share of the shorter screen side.
 local SHIELD_SHARE=0.4
 -- Position keeps the shield this share of the screen height from the
@@ -214,10 +217,20 @@ local function shieldCentre(position,height,size)
     return height*(1-SHIELD_MARGIN)-size/2
 end
 
+-- Indicator Size as shares, 0 to 1: {starting, grown}. MCT gives it as {low, high} percent.
+local function share(span)
+    local low,high=10,50
+    if type(span)=='table' and type(span[1])=='number' and type(span[2])=='number' then low,high=span[1],span[2] end
+    local function clamp(value) return math.max(0,math.min(1,value/100)) end
+    return {clamp(low),clamp(high)}
+end
+
 -- The cue settings: percentages of the current look, and choices.
 local function config(settings)
     local function percent(key) return (settings[key] or 100)/100 end
-    local style,trail=settings.ParryStyle or 1,settings.ParryTrail or 1
+    -- Indicator Style: 0 Off, 1 Solid, 2 Chevron, 3 Perspective (a Chevron
+    -- lying on the ground plane), drawn by the cue; 4 Fancy, the mod's pictures.
+    local style=settings.ParryStyle or 2
     -- Shield Visible: 0 Off never shows it, 1 In Combat shows it faintly, 2
     -- Defending shows it faintly while an attack is shown, 3 Critical reveals
     -- it only for a critical attack. Each turns it red while the attack is critical.
@@ -225,8 +238,10 @@ local function config(settings)
     return {
         shieldColor=watermark==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
         watermark=watermark,
-        move=percent('ParryMovement'),scale=percent('ParrySize'),
-        arrows=style~=0,glowStyle=style==2,glow=trail==1,ghosts=trail==2,
+        -- Movement and Indicator Size are shares, 0 to 1; the size is {starting, grown}.
+        move=math.max(0,math.min(1,(settings.ParryMovement or 70)/100)),
+        size=share(settings.ParrySize),
+        arrows=style~=0,shape=style==1 and 'solid' or 'chevron',perspective=style==3,fancy=style==4,
         skull=percent('UnblockableSize'),
         -- Scale adds to the shield's size: 0% leaves it unchanged.
         shieldScale=(100+(settings.GeneralScale or 0))/100,
@@ -256,41 +271,50 @@ function M.build(hud,layer,screen,settings)
     local stack=construct('/Script/UMG.Overlay',tree,'PreymonitionStack'..suffix)
     local shield=construct('/Script/UMG.Image',tree,'PreymonitionShield'..suffix)
     local arrows=construct('/Script/UMG.Overlay',tree,'PreymonitionArrows'..suffix)
-    -- The flash goes in first, so it draws behind the arrows.
-    local flash=construct('/Script/UMG.Image',tree,'PreymonitionFlash'..suffix)
-    local flashSlot=arrows:AddChildToOverlay(flash)
-    flashSlot:SetHorizontalAlignment(0)
-    flashSlot:SetVerticalAlignment(0)
-    flash:SetRenderOpacity(0)
-    flash:SetRenderTransformPivot({X=0.5,Y=0.5})
-    local texture=M.find(FLASH_PATH)
-    if texture then
-        flash:SetBrushFromTexture(texture,false)
-        flash:SetColorAndOpacity(LIT_COLOR)
-    else
-        -- An Image's default brush is solid white: keep it clear without the texture.
-        flash:SetColorAndOpacity({R=1,G=1,B=1,A=0})
+    -- Plain numbers: each arrow's turn, the flat shape's size, the units along
+    -- each axis, and the ground plane's projection for Perspective.
+    -- Fancy needs its pictures; without them the cue draws a Chevron.
+    local normal,critical
+    if visuals.fancy then
+        normal,critical=Fancy.load(hud)
+        if not normal then visuals.fancy=false end
     end
-    local images,ghosts={},{}
-    for index,key in ipairs(ARROWS) do
-        local image=construct('/Script/UMG.Image',tree,'Preymonition'..key..suffix)
-        local slot=arrows:AddChildToOverlay(image)
-        slot:SetHorizontalAlignment(0)
-        slot:SetVerticalAlignment(0)
-        images[index]=image
+    local flat=visuals.fancy and {width=Fancy.SIZE.X,height=Fancy.SIZE.Y} or Drawn.layout(visuals.shape)
+    local angle={}
+    for index=1,#ARROWS do
+        angle[index]=visuals.fancy and Fancy.angle(OUTWARD[index]) or Drawn.angle(OUTWARD[index])
     end
-    -- The Fade trail's arrows, two per direction, nearest first.
-    if visuals.ghosts then
-        for index,key in ipairs(ARROWS) do
-            for ghost=1,#GHOSTS do
-                local image=construct('/Script/UMG.Image',tree,'Preymonition'..key..'Trail'..ghost..suffix)
-                image:SetRenderOpacity(0)
-                local slot=arrows:AddChildToOverlay(image)
-                slot:SetHorizontalAlignment(0)
-                slot:SetVerticalAlignment(0)
-                ghosts[(index-1)*#GHOSTS+ghost]=image
-            end
+    local ui={angle=angle,shapeSize={X=flat.width,Y=flat.height},visuals=visuals,
+        unit={screen.width*UNIT,screen.height*UNIT},applied={}}
+    if visuals.perspective then ui.project=projector(screen.height*PERSPECTIVE.distance) end
+    -- Each arrow is centred at its own size; apply places and sizes it.
+    -- An arrow the cue draws, turned for its direction, with its coloured parts
+    -- kept per direction. On the ground plane its shape is drawn as it looks
+    -- where it appears, already turned; apply then moves and scales it.
+    local images,parts,growers={},{},{}
+    local function makeArrow(index,name)
+        local build=function(class,part) return construct(class,tree,part) end
+        local arrow,_,coloured
+        local map=ui.project and groundMap(ui,index)
+        if visuals.fancy then
+            arrow,coloured=Fancy.build(build,name,normal,critical)
+            growers[index]={}
+        else
+            arrow,_,coloured,growers[index]=Drawn.build(build,name,visuals.shape,map)
         end
+        if not map then arrow:SetRenderTransformAngle(angle[index]) end
+        for _,entry in ipairs(coloured) do
+            parts[index][#parts[index]+1]=entry
+        end
+        paintParts(ui,coloured,LIT_COLOR)
+        local slot=arrows:AddChildToOverlay(arrow)
+        slot:SetHorizontalAlignment(2)
+        slot:SetVerticalAlignment(2)
+        return arrow
+    end
+    for index,key in ipairs(ARROWS) do
+        parts[index]={}
+        images[index]=makeArrow(index,'Preymonition'..key..suffix)
     end
     local size=math.min(screen.width,screen.height)*SHIELD_SHARE
     -- Slate units, like the box size: the inset keeps its share of the cue at any DPI.
@@ -324,87 +348,49 @@ function M.build(hud,layer,screen,settings)
     local top=math.max(0,centre-size/2)
     slot:SetPadding({Left=0,Top=top,Right=0,Bottom=0})
 
+    ui.sprite=sprite
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
         stack=hold(stack,'stack'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
-        flash=hold(flash,'flash'),images={},ghosts={}}
+        images={},parts={},growers={}}
     for index,image in ipairs(images) do handles.images[index]=hold(image,ARROWS[index]) end
-    for index,image in ipairs(ghosts) do handles.ghosts[index]=hold(image,'trail') end
-    -- Plain numbers, kept per arrow: rest translation and the native rotation,
-    -- which the flash copies; and the movement unit.
-    local base,angle={},{}
-    for index=1,#ARROWS do base[index],angle[index]={X=0,Y=0},0 end
-    local ui={handles=handles,base=base,angle=angle,sprite=sprite,visuals=visuals,
-        unit=math.min(screen.width,screen.height)*UNIT,
-        flash=texture and FLASH_PATH or nil,applied={}}
-    M.artwork(ui)
+    -- A drawn arrow's parts, resolved only to recolour them.
+    for index,list in ipairs(parts) do
+        handles.parts[index]={}
+        for at,entry in ipairs(list) do handles.parts[index][at]={hold(entry[1],'arrow part'),entry[2]} end
+    end
+    -- The widgets that grow, resolved only when their scale changes.
+    for index,list in ipairs(growers) do
+        handles.growers[index]={}
+        for at,entry in ipairs(list) do handles.growers[index][at]={hold(entry[1],'arrow part'),entry[2]} end
+    end
+    ui.handles=handles
     return ui
 end
 
--- A direction's arrow image followed by its trail's, when the cue has one.
-function arrowImages(ui,widgets,index)
-    local list={widgets.images[index]}
-    if ui.visuals.ghosts then
-        for ghost=1,#GHOSTS do list[#list+1]=widgets.ghosts[(index-1)*#GHOSTS+ghost] end
+-- Colours an arrow's parts, as {widget,role}: drawn parts take the colour,
+-- Fancy shows its red picture for the critical colour and its yellow one otherwise.
+function paintParts(ui,list,color)
+    for _,entry in ipairs(list) do
+        local value=ui.visuals.fancy and Fancy.color(entry[2],color==CRITICAL_COLOR)
+            or Drawn.color(entry[2],color)
+        entry[1]:SetColorAndOpacity(value)
     end
-    return list
 end
 
--- The indicator blueprint's own arrows, as designed: the cue takes their
--- artwork and rest transform when it attaches, never from a live indicator.
-local INDICATOR_CLASS='/Game/_Dawnwalker/UI/_Unified/Combat/WBP_CombatTargetIndicator.WBP_CombatTargetIndicator_C'
-local DESIGNED=INDICATOR_CLASS..':WidgetTree.'
-
--- Gives the cue's arrows the indicator's artwork: its arrow brush, or the
--- game's attack flash for the Glow style, in the lit colour, and each arrow's
--- designed rest and rotation. Returns whether the artwork was found; a cue
--- built before the indicator loads tries again when combat starts.
-function M.artwork(ui)
-    if ui.artwork then return true end
-    local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    M.find(INDICATOR_CLASS)
-    local designed={}
-    for index,key in ipairs(ARROWS) do
-        designed[index]=M.resolve(DESIGNED..key)
-        if not designed[index] then return false end
+-- Colours one cue arrow, part by part.
+local function paint(ui,index,color)
+    local list={}
+    for at,entry in ipairs(ui.handles.parts[index]) do
+        list[at]={assert(MC.get(entry[1]),'Preymonition cue is no longer valid'),entry[2]}
     end
-    -- The Glow style draws the game's attack flash in place of the arrow.
-    local glow=ui.visuals.glowStyle and M.find(FLASH_PATH)
-    for index,native in ipairs(designed) do
-        for _,image in ipairs(arrowImages(ui,widgets,index)) do
-            if glow then image:SetBrushFromTexture(glow,false) else image:SetBrush(native.Brush) end
-            image:SetColorAndOpacity(LIT_COLOR)
-            image:SetRenderTransform(native.RenderTransform)
-            image:SetRenderTransformPivot({X=0.5,Y=0.5})
-        end
-        -- Distances count out from the designed rest.
-        local ok,base=pcall(function()
-            local translation=native.RenderTransform.Translation
-            return {X=translation.X,Y=translation.Y}
-        end)
-        ui.base[index]=ok and base or {X=0,Y=0}
-        local okAngle,angle=pcall(function() return native.RenderTransform.Angle end)
-        ui.angle[index]=okAngle and type(angle)=='number' and angle or 0
-        -- The transform replaced what apply last wrote to this arrow.
-        for _,keys in ipairs(KEYS[index]) do
-            ui.applied[keys.scale],ui.applied[keys.translation]=nil,nil
-        end
-    end
-    ui.flashIndex=nil
-    ui.artwork=true
-    return true
+    paintParts(ui,list,color)
 end
 
--- Readies one cue arrow, and its trail, for a new attack: back to the lit colour.
-function M.arm(ui,index)
-    local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    for _,image in ipairs(arrowImages(ui,widgets,index)) do image:SetColorAndOpacity(LIT_COLOR) end
-end
+-- Readies one cue arrow for a new attack: back to the lit colour.
+function M.arm(ui,index) paint(ui,index,LIT_COLOR) end
 
--- Turns one cue arrow, and its trail, critical red.
-function M.critical(ui,index)
-    local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    for _,image in ipairs(arrowImages(ui,widgets,index)) do image:SetColorAndOpacity(CRITICAL_COLOR) end
-end
+-- Turns one cue arrow critical red.
+function M.critical(ui,index) paint(ui,index,CRITICAL_COLOR) end
 
 -- Retries the shield sprite for a cue built before it could be found. Returns
 -- its path, or nil while it still cannot be found.
@@ -444,26 +430,111 @@ local function setPair(ui,widget,key,setter,x,y)
     widget[setter](widget,value)
 end
 
+-- An arrow's size for its grow (0 starting, 1 grown), from Indicator Size, in screen units.
+function arrowSize(ui,grow)
+    local size=ui.visuals.size
+    local from=SIZE[1]+(SIZE[2]-SIZE[1])*size[1]
+    local to=SIZE[1]+(SIZE[2]-SIZE[1])*size[2]
+    return ui.unit[2]*(from+(to-from)*grow)
+end
+-- The render scale that gives the drawn shape the arrow's size along its larger
+-- side, and how far its tip then reaches from its centre: half its turned extent
+-- along the arrow's axis.
+function fit(ui,index,size)
+    local shape=ui.shapeSize
+    local scale=size/math.max(shape.X,shape.Y)
+    local angle=math.rad(ui.angle[index] or 0)
+    local cos,sin=math.abs(math.cos(angle)),math.abs(math.sin(angle))
+    local extent=AXIS[index]==1 and cos*shape.X+sin*shape.Y or sin*shape.X+cos*shape.Y
+    return scale,extent*scale/2
+end
+-- How far an arrow's tip is from the cue's centre at a share of its travel. It
+-- starts a whole starting arrow beyond the back edge; an arrow that already
+-- reaches past REACH does not move.
+function tipDistance(ui,index,offset)
+    local unit=ui.unit[AXIS[index]]
+    local _,tip=fit(ui,index,arrowSize(ui,0))
+    local from=APPEAR*unit+2*tip
+    local to=from+math.max(0,REACH*unit-from)*ui.visuals.move
+    return from+(to-from)*offset
+end
+
+-- The ground plane's projection: a flat offset from the cue's centre (y down)
+-- read as a point on the plane, up being away from the camera. Returns where it
+-- shows and how much nearer things grow, 1 at the centre.
+function projector(distance)
+    local tilt=math.rad(PERSPECTIVE.tilt)
+    local sin,cos=math.sin(tilt),math.cos(tilt)
+    return function(x,y)
+        local depth=-y
+        local k=distance/math.max(distance*0.1,distance+depth*cos)
+        return x*k,-depth*sin*k,k
+    end
+end
+-- Extends an arrow's lines so the shape is extra design units wider, writing
+-- only the parts whose scale changed.
+local function grow(ui,index,extra)
+    for at,entry in ipairs(ui.handles.growers[index]) do
+        local x,y=Drawn.growScale(entry[2],extra)
+        local key='grow'..index..'_'..at
+        local last=ui.applied[key]
+        if not (last and math.abs(last.X-x)<1e-6 and math.abs(last.Y-y)<1e-6) then
+            local widget=assert(MC.get(entry[1]),'Preymonition cue is no longer valid')
+            ui.applied[key]={X=x,Y=y}
+            widget:SetRenderScale({X=x,Y=y})
+        end
+    end
+end
+-- Where an arrow's flat centre sits at a share of its travel, and its scale.
+-- A drawn arrow keeps its starting scale and grows by extending its lines from
+-- the tip; a Fancy picture scales as a whole. Either way the tip stays where
+-- the travel puts it.
+local function flatPlace(ui,index,offset,grow)
+    local scale,tip=fit(ui,index,arrowSize(ui,ui.visuals.fancy and grow or 0))
+    return tipDistance(ui,index,offset)-tip,scale
+end
+-- The map from the shape's design units to the arrow as it shows where it
+-- appears, per unit of its scale there: turned, scaled and placed flat, then
+-- projected, relative to the projected centre.
+function groundMap(ui,index)
+    local out,turn=OUTWARD[index],math.rad(ui.angle[index])
+    local centre,scale=flatPlace(ui,index,0)
+    local cx,cy=out.X*centre,out.Y*centre
+    local px,py,k=ui.project(cx,cy)
+    local cos,sin=math.cos(turn),math.sin(turn)
+    return function(point)
+        local x,y=point.X*cos-point.Y*sin,point.X*sin+point.Y*cos
+        local sx,sy=ui.project(cx+x*scale,cy+y*scale)
+        return {X=(sx-px)/(scale*k),Y=(sy-py)/(scale*k)}
+    end
+end
+
 function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
     set(ui,widgets.box,'box','SetRenderOpacity',state.opacity)
     local lit=0
     for index,arrow in ipairs(state.arrows) do
-        local base,out=ui.base[index],OUTWARD[index]
-        local from,to=DISTANCE[index][1],DISTANCE[index][2]
-        -- The Glow style sizes its glow like the trail's flash.
-        local scale=(visuals.glowStyle and Animation.glowScale(arrow.scale) or arrow.scale)*visuals.scale
-        local opacity=visuals.arrows and arrow.opacity or 0
-        for image,widget in ipairs(arrowImages(ui,widgets,index)) do
-            local keys=KEYS[index][image]
-            -- The trail follows the arrow's path, each one a step behind and fainter.
-            local offset=image==1 and arrow.offset or arrow.trail[image-1]
-            local distance=ui.unit*(from+(to-from)*offset)*visuals.move
-            set(ui,widget,keys.opacity,'SetRenderOpacity',opacity*(image==1 and 1 or GHOSTS[image-1]))
-            setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)
-            setPair(ui,widget,keys.translation,'SetRenderTranslation',base.X+out.X*distance,base.Y+out.Y*distance)
+        local out=OUTWARD[index]
+        local centre,scale=flatPlace(ui,index,arrow.offset,arrow.grow)
+        -- How much wider than its starting shape it is, in design units; a
+        -- hidden arrow keeps its lines until it shows again.
+        if arrow.opacity>0 and not visuals.fancy then
+            grow(ui,index,arrowSize(ui,arrow.grow)/scale-ui.shapeSize.X)
         end
+        local x,y=out.X*centre,out.Y*centre
+        -- On the ground plane the arrow shows where its flat place projects,
+        -- nearer ones larger.
+        if ui.project then
+            local k
+            x,y,k=ui.project(x,y)
+            scale=scale*k
+        end
+        local opacity=visuals.arrows and arrow.opacity or 0
+        local widget,keys=widgets.images[index],KEYS[index]
+        set(ui,widget,keys.opacity,'SetRenderOpacity',opacity)
+        setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)
+        setPair(ui,widget,keys.translation,'SetRenderTranslation',x,y)
         lit=math.max(lit,arrow.opacity)
     end
     -- A critical attack turns the shield red: In Combat and Defending turn it
@@ -482,23 +553,6 @@ function M.apply(ui,state)
         local scale=visuals.skull*state.skull.scale
         setPair(ui,widgets.shield,'shieldScale','SetRenderScale',scale,scale)
     end
-    -- The flash sits where its arrow appears, turned like it; off, or without
-    -- arrows, it stays clear.
-    if not (visuals.glow and visuals.arrows) then return end
-    local flash,index=state.flash,state.flash.index
-    set(ui,widgets.flash,'flash','SetRenderOpacity',flash.opacity)
-    if index then
-        if ui.flashIndex~=index then
-            ui.flashIndex=index
-            widgets.flash:SetRenderTransformAngle(ui.angle[index])
-        end
-        local base,out=ui.base[index],OUTWARD[index]
-        local distance=ui.unit*DISTANCE[index][1]*visuals.move
-        local scale=flash.scale*visuals.scale
-        setPair(ui,widgets.flash,'flashScale','SetRenderScale',scale,scale)
-        setPair(ui,widgets.flash,'flashTranslation','SetRenderTranslation',
-            base.X+out.X*distance,base.Y+out.Y*distance)
-    end
 end
 
 -- What one cue arrow currently renders with, read back for the log.
@@ -510,7 +564,7 @@ function M.describeArrow(ui,index)
         local transform=image.RenderTransform
         return string.format('opacity %s, scale %.2f, at %.1f,%.1f (unit %.1f), cue opacity %s, %s',
             tostring(MC.call(image,'GetRenderOpacity')),transform.Scale.X,
-            transform.Translation.X,transform.Translation.Y,ui.unit,
+            transform.Translation.X,transform.Translation.Y,ui.unit[AXIS[index]],
             tostring(MC.call(widgets.box,'GetRenderOpacity')),M.describe(image))
     end)
     return ok and text or 'unreadable: '..tostring(text)
@@ -534,8 +588,12 @@ function M.destroy(ui)
     if box then MC.call(box,'SetRenderOpacity',0) end
     if layer then MC.call(layer,'ClearChildren') end
     for key,handle in pairs(handles) do
-        if key=='images' or key=='ghosts' then
+        if key=='images' then
             for _,image in ipairs(handle) do MC.release(image) end
+        elseif key=='parts' or key=='growers' then
+            for _,list in ipairs(handle) do
+                for _,entry in ipairs(list) do MC.release(entry[1]) end
+            end
         else
             MC.release(handle)
         end

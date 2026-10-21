@@ -22,7 +22,8 @@ local function object(name,fields)
     function methods:GetWorld() return self.world or world end
     function methods:AddChildToOverlay(child)
         self.children[#self.children+1]=child
-        return object(child.name..' slot')
+        child.slot=object(child.name..' slot')
+        return child.slot
     end
     function methods:ClearChildren() self.children={} end
     function methods:SetContent(child) self.content=child end
@@ -67,6 +68,10 @@ local bottom=layer.children[2]
 assert(#bottom.children==6 and bottom.children[1].HeightOverride<bottom.children[6].HeightOverride,
     'each edge stacks deepening bands')
 assert(layer.children[3].children[1].WidthOverride~=nil,'side edges take a width')
+-- The game's left and right show on the opposite sides: its left lights the
+-- screen's right edge, its right the left edge.
+assert(layer.children[3].children[1].slot.HorizontalAlignment==3,'left lights the right edge')
+assert(layer.children[4].children[1].slot.HorizontalAlignment==1,'right lights the left edge')
 assert(lit(layer)=='off off off off','edges wait unseen')
 update({kind='arrow',direction=2,path=PATH,indicator=indicator})
 assert(lit(layer)=='off off off off','requests are ignored outside combat')

@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.3.0
+
+- Requires ModCore Settings 1.5.0 or later and ModCore Templates 1.6.0 or later, for range
+  settings.
+- The mod draws its own arrows instead of using the game's sprite. Indicator Style is Off,
+  Solid (a triangle), Chevron (the default), Perspective (the Chevron on a plane at the
+  character's waist, seen from above) or Fancy (painted glowing arrows from the mod's
+  `images` folder). Drawn arrows use the arrow colour with a dimmer inset and a thin black
+  outline, and have a 135 degree tip.
+- Indicator Size is a range from 0% to 100% (default 10% to 50%): the size an arrow
+  appears at and the size it grows to. An arrow grows by extending its lines from the tip,
+  so its outline keeps its thickness.
+- Indicator Movement runs from 0% to 100% (default 70%): the share of the way the tip
+  travels to 35% of the screen. An arrow appears with its back edge 5% of the screen out
+  from the cue's centre.
+- The Trailing effect (Glow and Fade) is removed.
+- Left and right arrows, and Directional edges, show on the side of the screen where the
+  game shows its own left and right indicators.
+
 ## v1.2.3
 
 - Requires ModCore Settings 1.4.0 or later and ModCore Templates 1.5.0 or later, which name

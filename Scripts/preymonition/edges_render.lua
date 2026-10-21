@@ -2,7 +2,9 @@
 -- reads nothing from the game; preymonition.edges decides what they show.
 local MC=require('mc')
 
--- Edge indices follow MCT's attack directions: top, bottom, left, right.
+-- Edge indices follow MCT's attack directions: top, bottom, left, right. The
+-- game's left and right show on the opposite sides of the screen (seen
+-- 2026-10-18), so left lights the right edge and right the left.
 local EDGES=4
 -- Nested bands per edge, each a little deeper and faint, so they add up to a
 -- gradient fading inward; depth is a share of the shorter screen side.
@@ -43,7 +45,7 @@ local function buildEdge(tree,layer,index,depth,suffix,bands)
         if vertical then box:SetHeightOverride(thickness) else box:SetWidthOverride(thickness) end
         local bandSlot=edge:AddChildToOverlay(box)
         -- 0 fills; 1 is top or left, 3 bottom or right.
-        bandSlot:SetHorizontalAlignment(vertical and 0 or (index==3 and 1 or 3))
+        bandSlot:SetHorizontalAlignment(vertical and 0 or (index==3 and 3 or 1))
         bandSlot:SetVerticalAlignment(vertical and (index==1 and 1 or 3) or 0)
     end
     return edge

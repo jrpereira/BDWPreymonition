@@ -26,10 +26,9 @@ Repeat the incoming attack direction near the center of the screen.
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Indicator Style | Off (`0`), Arrows (`1`) | Arrows | `MCT_Preymonition_Center_ParryStyle` |
-| Indicator Size | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_ParrySize` |
-| Indicator Movement | 50% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Center_ParryMovement` |
-| Trailing effect | Off (`0`), Glow (`1`), Fade (`2`) | Glow | `MCT_Preymonition_Center_ParryTrail` |
+| Indicator Style | Off (`0`), Solid (`1`), Chevron (`2`), Perspective (`3`), Fancy (`4`) | Chevron | `MCT_Preymonition_Center_ParryStyle` |
+| Indicator Size | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 10% to 50% | `MCT_Preymonition_Center_ParrySize` |
+| Indicator Movement | 0% to 100%, in steps of 10 | 70% | `MCT_Preymonition_Center_ParryMovement` |
 | Play sound | None (`0`), Chime (`1`), Swish (`2`) | Chime | `MCT_Preymonition_Center_ParrySound` |
 
 #### Unblockable Attack

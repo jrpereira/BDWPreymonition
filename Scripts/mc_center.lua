@@ -34,10 +34,13 @@ local template={
         -- Scale resizes the shield only: 0% is 40% of the shorter screen side.
         {id='GeneralScale', label='Shield Scale', values={min=-50,max=200,step=10,suffix='%'}, default=0},
         {id='Parry', label='Parry & Block', fields={
-            {id='.Style', label='Indicator Style', values={[0]='Off',[1]='Arrows'}, default=1},
-            {id='.Size', label='Indicator Size', values=PERCENT, default=100},
-            {id='.Movement', label='Indicator Movement', values=PERCENT, default=100},
-            {id='.Trail', label='Trailing effect', values={[0]='Off',[1]='Glow',[2]='Fade'}, default=1},
+            {id='.Style', label='Indicator Style', values={[0]='Off',[1]='Solid',[2]='Chevron',[3]='Perspective',[4]='Fancy'}, default=2},
+            -- Indicator Size: where the arrow starts and how large it grows, on one scale from
+            -- 1 unit of the screen height (0%) to 5 (100%).
+            {id='.Size', label='Indicator Size', type='range',
+                values={min=0,max=100,step=10,suffix='%',delta={10}}, default={10,50}},
+            -- Movement: the share of the way from where the arrow appears to 35% of the screen.
+            {id='.Movement', label='Indicator Movement', values={min=0,max=100,step=10,suffix='%'}, default=70},
             {id='.Sound', label='Play sound', values=Sound.choices(Sound.ARROW_LABELS,Sound.ARROW), default=1},
         }},
         {id='Unblockable', label='Unblockable Attack', fields={

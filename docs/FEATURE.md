@@ -11,7 +11,14 @@ MCT's `MC_NPCAttackIndicator` events on their own.
 ## The center cue
 
 `attach` builds the cue in that layer: a size box holding the shield image, then
-an overlay with a flash image behind four arrow images. The box is 40% of the
+an overlay with four arrows the cue draws from solid images (Solid, Chevron).
+Fancy shows two pictures from the mod's `images` folder, loaded as textures when
+the cue attaches (yellow, and red for critical), turned from pointing right to
+each direction; it scales as a whole, and falls back to the Chevron if the
+pictures do not load. Perspective draws the Chevron as seen lying on a plane parallel to the ground
+at the waist, from a camera 20 degrees above and half a screen height away: each
+arm is sheared to the shape it projects to where the arrow appears, and as the
+arrow travels it moves to where its flat place projects, scaled by its nearness. The box is 40% of the
 shorter screen side and centred horizontally. Position places it vertically by
 the shield: Below keeps the shield's bottom 10% of the screen height above the
 bottom edge, Above keeps its top 10% below the top edge, and Middle centres it.
@@ -67,13 +74,19 @@ for the current difficulty, read from its combat subsystem when combat starts:
 500 ms on the easiest (2.5), 280 ms on the second (1.4), 240 ms on the third
 (1.2) and 200 ms on the hardest (1.0). 1.4 is assumed when it cannot be read.
 
-An arrow shows at full opacity and 1.5 times its size, one movement unit out
-from its rest, then over the animation time grows to 2.5 times its size, the
-critical size, while travelling to three units out; the bottom arrow moves half
-as far. A unit is 5% of the shorter screen side (108 pixels at 2160). The flash
-shows where the arrow appears and fades out while growing to 1.5 times its size.
+An arrow shows at full opacity with its back edge one unit out from the cue's
+centre, then over the animation time grows while its tip travels outward. A unit
+is 5% of the screen along the arrow's axis: the height for top and bottom, the
+width for left and right. Indicator Size is a range whose low end sets the size
+an arrow appears at and whose high end the size it grows to, in units of the
+height from 1 at 0% to 5 at 100%; Movement takes its tip that share of the
+way to 7 units (35% of the screen). An arrow grows by extending its lines back
+from the tip, so its outline and inset keep their thickness: a Chevron's arms
+lengthen, a Solid triangle's layers grow about their tips. Both have a 135
+degree tip. The game's left and right arrows show on the opposite sides of the
+screen, so the cue shows them there too.
 
-Critical turns the arrow red, and 2.5 times its size if its travel has not got
+Critical turns the arrow red, and its grown size if its travel has not got
 there, until the attack resolves, as the game turns its shield red. An In
 Combat or Defending shield turns red, and a Critical shield pops in red and grows to twice its size over the animation
 time. A resolved arrow goes at once and the shield calms. Combat start fades the
@@ -85,7 +98,7 @@ queued attack, else the player.
 Animation uses real elapsed time and absolute phase deadlines, steps once per
 frame when the engine tick is hooked, and stops once nothing moves. Each event
 and animation frame resolves the cue's widgets once, and a frame writes only the
-values that changed. Sprites, arrow artwork and chosen sounds load when the cue
+values that changed. Sprites and chosen sounds load when the cue
 attaches. A failure handling an event is logged once per kind; repeats are
 counted when combat ends.
 
@@ -109,6 +122,5 @@ attack indicator source, and the edges' requests, against fake UE objects.
 Checked in game on 2026-10-11, when Preymonition still hooked the game itself:
 hook delivery, placement, arrow and unblockable sounds, the skull, and combat
 start and end, including a loading screen. Not yet checked in game: delivery
-through MCT's `MC_NPCAttackIndicator`, the arrow artwork taken from the
-blueprint, Scale and Position, the Chime sound, the Edges template on its own
-layer, and most non-default settings.
+through MCT's `MC_NPCAttackIndicator`, the drawn arrows, Scale and Position,
+the Chime sound, the Edges template on its own layer, and most non-default settings.

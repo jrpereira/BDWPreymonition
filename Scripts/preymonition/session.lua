@@ -144,7 +144,6 @@ local function present(indicator,path,direction,event)
         escalate(record,path,direction)
         return
     end
-    if not record.ui.artwork then log.debug('arrow artwork not found yet; attack not shown') return end
     Cue.arm(record.ui,direction)
     record.source,record.direction,record.critical=path,direction,nil
     if record.model:show(direction,event.path..':'..event.sequence) then
@@ -223,7 +222,6 @@ local function startCombat()
             log.debug('parry window ',multiplier,'; animations take ',
                 string.format('%.0f',PER_MULTIPLIER*multiplier*1000),' ms')
             styleShield(record)
-            if not Cue.artwork(record.ui) then log.warn('arrow artwork unavailable') end
             if record.model:engage() then
                 log.debug('combat started; cue fading in')
                 pump(record)
@@ -307,7 +305,10 @@ function M.attach(hud,layer,params,onCleanup)
     cues[#cues+1]=record
     log.info('cue attached, scale ',settings.GeneralScale or 0,'%, position ',settings.GeneralPosition or 1,', screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale,
-        '; shield ',ui.sprite or 'not found yet','; flash ',ui.flash or 'texture not found')
+        '; shield ',ui.sprite or 'not found yet')
+    if settings.ParryStyle==4 and not ui.visuals.fancy then
+        log.warn('Fancy arrow pictures did not load; drawing Chevrons')
+    end
 end
 
 return M

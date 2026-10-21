@@ -41,29 +41,29 @@ local function defaults(definition,expected)
         assert(row.default==default,key..' defaults to '..tostring(row.default))
     end
 end
-defaults(centerDefinition,{ParrySound=1,ParryStyle=1,ParrySize=100,ParryMovement=100,ParryTrail=1,
+defaults(centerDefinition,{ParrySound=1,ParryStyle=2,ParrySize='10|50',ParryMovement=70,
     UnblockableSize=120,UnblockableSound=1,GeneralScale=0,GeneralPosition=1,GeneralShield=2})
 assert(centerDefinition.settings.ParryEdges==nil,'the center cue has no edge setting')
 defaults(edgesDefinition,{EdgeStyle=1})
 
 -- Rows are ModCoreSettings menu data.
 local scale=assert(rows[centerDefinition.settings.GeneralScale])
-assert(scale.range and scale.range.min==-50 and scale.range.max==200 and scale.default==0)
+assert(scale.type=='integer' and scale.values.min==-50 and scale.values.max==200 and scale.default==0)
 local function labels(row)
     local list={}
-    for index,choice in ipairs(row.choices) do list[index]=choice.label end
+    for index,choice in ipairs(row.values) do list[index]=choice.label end
     return table.concat(list,'|')
 end
 assert(labels(rows[centerDefinition.settings.GeneralPosition])=='Below|Middle|Above')
 assert(labels(rows[edgesDefinition.settings.EdgeStyle])=='Framed|Directional')
 -- Each sound choice previews its own event; None previews silence.
 local parry=assert(rows[centerDefinition.settings.ParrySound])
-assert(parry.choices[1].label=='None' and parry.choices[1].sound=='none'
-    and parry.choices[2].label=='Chime' and parry.choices[2].sound:match('UI_AA_Cooldown_Ended%.UI_AA_Cooldown_Ended$')
-    and parry.choices[3].label=='Swish' and parry.choices[3].sound:match('UI_Claws_Equip%.UI_Claws_Equip$')
-    and parry.choices[4]==nil,'parry sounds preview')
+assert(parry.values[1].label=='None' and parry.values[1].sound=='none'
+    and parry.values[2].label=='Chime' and parry.values[2].sound:match('UI_AA_Cooldown_Ended%.UI_AA_Cooldown_Ended$')
+    and parry.values[3].label=='Swish' and parry.values[3].sound:match('UI_Claws_Equip%.UI_Claws_Equip$')
+    and parry.values[4]==nil,'parry sounds preview')
 local skull=assert(rows[centerDefinition.settings.UnblockableSound])
-assert(skull.choices[2].label=='Growl' and skull.choices[3].sound:match('UI_PauseMenu_Resume'),'unblockable sounds preview')
+assert(skull.values[2].label=='Growl' and skull.values[3].sound:match('UI_PauseMenu_Resume'),'unblockable sounds preview')
 -- Center's standalone settings and Screen Edges show no heading: their rows sit under the template's toggle.
 local function groupOf(groups,id)
     for _,group in ipairs(groups or {}) do
@@ -73,9 +73,9 @@ local function groupOf(groups,id)
     end
 end
 local function headingOf(field)
-    return assert(groupOf(page.menu.groups,assert(rows[field]).group),'no group for '..field).heading
+    return assert(groupOf(page.menu.groups,assert(rows[field]).group),'no group for '..field).style
 end
-assert(headingOf(centerDefinition.settings.GeneralScale)==false,'Shield Scale has no heading')
-assert(headingOf(edgesDefinition.settings.EdgeStyle)==false,'Screen Edges has no heading')
-assert(headingOf(centerDefinition.settings.ParryStyle)~=false,'Parry & Block keeps its heading')
+assert(headingOf(centerDefinition.settings.GeneralScale)=='none','Shield Scale has no heading')
+assert(headingOf(edgesDefinition.settings.EdgeStyle)=='none','Screen Edges has no heading')
+assert(headingOf(centerDefinition.settings.ParryStyle)~='none','Parry & Block keeps its heading')
 print('PASS: Preymonition registers the Center and Edges templates in npc.attacks with their settings')

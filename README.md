@@ -24,9 +24,9 @@ credit remain your responsibility.
 - [Dawnwalker Mod Menu](https://www.nexusmods.com/thebloodofdawnwalker/mods/271)
   for the settings page.
 - [ModCore Settings](https://www.nexusmods.com/thebloodofdawnwalker/mods/590)
-  1.3.0 or newer.
+  1.5.0 or newer.
 - [ModCore Templates](https://www.nexusmods.com/thebloodofdawnwalker/mods/641)
-  1.4.0 or newer.
+  1.6.0 or newer.
 - [UE4SS Lua Event Bridge](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.2.0 or newer, which
   ModCore Templates also requires. Without it no cue appears.
 
@@ -58,10 +58,9 @@ in `SETTINGS.md`, next to this file in the installed mod.
 | **Shield Scale** | −50%–200% (**0%**): resizes the shield; 0% is the standard size, 40% of the shorter screen side. Arrows keep their size (see Parry & Block → Indicator Size) and the skull its own (Unblockable Attack → Indicator Size). |
 | **Position** | Below (the cue's bottom 10% of the screen height above the bottom edge), **Middle** (centred on the screen's middle), or Above (its top 10% below the top edge). |
 | **Shield Visible** | Off; In Combat (a faint shield behind the arrows throughout combat); **Defending** (the faint shield while an attack is shown); or Critical (a shield that pops in only when an attack turns critical, growing to twice its size). Each turns red while the attack is critical, and the skull replaces it during an unblockable attack. |
-| **Parry & Block → Indicator Style** | Off or **Arrows**. |
-| **Parry & Block → Indicator Size** | 50%–200% (**100%**): the arrows' size. |
-| **Parry & Block → Indicator Movement** | 50%–200% (**100%**): how far arrows travel. |
-| **Parry & Block → Trailing effect** | Off, **Glow** (a flash where an arrow appears), or Fade (two fainter arrows trail it, at half and a quarter of its opacity). |
+| **Parry & Block → Indicator Style** | Off, Solid (a triangle), **Chevron**, Perspective, or Fancy (glowing painted arrows from the mod's `images` folder, red while critical; they scale as a whole as they grow): arrows drawn by the mod, in the arrow colour with a thin, dimmer inset and a thin black outline. Perspective lays the Chevron on a plane parallel to the ground at the character's waist, seen from a camera 20° above: arrows further away show higher up and smaller, nearer ones lower and larger. |
+| **Parry & Block → Indicator Size** | A range on 0%–100% (**10%–50%**), its ends at least 10% apart: the low end is the size an arrow appears at, the high end the size it grows to as it travels. Sizes are in units of 5% of the screen height, from 1 unit at 0% to 5 at 100%, so the default grows from 1.4 to 3 units. An arrow grows by extending its lines from the tip; its outline keeps its thickness. |
+| **Parry & Block → Indicator Movement** | 0%–100% (**70%**): how far arrows travel. An arrow appears with its back edge 5% of the screen out from the cue's centre (of the height up or down, of the width left or right); its tip travels this share of the way to 35%. 0% keeps it still. |
 | **Parry & Block → Play sound** | None, **Chime**, or Swish, when an attack appears, played at the attacker. |
 | **Unblockable Attack → Indicator Size** | 50%–200% (**120%**): the skull's size as it appears; it grows to twice that as it appears. |
 | **Unblockable Attack → Play sound** | None, **Growl**, or Boom, when the skull appears, played at the attacker. |

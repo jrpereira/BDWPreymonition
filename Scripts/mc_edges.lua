@@ -21,7 +21,7 @@ local template={
         update=function(_,event) Edges.update(event) end,
     },
     menu={
-        {id='Edge', label='Screen Edges', heading=false, fields={
+        {id='Edge', label='Screen Edges', style='none', fields={
             {id='.Style', label='Edge Style', values={[1]='Framed',[2]='Directional'}, default=1},
         }},
     },
