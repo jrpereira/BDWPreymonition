@@ -3,14 +3,14 @@ local log=require('preymonition.logging').new('Preymonition Edges')
 local Edges=require('preymonition.edges')
 Edges.setLog(log)
 
--- The screen edges glow while an attack is incoming. The center cue is a
--- template of its own (mc_center.lua).
+-- The screen edges glow while an attack is incoming. The omens are a
+-- template of their own (mc_omens.lua).
 local template={
     id='Edges',
     label='Edges Overlay',
     description='Light the screen edges while an attack is incoming.',
     category='npc.attacks',
-    -- After the center cue (10).
+    -- After the omens (10).
     priority=11,
     -- MCT creates a full-screen layer on the HUD for the edges.
     objects={hud={},cue={}},
@@ -22,7 +22,8 @@ local template={
     },
     menu={
         {id='Edge', label='Screen Edges', style='none', fields={
-            {id='.Style', label='Edge Style', values={[1]='Framed',[2]='Directional'}, default=1},
+            {id='.Style', label='Edge Style', values={[1]='Framed',[2]='Directional'}, default=1,
+                description='Framed lights every screen edge during an attack, Directional only the edge on the attack\'s side. They turn red when the parry window opens.'},
         }},
     },
 }

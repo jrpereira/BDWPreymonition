@@ -1,5 +1,5 @@
 package.path='Preymonition/Scripts/?.lua;'..package.path
-local Drawn=require('preymonition.drawn')
+local Drawn=require('preymonition.omens_drawn')
 local function near(a,b) return math.abs(a-b)<1e-6 end
 
 -- Turns: a positive angle turns a widget clockwise on screen, so an upward
@@ -15,27 +15,35 @@ local function laid(part)
 end
 
 -- Solid: three nested triangles with a 135 degree tip, outline first, each
--- drawn as two clipped halves.
+-- drawn as two clipped halves that meet without overlapping.
 local solid=Drawn.layout('solid')
 local height=50/math.tan(math.rad(67.5))
 assert(solid.width==100 and near(solid.height,height),'the outline fills the box: base 100, a 135 degree tip')
 assert(#solid.parts==6,'three layers of two halves')
-local roles={}
-for index,part in ipairs(solid.parts) do
-    roles[index]=part.role
+local roles,halves={},{}
+for _,part in ipairs(solid.parts) do
+    roles[#roles+1]=part.role
+    halves[#halves+1]=part
+end
+assert(table.concat(roles,' ')=='outline outline inset inset front front','back to front')
+-- An arrow fades per image, so an overlap would show as a denser line.
+for index=1,#halves,2 do
+    local left,right=halves[index],halves[index+1]
+    assert(near(left.clip.x+left.clip.width,right.clip.x),'a layer\'s halves meet exactly, without overlapping')
+end
+for _,part in ipairs(halves) do
     assert(part.kind=='half' and laid(part.fill),'each half fills from its side')
     -- Each side slopes 22.5 degrees from the base: the tip is 135 degrees.
     assert(near(math.abs(part.fill.axis.Y/part.fill.axis.X),math.tan(math.rad(22.5))),'a 135 degree tip')
 end
-assert(table.concat(roles,' ')=='outline outline inset inset front front','back to front')
 -- A layer's triangle, from its left half: base corner, tip and base.
 local function triangleOf(left,right)
-    local base=(left.clip.width+right.clip.width-0.5)
+    local base=left.clip.width+right.clip.width
     return {left=left.clip.x,bottom=left.clip.y+left.clip.height,tip=left.clip.y,base=base,x=left.clip.x+base/2}
 end
-local outline=triangleOf(solid.parts[1],solid.parts[2])
-local inset=triangleOf(solid.parts[3],solid.parts[4])
-local front=triangleOf(solid.parts[5],solid.parts[6])
+local outline=triangleOf(halves[1],halves[2])
+local inset=triangleOf(halves[3],halves[4])
+local front=triangleOf(halves[5],halves[6])
 assert(near(outline.left,0) and near(outline.bottom,height) and near(outline.tip,0) and near(outline.base,100),
     'the outline is the whole box')
 for _,layer in ipairs({inset,front}) do
@@ -68,7 +76,6 @@ for index,part in ipairs(chevron.parts) do
     -- Each arm runs 67.5 degrees from the axis.
     assert(near(math.abs(part.axis.X),math.sin(math.rad(67.5))) and near(part.axis.Y,math.cos(math.rad(67.5))),'a 135 degree tip')
 end
-assert(table.concat(roles,' ')=='outline outline inset inset front front','back to front')
 -- Every corner lies in the box, which the outline touches on every side; the
 -- tip, the topmost point, is centred.
 local minX,minY,maxX,maxY,tipX=math.huge,math.huge,-math.huge,-math.huge,nil
@@ -85,6 +92,11 @@ for _,part in ipairs(chevron.parts) do
 end
 assert(near(minX,0) and near(minY,0) and near(maxX,chevron.width) and near(maxY,chevron.height),'the box bounds the shape')
 assert(near(tipX,chevron.width/2),'the tip is centred')
+-- Slate shrinks a centred box larger than the arrows' panel (about 400 at
+-- 1080p), moving its drawing off the arrow's axis: every shape stays small.
+for _,layout in ipairs({solid,chevron}) do
+    assert(layout.width<=150 and layout.height<=150,'the arrow box stays well inside the panel')
+end
 
 -- Skew: the angle, x shear and scale that map a widget's width and height onto
 -- two vectors, as Slate applies them: scale, then shear along x, then turn.
@@ -112,6 +124,66 @@ end
 -- the arms flatter: shorter across, still meeting at the tip.
 local squashed=Drawn.reshape(chevron,function(p) return {X=p.X,Y=p.Y/2} end)
 assert(near(squashed.height,same.height/2) and near(squashed.width,same.width),'half as high, as wide')
+
+-- Built, each arm's slot places its pivot, the tip end, where Slate's turn about
+-- that pivot leaves the arm in place: a layer's two arms meet at the tip, flat
+-- or reshaped. Slate lays the widget out by slot position and alignment, then
+-- scales, shears and turns it about its pivot.
+local function built(layout,map)
+    local slots={}
+    local function construct(class,name)
+        local widget={class=class,name=name}
+        function widget:SetRenderTransformPivot(p) self.pivot=p end
+        function widget:SetRenderTransformAngle(a) self.angle=a end
+        function widget:SetRenderShear(s) self.shear=s.X end
+        function widget:SetRenderScale(s) self.scale=s end
+        function widget:AddChildToCanvas(child)
+            local slot={}
+            function slot:SetAlignment(a) self.alignment=a end
+            function slot:SetPosition(p) self.position=p end
+            function slot:SetSize(s) self.size=s end
+            slots[#slots+1]={slot=slot,widget=child}
+            return slot
+        end
+        for _,key in ipairs({'SetContent','SetWidthOverride','SetHeightOverride','SetClipping','SetColorAndOpacity'}) do
+            widget[key]=function() end
+        end
+        return widget
+    end
+    Drawn.build(construct,'Arrow',layout,map)
+    -- Each arm's tip-end corners, inner and outer, where Slate shows them.
+    local ends={}
+    for _,entry in ipairs(slots) do
+        local slot,w=entry.slot,entry.widget
+        local function show(lx,ly)
+            local px,py=w.pivot.X*slot.size.X,w.pivot.Y*slot.size.Y
+            local sx,sy=(w.scale or {X=1}).X,(w.scale or {Y=1}).Y
+            local x,y=(lx-px)*sx,(ly-py)*sy
+            x=x+y*math.tan(math.rad(w.shear or 0))
+            local c,s=math.cos(math.rad(w.angle)),math.sin(math.rad(w.angle))
+            local left,top=slot.position.X-slot.alignment.X*slot.size.X,slot.position.Y-slot.alignment.Y*slot.size.Y
+            return {X=left+px+x*c-y*s,Y=top+py+x*s+y*c}
+        end
+        ends[#ends+1]={show(0,0),show(0,slot.size.Y)}
+    end
+    return ends
+end
+local function meets(ends,label)
+    for index=1,#ends,2 do
+        local a,b=ends[index],ends[index+1]
+        -- The two arms' tip ends share a corner: the tip, on the axis.
+        local shared=false
+        for _,p in ipairs(a) do
+            for _,q in ipairs(b) do
+                if math.abs(p.X-q.X)<1e-6 and math.abs(p.Y-q.Y)<1e-6 then shared=true end
+            end
+        end
+        assert(shared,label..': a layer\'s arms meet at the tip')
+    end
+end
+meets(built('chevron'),'flat')
+meets(built('chevron',function(p) return {X=p.X,Y=p.Y/2} end),'squashed')
+meets(built('chevron',function(p) return {X=p.X*0.8+p.Y*0.3,Y=p.Y*0.6-p.X*0.1} end),'skewed')
 
 -- Growing: the shape widens by extending its lines, keeping their thickness.
 -- A chevron arm stretches its length from the tip; widening by e takes each arm

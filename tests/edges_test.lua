@@ -87,7 +87,7 @@ assert(lit(layer)=='off off off off' and not red(layer),'the resolve puts them o
 -- An indicator in another world is not this HUD's.
 update({kind='arrow',direction=1,path='/Game/Other',indicator=object('Other',{world=elsewhere})})
 assert(lit(layer)=='off off off off','another world\'s attack is ignored')
--- Unblockable requests are the center cue's.
+-- Unblockable requests are the omens'.
 update({kind='unblockable',active=true,path=PATH,indicator=indicator})
 assert(lit(layer)=='off off off off')
 

@@ -1,4 +1,4 @@
-local Animation = dofile('Preymonition/Scripts/preymonition/animation.lua')
+local Animation = dofile('Preymonition/Scripts/preymonition/omens_animation.lua')
 local time, applications = 0, 0
 local model = Animation.new({
     now = function() return time end,
@@ -75,12 +75,39 @@ time = 3.1; grown:step(); near(grown.shield.scale, 1.5)
 time = 3.3; grown:step(); near(grown.shield.scale, 2)
 grown:critical(1); near(grown.shield.scale, 2)
 grown:show(2, 'b'); assert(not grown.shield.critical and grown.shield.scale == 1, 'a new attack calms the shield')
--- The unblockable skull grows to twice its size over 0.2s; passing resets it.
-time = 4; grown:unblockable(true); near(grown.skull.scale, 1)
-time = 4.1; grown:step(); near(grown.skull.scale, 1.5)
-time = 4.3; grown:step(); near(grown.skull.scale, 2)
-grown:unblockable(false); near(grown.skull.scale, 1)
-assert(not grown.tracks.skullScale, 'a passed skull needs no frames')
+-- A held attack counts as shown but its arrow waits at rest; reveal starts its
+-- travel and growth and turns the shield critical.
+time = 3.4; assert(grown:show(1, 'held', 'held'))
+assert(grown.arrows[1].held and grown.arrows[1].opacity == 1 and not grown.shield.critical and not grown.tracks.grow1,
+    'a held arrow waits at rest')
+time = 3.45; assert(grown:reveal(1) and not grown.arrows[1].held and grown.shield.critical, 'reveal starts it')
+time = 3.55; grown:step(); near(grown.arrows[1].grow, 0.5)
+assert(not grown:reveal(1), 'only a held arrow is revealed')
+-- A partial buildup grows and travels a share of its way, at a whole
+-- animation's pace; reveal carries it on from there to the end at that pace.
+time = 3.46; assert(grown:show(2, 'partial', 'held', 0.3))
+time = 3.49; grown:step(); near(grown.arrows[2].grow, 0.15); near(grown.arrows[2].offset, 0.15)
+time = 3.6; grown:step(); near(grown.arrows[2].grow, 0.3); near(grown.arrows[2].offset, 0.3)
+assert(grown:reveal(2)); near(grown.arrows[2].grow, 0.3); near(grown.arrows[2].offset, 0.3)
+time = 3.67; grown:step(); near(grown.arrows[2].grow, 0.65); near(grown.arrows[2].offset, 0.65)
+time = 3.74; grown:step(); near(grown.arrows[2].grow, 1); near(grown.arrows[2].offset, 1)
+-- A whole buildup has nothing left to carry on.
+time = 3.8; assert(grown:show(4, 'whole', 'held', 1))
+time = 4; grown:step(); assert(grown:reveal(4) and not grown.tracks.grow4 and not grown.tracks.offset4)
+near(grown.arrows[4].offset, 1)
+-- An attack first seen critical starts its whole show then: the arrow
+-- travels and grows from its start, and the shield turns critical with it.
+time = 3.5; grown:show(3, 'perfect', 'critical')
+assert(grown.shield.critical and grown.arrows[3].grow == 0 and grown.arrows[3].offset == 0, 'critical from its start')
+time = 3.6; grown:step(); near(grown.arrows[3].grow, 0.5); near(grown.shield.scale, 1.5)
+time = 3.7; grown:step(); near(grown.arrows[3].offset, 1); near(grown.shield.scale, 2)
+-- The unblockable skull grows from its starting to its grown size over 0.2s;
+-- passing resets it.
+time = 4; grown:unblockable(true); near(grown.skull.grow, 0)
+time = 4.1; grown:step(); near(grown.skull.grow, 0.5)
+time = 4.3; grown:step(); near(grown.skull.grow, 1)
+grown:unblockable(false); near(grown.skull.grow, 0)
+assert(not grown.tracks.skullGrow, 'a passed skull needs no frames')
 -- The cue sets the duration: the next attack travels over it.
 local timed = Animation.new({ now = function() return time end, apply = function() end })
 timed:setDuration(0.126)

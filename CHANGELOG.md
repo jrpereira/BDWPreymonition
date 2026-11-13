@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.4.0
+
+- Requires ModCore Templates 1.7.0 or later, which names the attacker behind each attack.
+- New Countdown template (Countdown Overlay), with its own Position (Below, Middle, Above):
+  the time left to the attack's parry window above a yellow bar that runs down. When
+  ModCore Templates names the attacker, the time comes from the attack's hit window in the
+  game; otherwise it is an estimate, 0.3 s times the difficulty's parry window multiplier.
+  NOW shows in red only when the game opens the parry window, and its bar runs down until
+  the hit window ends (or over a second); it all goes when the attack resolves.
+- The Center template is now Omens (Omens Overlay): the attack shown as symbols. Its settings are saved under `MCT_Preymonition_Omens_*`; values saved under
+  `MCT_Preymonition_Center_*` are not carried over.
+- Every setting has a description in the menu.
+- Parry & Block Indicator → Prioritize Perfection over Buildup (default Off): the arrow
+  animates, red, once the parry window opens. Buildup visibility (Hidden, Faint, Normal)
+  and Buildup animation (Static, Partial to 30%, Normal) set how the yellow arrow shows and
+  moves before then; the parry window carries it on from there, and the arrow's sound
+  plays only then. Hidden and Static by default. The Background is unaffected.
+- New Background template (Background Overlay): the shield moves out of the Omens into a
+  template of its own, drawn under them, with Position, Visibility (In Combat, Defending,
+  Critical; the template's Enabled replaces Off) and Size (5% to 100% of the screen height,
+  default 50%). Defending now shows the shield a see-through yellow, the arrows' colour,
+  while an attack is shown (was faint white), then red once its parry window opens. Its
+  settings are saved under `MCT_Preymonition_Background_*`; the Omens' Shield Visible and
+  Shield Scale values are not carried over. The Omens line up on the shield at its default
+  size.
+- The Solid arrow no longer shows a brighter line down its middle while it fades.
+- The Chevron arrow's two arms meet at the tip instead of showing apart.
+- Fancy arrows sit centred on their direction, with their tip where Solid and Chevron put theirs, instead of off to one side.
+- Parry & Block Indicator → Size reaches twice as far: 100% is now 50% of the screen height
+  (was 25%); 0% stays 5%. It defaults to 30% to 80% (was 10% to 50%).
+- Parry & Block is now Parry & Block Indicator and Unblockable Attack is Unblockable Attack
+  Indicator; their settings drop "Indicator" from their names (Style, Size, Movement from
+  Center).
+- Unblockable Attack Indicator → Size is a range on 0%–100% (default 60% to 100%): the skull
+  appears at the low end's size and grows to the high end's, from 5% of the screen height at
+  0% to the full screen height at 100%. A saved single size falls back to the default.
+- Indicator Movement is now Movement from Center, a range on 0%–100% (default
+  40% to 60%) of the space the arrow has: at 0% the arrow, at its starting size, has its
+  back edge on the cue's centre; at 100% its tip is at the screen edge it travels towards.
+  Its tip appears at the low end and stops at the high end. A saved single Movement value
+  falls back to the default.
+
 ## v1.3.0
 
 - Requires ModCore Settings 1.5.0 or later and ModCore Templates 1.6.0 or later, for range

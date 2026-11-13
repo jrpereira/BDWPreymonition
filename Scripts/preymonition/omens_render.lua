@@ -1,7 +1,10 @@
--- Shield cue widgets, and the few reads of the game it needs.
+-- The omens' widgets: the arrows and the unblockable skull, centred where the
+-- Background template draws its shield (preymonition.placement). The game's
+-- combat state comes from preymonition.combat.
 local MC=require('mc')
-local Drawn=require('preymonition.drawn')
-local Fancy=require('preymonition.fancy')
+local Placement=require('preymonition.placement')
+local Drawn=require('preymonition.omens_drawn')
+local Fancy=require('preymonition.omens_fancy')
 
 local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 -- The native lit arrow colour, which a shown arrow takes.
@@ -11,15 +14,19 @@ local CRITICAL_COLOR={R=1,G=0.2,B=0,A=1}
 -- Screen direction each arrow travels in, matching ARROWS. The game's LeftArrow
 -- and RightArrow show on the opposite sides of the screen (seen 2026-10-18).
 local OUTWARD={{X=0,Y=-1},{X=0,Y=1},{X=1,Y=0},{X=-1,Y=0}}
--- Distances run out from the cue's centre. A unit is UNIT of the screen along the
--- arrow's axis: the height for Top and Bottom, the width for Left and Right. An
--- arrow shows up with its back edge APPEAR units out; Movement takes its tip, the
--- edge furthest along its travel, a share of the way on to REACH units.
+-- Distances run out from the cue's centre, as a share of the way to the screen
+-- edge the arrow travels towards. Movement from Center is a range: an
+-- arrow shows up with its back edge at the low share, and its tip, the edge
+-- furthest along its travel, stops at the high share. An arrow whose tip already
+-- reaches past the high share does not move.
+-- A unit is UNIT of the screen along an axis: arrow sizes are in units of the height.
 local UNIT=0.05
-local APPEAR,REACH=1,7
--- Sizes are in units of the screen height, the same for every arrow. Indicator Size
--- sets an arrow's starting and grown sizes on one scale: 0% is 1 unit, 100% is 5.
-local SIZE={1,5}
+-- Sizes are in units of the screen height, the same for every arrow. Size
+-- sets an arrow's starting and grown sizes on one scale: 0% is 1 unit, 100% is 10.
+local SIZE={1,10}
+-- The unblockable skull's size on the same units: 0% is 1 unit, 100% the full
+-- screen height.
+local SKULL_SIZE={1,1/UNIT}
 -- Where each arrow travels on the screen: 1 vertical (height), 2 horizontal (width).
 local AXIS={2,2,1,1}
 -- The Perspective style lays the cue flat on a plane parallel to the ground,
@@ -27,13 +34,16 @@ local AXIS={2,2,1,1}
 -- DISTANCE screen heights from the cue's centre. Up on the screen is away from
 -- the camera; positions and shapes keep their flat sizes at the centre.
 local PERSPECTIVE={tilt=20,distance=0.5}
+-- On the ground plane an arrow travelling away nears the horizon without ever
+-- reaching it: its travel ends where it has shrunk to FARTHEST of its size, unless
+-- the screen edge comes first.
+local FARTHEST=0.25
 -- What apply last wrote to each arrow, by these keys in ui.applied.
 local KEYS={}
 for index=1,#ARROWS do
     KEYS[index]={opacity='opacity'..index,scale='scale'..index,translation='translation'..index}
 end
-local arrowSize,fit,tipDistance,projector,groundMap,paintParts
-local GAMEPLAY_STATICS='/Script/Engine.Default__GameplayStatics'
+local arrowSize,skullScale,fit,tipDistance,reach,shareOf,projector,groundMap,paintParts
 -- Widget names stay unique across Lua reloads: generation restarts with the
 -- Lua state, while a HUD that survives the reload still holds the old names.
 local generation=0
@@ -81,50 +91,6 @@ function M.find(path)
     if object then return object end
     if type(rawget(_G,'LoadAsset'))=='function' then pcall(LoadAsset,path) end
     return M.resolve(path)
-end
-
--- A class default object, kept between calls: the engine never frees one.
-local defaults={}
-function M.default(path)
-    local object=defaults[path]
-    if object and MC.valid(object) then return object end
-    object=M.resolve(path)
-    defaults[path]=object
-    return object
-end
-
--- Where an indicator's attack comes from: the owner of the latest queued
--- attack's instigator, a combat component. Nil when the queue names none.
-function M.attacker(indicator)
-    local queue=indicator.AttackQueue
-    local count=queue and MC.call(queue,'GetArrayNum') or 0
-    for index=count,1,-1 do
-        local component=queue[index].Instigator
-        local actor=MC.valid(component) and MC.call(component,'GetOwner')
-        if actor and MC.valid(actor) then return actor end
-    end
-end
-
--- The current difficulty's parry window multiplier on this platform, or nil
--- when the game's combat subsystem cannot be read. The world subsystem lookup
--- needs no object scan; context is any live object in the player's world.
-local SUBSYSTEMS='/Script/Engine.Default__SubsystemBlueprintLibrary'
-local COMBAT='/Script/DogwoodCombat.CombatSubsystem'
-local PLATFORM='Windows'
-function M.parryWindow(context)
-    local library,class=M.default(SUBSYSTEMS),M.default(COMBAT)
-    if not (library and class) then return nil end
-    local subsystem=MC.call(library,'GetWorldSubsystem',context,class)
-    if not MC.valid(subsystem) then return nil end
-    local level=subsystem.ActionDifficultyLevel
-    local found
-    subsystem.DifficultyConfig.ActionDifficulties:ForEach(function(key,value)
-        if key:get()~=level then return end
-        value:get().ParryWindowMultipliers:ForEach(function(name,multiplier)
-            if name:get():ToString()==PLATFORM then found=multiplier:get() end
-        end)
-    end)
-    return type(found)=='number' and found>0 and found or nil
 end
 
 -- Visibility, opacity and colour of a widget, for the log.
@@ -192,34 +158,15 @@ local function hold(object,name)
     return assert(MC.hold(object),'cue cannot keep '..name)
 end
 
--- The game's sprites for the cue's centre: the shield, shown faintly or kept
--- clear by setting, and the skull shown for an unblockable attack.
-local FRAMES='/Game/_Dawnwalker/UI/_Unified/Combat/Atlas/Frames/'
-local SPRITES={
-    shield=FRAMES..'T_Combat_Icon_Shield.T_Combat_Icon_Shield',
-    skull=FRAMES..'T_Combat_Icon_SkullRed.T_Combat_Icon_SkullRed',
-}
-local SHIELD_SHOWN,SHIELD_HIDDEN={R=1,G=1,B=1,A=0.2},{R=1,G=1,B=1,A=0}
--- The game turns its indicator's shield red when an attack goes critical.
-local SHIELD_CRITICAL={R=1,G=0.2,B=0,A=1}
-local SKULL_COLOR={R=1,G=1,B=1,A=1}
+-- The skull, the game's sprite, shown at the cue's centre for an unblockable
+-- attack; the centre is clear otherwise.
+local SKULL='/Game/_Dawnwalker/UI/_Unified/Combat/Atlas/Frames/T_Combat_Icon_SkullRed.T_Combat_Icon_SkullRed'
+local SKULL_COLOR,CLEAR={R=1,G=1,B=1,A=1},{R=1,G=1,B=1,A=0}
+-- A buildup arrow's opacity by Buildup visibility: Hidden, Faint, Normal.
+local BUILDUP_OPACITY={[0]=0,[1]=0.35,[2]=1}
 
--- The cue box, and the shield at Scale 0%, as a share of the shorter screen side.
-local SHIELD_SHARE=0.4
--- Position keeps the shield this share of the screen height from the
--- bottom (Below) or top (Above) edge; Middle centres it.
-local SHIELD_MARGIN=0.1
-
--- The shield's vertical centre for a Position, given its drawn size.
-local function shieldCentre(position,height,size)
-    if position==1 then return height/2 end
-    if position==2 then return height*SHIELD_MARGIN+size/2 end
-    return height*(1-SHIELD_MARGIN)-size/2
-end
-
--- Indicator Size as shares, 0 to 1: {starting, grown}. MCT gives it as {low, high} percent.
-local function share(span)
-    local low,high=10,50
+-- A range setting as shares, 0 to 1: {low, high}. MCT gives it as {low, high} percent.
+local function share(span,low,high)
     if type(span)=='table' and type(span[1])=='number' and type(span[2])=='number' then low,high=span[1],span[2] end
     local function clamp(value) return math.max(0,math.min(1,value/100)) end
     return {clamp(low),clamp(high)}
@@ -227,36 +174,22 @@ end
 
 -- The cue settings: percentages of the current look, and choices.
 local function config(settings)
-    local function percent(key) return (settings[key] or 100)/100 end
-    -- Indicator Style: 0 Off, 1 Solid, 2 Chevron, 3 Perspective (a Chevron
+    -- Style: 0 Off, 1 Solid, 2 Chevron, 3 Perspective (a Chevron
     -- lying on the ground plane), drawn by the cue; 4 Fancy, the mod's pictures.
     local style=settings.ParryStyle or 2
-    -- Shield Visible: 0 Off never shows it, 1 In Combat shows it faintly, 2
-    -- Defending shows it faintly while an attack is shown, 3 Critical reveals
-    -- it only for a critical attack. Each turns it red while the attack is critical.
-    local watermark=settings.GeneralShield or 2
+    -- Prioritize Perfection over Buildup: Buildup visibility 0 Hidden, 1 Faint,
+    -- 2 Normal sets a buildup arrow's opacity.
+    local perfection=settings.ParryPerfection==1
     return {
-        shieldColor=watermark==1 and SHIELD_SHOWN or SHIELD_HIDDEN,
-        watermark=watermark,
-        -- Movement and Indicator Size are shares, 0 to 1; the size is {starting, grown}.
-        move=math.max(0,math.min(1,(settings.ParryMovement or 70)/100)),
-        size=share(settings.ParrySize),
+        buildupOpacity=perfection and (BUILDUP_OPACITY[settings.ParryBuildupVisibility or 0] or 0) or 1,
+        -- Movement and Size are shares, 0 to 1: the movement is {appears,
+        -- stops} of the way to the screen edge, the size {starting, grown}.
+        move=share(settings.ParryMovement,40,60),
+        size=share(settings.ParrySize,30,80),
         arrows=style~=0,shape=style==1 and 'solid' or 'chevron',perspective=style==3,fancy=style==4,
-        skull=percent('UnblockableSize'),
-        -- Scale adds to the shield's size: 0% leaves it unchanged.
-        shieldScale=(100+(settings.GeneralScale or 0))/100,
+        -- The skull's {starting, grown} size as shares, 0 to 1.
+        skull=share(settings.UnblockableSize,60,100),
     }
-end
-
--- Gives the shield image a centre sprite in a colour. Returns its path, or nil
--- while it cannot be found; the shield keeps its current look until then.
-local function applySprite(shield,name,color)
-    local path=SPRITES[name]
-    local sprite=M.find(path)
-    if not sprite then return nil end
-    shield:SetBrushFromAtlasInterface(sprite,false)
-    shield:SetColorAndOpacity(color)
-    return path
 end
 
 function M.build(hud,layer,screen,settings)
@@ -266,10 +199,10 @@ function M.build(hud,layer,screen,settings)
     layer:ClearChildren()
     generation=generation+1
     local suffix=nonce..'_'..generation
-    -- SizeBox > Overlay with the shield image under the arrows overlay.
+    -- SizeBox > Overlay with the centre image (the skull) under the arrows overlay.
     local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionCue'..suffix)
     local stack=construct('/Script/UMG.Overlay',tree,'PreymonitionStack'..suffix)
-    local shield=construct('/Script/UMG.Image',tree,'PreymonitionShield'..suffix)
+    local shield=construct('/Script/UMG.Image',tree,'PreymonitionCentre'..suffix)
     local arrows=construct('/Script/UMG.Overlay',tree,'PreymonitionArrows'..suffix)
     -- Plain numbers: each arrow's turn, the flat shape's size, the units along
     -- each axis, and the ground plane's projection for Perspective.
@@ -286,7 +219,17 @@ function M.build(hud,layer,screen,settings)
     end
     local ui={angle=angle,shapeSize={X=flat.width,Y=flat.height},visuals=visuals,
         unit={screen.width*UNIT,screen.height*UNIT},applied={}}
-    if visuals.perspective then ui.project=projector(screen.height*PERSPECTIVE.distance) end
+    -- The box shares the Background shield's centre at its default size, at
+    -- its Position vertically.
+    local size,top=Placement.box(screen,settings.GeneralPosition or 1,Placement.SIZE)
+    ui.box=size
+    -- How far each arrow's screen edge is from the cue's centre, matching ARROWS.
+    local middle=top+size/2
+    ui.edge={middle,screen.height-middle,screen.width/2,screen.width/2}
+    if visuals.perspective then
+        ui.camera=screen.height*PERSPECTIVE.distance
+        ui.project=projector(ui.camera)
+    end
     -- Each arrow is centred at its own size; apply places and sizes it.
     -- An arrow the cue draws, turned for its direction, with its coloured parts
     -- kept per direction. On the ground plane its shape is drawn as it looks
@@ -316,7 +259,6 @@ function M.build(hud,layer,screen,settings)
         parts[index]={}
         images[index]=makeArrow(index,'Preymonition'..key..suffix)
     end
-    local size=math.min(screen.width,screen.height)*SHIELD_SHARE
     -- Slate units, like the box size: the inset keeps its share of the cue at any DPI.
     local inset=18
     local shieldSlot=stack:AddChildToOverlay(shield)
@@ -330,25 +272,19 @@ function M.build(hud,layer,screen,settings)
     box:SetWidthOverride(size)
     box:SetHeightOverride(size)
     box:SetRenderOpacity(0)
-    -- An Image's default brush is solid white: clear until it has the sprite.
-    shield:SetColorAndOpacity({R=1,G=1,B=1,A=0})
-    -- Scale resizes only the shield, drawn around its centre; the box and the
-    -- arrows keep their size.
+    -- An Image's default brush is solid white: clear until the skull shows.
+    shield:SetColorAndOpacity(CLEAR)
+    -- The skull sizes itself, drawn around its centre; the box and the arrows
+    -- keep their size.
     shield:SetRenderTransformPivot({X=0.5,Y=0.5})
-    shield:SetRenderScale({X=visuals.shieldScale,Y=visuals.shieldScale})
-    local sprite=applySprite(shield,'shield',visuals.shieldColor)
     -- Loaded now rather than at the first unblockable attack, mid-combat.
-    M.find(SPRITES.skull)
+    M.find(SKULL)
     local slot=layer:AddChildToOverlay(box)
     -- Centred horizontally, at its Position vertically.
     slot:SetHorizontalAlignment(2)
     slot:SetVerticalAlignment(1)
-    -- The box shares the shield's centre.
-    local centre=shieldCentre(settings.GeneralPosition or 1,screen.height,size*visuals.shieldScale)
-    local top=math.max(0,centre-size/2)
     slot:SetPadding({Left=0,Top=top,Right=0,Bottom=0})
 
-    ui.sprite=sprite
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
         stack=hold(stack,'stack'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
         images={},parts={},growers={}}
@@ -392,28 +328,22 @@ function M.arm(ui,index) paint(ui,index,LIT_COLOR) end
 -- Turns one cue arrow critical red.
 function M.critical(ui,index) paint(ui,index,CRITICAL_COLOR) end
 
--- Retries the shield sprite for a cue built before it could be found. Returns
--- its path, or nil while it still cannot be found.
-function M.styleShield(ui)
-    if ui.sprite then return ui.sprite end
+-- Shows or clears the unblockable skull at the cue's centre. Returns the
+-- sprite path, or nil when it cannot be found.
+function M.skull(ui,shown)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    ui.sprite=applySprite(widgets.shield,'shield',ui.visuals.shieldColor)
-    ui.applied.shieldColor=nil
-    return ui.sprite
-end
-
--- Swaps the cue's centre between the shield and the unblockable skull.
--- Returns the sprite path, or nil when it cannot be found.
-function M.centre(ui,name)
-    local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    local skull=name=='skull'
-    -- The skull hides the shield; apply leaves the centre alone meanwhile and
-    -- restyles the shield after it.
-    ui.skull=skull
-    ui.applied.shieldColor,ui.applied.shieldScale=nil,nil
-    local scale=skull and ui.visuals.skull or ui.visuals.shieldScale
-    widgets.shield:SetRenderScale({X=scale,Y=scale})
-    return applySprite(widgets.shield,name,skull and SKULL_COLOR or ui.visuals.shieldColor)
+    ui.skull=shown
+    ui.applied.skullScale=nil
+    if not shown then
+        widgets.shield:SetColorAndOpacity(CLEAR)
+        return SKULL
+    end
+    local sprite=M.find(SKULL)
+    if not sprite then return nil end
+    widgets.shield:SetRenderScale({X=skullScale(ui,0),Y=skullScale(ui,0)})
+    widgets.shield:SetBrushFromAtlasInterface(sprite,false)
+    widgets.shield:SetColorAndOpacity(SKULL_COLOR)
+    return SKULL
 end
 
 -- Writes a value only when it differs from what the cue last wrote there.
@@ -430,12 +360,19 @@ local function setPair(ui,widget,key,setter,x,y)
     widget[setter](widget,value)
 end
 
--- An arrow's size for its grow (0 starting, 1 grown), from Indicator Size, in screen units.
+-- An arrow's size for its grow (0 starting, 1 grown), from Size, in screen units.
 function arrowSize(ui,grow)
     local size=ui.visuals.size
     local from=SIZE[1]+(SIZE[2]-SIZE[1])*size[1]
     local to=SIZE[1]+(SIZE[2]-SIZE[1])*size[2]
     return ui.unit[2]*(from+(to-from)*grow)
+end
+-- The render scale that gives the skull its size for its grow (0 starting, 1
+-- grown), from Size: the shield image fills the cue's box.
+function skullScale(ui,grow)
+    local size=ui.visuals.skull
+    local share=size[1]+(size[2]-size[1])*grow
+    return ui.unit[2]*(SKULL_SIZE[1]+(SKULL_SIZE[2]-SKULL_SIZE[1])*share)/ui.box
 end
 -- The render scale that gives the drawn shape the arrow's size along its larger
 -- side, and how far its tip then reaches from its centre: half its turned extent
@@ -448,15 +385,49 @@ function fit(ui,index,size)
     local extent=AXIS[index]==1 and cos*shape.X+sin*shape.Y or sin*shape.X+cos*shape.Y
     return scale,extent*scale/2
 end
--- How far an arrow's tip is from the cue's centre at a share of its travel. It
--- starts a whole starting arrow beyond the back edge; an arrow that already
--- reaches past REACH does not move.
+-- How far an arrow's tip is from the cue's centre at a share of its travel.
+-- Movement from Center is measured in the space the arrow has: at 0% the
+-- arrow, at its starting size, has its back edge on the centre; at 100% its
+-- tip is at the screen edge (on the ground plane, the furthest it can show).
+-- It appears with its tip at the low share and travels to the high one.
 function tipDistance(ui,index,offset)
-    local unit=ui.unit[AXIS[index]]
+    local move=ui.visuals.move
     local _,tip=fit(ui,index,arrowSize(ui,0))
-    local from=APPEAR*unit+2*tip
-    local to=from+math.max(0,REACH*unit-from)*ui.visuals.move
+    -- Where the tip is at 0%, as a share of the way to the edge.
+    local start=math.min(1,shareOf(ui,index,2*tip))
+    local function at(share) return reach(ui,index,start+(1-start)*share) end
+    local from,to=at(move[1]),at(move[2])
     return from+(to-from)*offset
+end
+
+-- How far out a share of an arrow's travel is, in flat units from the cue's
+-- centre. 100% is the furthest the arrow can show: the screen edge, or on the
+-- ground plane the edge or where a receding arrow ends (see FARTHEST). Shares
+-- are of that distance on the screen, so on the ground plane a nearing arrow
+-- covers less ground than a receding one for the same share.
+function reach(ui,index,share)
+    local edge=ui.edge[index]
+    if not ui.project or OUTWARD[index].Y==0 then return share*edge end
+    local camera,tilt=ui.camera,math.rad(PERSPECTIVE.tilt)
+    local sin,cos=math.sin(tilt),math.cos(tilt)
+    local away=OUTWARD[index].Y<0
+    -- On the screen: the projection puts ground t out at t*sin*camera/(camera±t*cos).
+    local limit=away and math.min(edge,(1-FARTHEST)*camera*sin/cos) or edge
+    local screen=share*limit
+    return screen*camera/(camera*sin+(away and -1 or 1)*screen*cos)
+end
+
+-- The share of the way out (as reach measures it) that a flat distance from
+-- the cue's centre is: reach's inverse.
+function shareOf(ui,index,flat)
+    local edge=ui.edge[index]
+    if not ui.project or OUTWARD[index].Y==0 then return flat/edge end
+    local camera,tilt=ui.camera,math.rad(PERSPECTIVE.tilt)
+    local sin,cos=math.sin(tilt),math.cos(tilt)
+    local away=OUTWARD[index].Y<0
+    local limit=away and math.min(edge,(1-FARTHEST)*camera*sin/cos) or edge
+    local screen=flat*camera*sin/(camera+(away and 1 or -1)*flat*cos)
+    return screen/limit
 end
 
 -- The ground plane's projection: a flat offset from the cue's centre (y down)
@@ -513,7 +484,6 @@ function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
     set(ui,widgets.box,'box','SetRenderOpacity',state.opacity)
-    local lit=0
     for index,arrow in ipairs(state.arrows) do
         local out=OUTWARD[index]
         local centre,scale=flatPlace(ui,index,arrow.offset,arrow.grow)
@@ -530,28 +500,17 @@ function M.apply(ui,state)
             x,y,k=ui.project(x,y)
             scale=scale*k
         end
-        local opacity=visuals.arrows and arrow.opacity or 0
+        -- A buildup arrow shows at Buildup visibility.
+        local opacity=visuals.arrows and arrow.opacity*(arrow.held and visuals.buildupOpacity or 1) or 0
         local widget,keys=widgets.images[index],KEYS[index]
         set(ui,widget,keys.opacity,'SetRenderOpacity',opacity)
         setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)
         setPair(ui,widget,keys.translation,'SetRenderTranslation',x,y)
-        lit=math.max(lit,arrow.opacity)
     end
-    -- A critical attack turns the shield red: In Combat and Defending turn it
-    -- red, Critical pops it in red and grows it; Off keeps it clear.
-    -- Defending shows it faintly while an attack is shown.
-    local shield=state.shield
-    local critical=shield.critical and visuals.watermark~=0
-    if ui.sprite and not ui.skull then
-        local color=critical and SHIELD_CRITICAL
-            or (visuals.watermark==2 and lit>0 and SHIELD_SHOWN) or visuals.shieldColor
-        set(ui,widgets.shield,'shieldColor','SetColorAndOpacity',color)
-        local scale=(critical and visuals.watermark==3 and shield.scale or 1)*visuals.shieldScale
-        setPair(ui,widgets.shield,'shieldScale','SetRenderScale',scale,scale)
-    elseif ui.skull then
-        -- The skull grows from its set size to twice that.
-        local scale=visuals.skull*state.skull.scale
-        setPair(ui,widgets.shield,'shieldScale','SetRenderScale',scale,scale)
+    -- The skull grows from its starting to its grown size.
+    if ui.skull then
+        local scale=skullScale(ui,state.skull.grow)
+        setPair(ui,widgets.shield,'skullScale','SetRenderScale',scale,scale)
     end
 end
 
@@ -573,12 +532,6 @@ end
 -- A live object in the cue's world, for calls that need a world context.
 function M.context(ui)
     return assert(live(ui),'Preymonition cue is no longer valid').hud
-end
-
-function M.now(ui)
-    local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    local clock=assert(M.default(GAMEPLAY_STATICS),'GameplayStatics unavailable')
-    return clock:GetRealTimeSeconds(widgets.hud)
 end
 
 -- Clears the cue's widgets that still exist and drops every handle.

@@ -57,8 +57,9 @@ end
 
 -- A triangle pointing up, base centred at x, base y, as two halves: each half is
 -- a canvas clipping a large rectangle whose edge is that half's side. The
--- halves overlap by SEAM so no gap shows between them.
-local SEAM=0.25
+-- halves meet exactly at x and never overlap: an arrow fades through its render
+-- opacity, which Slate applies to each image on its own, so any overlap would
+-- show as a denser line.
 local function solid(role,x,bottom,base,height,parts)
     local top=bottom-height
     local slant=math.sqrt((base/2)^2+height^2)
@@ -69,7 +70,7 @@ local function solid(role,x,bottom,base,height,parts)
         -- Along the side from the base corner to the tip, and inward from it.
         local along=point(-side*base/2/slant,-height/slant)
         local inward=point(-side*height/slant,base/2/slant)
-        local clip={x=side<0 and x-base/2 or x-SEAM,y=top,width=base/2+SEAM,height=height}
+        local clip={x=side<0 and x-base/2 or x,y=top,width=base/2,height=height}
         local middle=add(corner,along,slant/2)
         local centre=add(middle,inward,cover/2)
         -- In the clip's own coordinates.
@@ -190,14 +191,30 @@ function M.reshape(layout,map)
     return {width=2*reach.X,height=2*reach.Y,parts=parts}
 end
 
+-- Where a rectangle's pivot shows once it is scaled, sheared and turned, as
+-- Slate applies them, relative to the rectangle's centre.
+function M.pivotOffset(part)
+    local pivot=part.pivot or {X=0.5,Y=0.5}
+    local scale=part.scale or {X=1,Y=1}
+    local x,y=(pivot.X-0.5)*part.width*scale.X,(pivot.Y-0.5)*part.height*scale.Y
+    x=x+y*math.tan(math.rad(part.shear or 0))
+    local angle=math.rad(part.angle or 0)
+    local cos,sin=math.cos(angle),math.sin(angle)
+    return point(x*cos-y*sin,x*sin+y*cos)
+end
+
 -- Adds a solid image to a canvas, centred at a rectangle's centre, sized and
--- turned, and sheared and scaled when reshaped.
+-- turned, and sheared and scaled when reshaped. Slate turns a widget about its
+-- pivot, which stays where its layout puts it, so the slot places the pivot
+-- itself: where it shows once turned.
 local function place(construct,canvas,name,part)
     local image=construct('/Script/UMG.Image',name)
-    image:SetRenderTransformPivot(part.pivot or {X=0.5,Y=0.5})
+    local pivot=part.pivot or {X=0.5,Y=0.5}
+    image:SetRenderTransformPivot(pivot)
     local slot=canvas:AddChildToCanvas(image)
-    slot:SetAlignment({X=0.5,Y=0.5})
-    slot:SetPosition({X=part.x,Y=part.y})
+    local offset=M.pivotOffset(part)
+    slot:SetAlignment(pivot)
+    slot:SetPosition({X=part.x+offset.X,Y=part.y+offset.Y})
     slot:SetSize({X=part.width,Y=part.height})
     image:SetRenderTransformAngle(part.angle)
     if part.shear then

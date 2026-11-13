@@ -202,7 +202,7 @@ end
 hudTree=object('WidgetTree')
 local hud=object('HUD',{WidgetTree=hudTree})
 local layer=object('Cue layer')
-local template=dofile('Preymonition/Scripts/mc_center.lua')
+local template=dofile('Preymonition/Scripts/mc_omens.lua')
 assert(next(hooks)==nil,'nothing is hooked outside combat')
 -- MCT owns combat: it reaches the template as its wake and sleep events, and
 -- MCT's attack indicator source, started once the template is awake, delivers
@@ -239,35 +239,39 @@ assert(#delayed==0,'events are ignored until a cue is attached')
 local cleanups={}
 local function attach(size,visuals)
     local original={}
-    local settings={GeneralScale=size}
+    -- The cue box is 40% of the short side, 432 high; the omens line up on the
+    -- Background's shield at its default size, half the screen height. The
+    -- hand-worked arrows below use Size 10% to 50% and Movement 5% to 60%.
+    local settings={ParrySize={10,50},ParryMovement={5,60}}
     for key,value in pairs(visuals or {}) do settings[key]=value end
     local result=template.attach({hud=hud,cue=layer},
         {settings=settings,screen={width=1920,height=1080,scale=1},
             onCleanup=function(callback) cleanups[#cleanups+1]=callback end},original)
     assert(result==original)
 end
--- The game's shield sprite, loaded on demand.
-local SPRITE_PATH='/Game/_Dawnwalker/UI/_Unified/Combat/Atlas/Frames/T_Combat_Icon_Shield.T_Combat_Icon_Shield'
-local sprite=object('T_Combat_Icon_Shield')
-LoadAsset=function(path) if path==SPRITE_PATH then objects[path]=sprite end end
--- Where an arrow is, by the spec, on this 1920x1080 screen: a unit is 5% of the
--- screen along the arrow's axis (96 across, 54 down), sizes are in units of the
--- height. Indicator Size {L,H} takes an arrow from 1+4L to 1+4H units; it appears with its back
--- edge a unit out and Movement takes its tip that share of the way to 7 units.
+-- Where an arrow is, by the spec, on this 1920x1080 screen with the cue in the
+-- middle: the screen edge is 960 across and 540 down from its centre, and sizes
+-- are in units of 5% of the height (54). Size {L,H} takes an arrow from
+-- 1+9L to 1+9H units. Movement from Center {L,H} is the space the arrow has:
+-- at 0% its back edge (at its starting size) is on the centre, at 100% its tip
+-- is at the screen edge. It shows with its tip at L and stops it at H.
 -- The default Chevron is sized by its width, the larger side; its length along
 -- its travel is its height, turned or not. Returns its render scale and how far
 -- its centre is from the cue's.
-local Drawn=require('preymonition.drawn')
+local Drawn=require('preymonition.omens_drawn')
 local CHEVRON=Drawn.layout('chevron')
 local RATIO=CHEVRON.height/CHEVRON.width
 -- It keeps its starting scale and grows by extending its lines from the tip:
 -- also returns how many design units wider than its shape it is.
 local function arrowAt(across,size,move,grow,offset)
-    local unit=across and 96 or 54
-    local from,to=54*(1+4*size[1]),54*(1+4*size[2])
+    local edge=across and 960 or 540
+    local from,to=54*(1+9*size[1]),54*(1+9*size[2])
     local size=from+(to-from)*grow
-    local first=unit+from*RATIO
-    local last=first+math.max(0,7*unit-first)*move
+    -- Movement is the space the arrow has: at 0% its back edge is on the
+    -- centre, at 100% its tip at the screen edge.
+    local length=from*RATIO
+    local first=length+move[1]*(edge-length)
+    local last=length+move[2]*(edge-length)
     local scale=from/CHEVRON.width
     return scale,first+(last-first)*offset-from*RATIO/2,size/scale-CHEVRON.width
 end
@@ -283,25 +287,25 @@ local function grownBy(arrow,extra)
 end
 -- A drawn arrow's front part, which shows its colour.
 local function front(arrow) return arrow.content.children[5].ColorAndOpacity end
--- Defaults: Indicator Size 10% to 50%, Movement 70%.
-local function arrowAtDefault(across,grow,offset) return arrowAt(across,{0.1,0.5},0.7,grow,offset) end
+-- The tests' Size 10% to 50% and Movement from Center 5% to 60% (the defaults are 30%-80% and 40%-60%).
+local function arrowAtDefault(across,grow,offset) return arrowAt(across,{0.1,0.5},{0.05,0.6},grow,offset) end
 local function equal(a,b) return math.abs(a-b)<1e-6 end
--- SizeBox > Overlay of the shield image and the arrows overlay, which holds
--- the four arrows.
+-- SizeBox > Overlay of the centre image (the skull) and the arrows overlay,
+-- which holds the four arrows.
 local function shieldOf(cue) return cue.content.children[1] end
 local function arrowOf(cue,index) return cue.content.children[2].children[index] end
 
-attach(0)
+attach()
 -- Four widgets, then per arrow a box, a canvas and six parts.
-assert(constructed==4+4*8 and #layer.children==1,'one box with a stack of shield, overlay and four drawn arrows')
+assert(constructed==4+4*8 and #layer.children==1,'one box with a stack of centre, overlay and four drawn arrows')
 local box=layer.children[1]
-assert(box.WidthOverride==432 and box.HeightOverride==432,'Scale 0% is 40% of the short side')
+assert(box.WidthOverride==432 and box.HeightOverride==432,'the box is 40% of the short side')
 -- Middle by default: the box is centred on the screen's middle.
 assert(box.slot.VerticalAlignment==1 and math.abs(box.slot.Padding.Top-(1080-432)/2)<1e-6,
-    'the shield is centred')
+    'the cue is centred')
 assert(box.RenderOpacity==0,'the cue starts hidden')
-assert(shieldOf(box).BrushFromAtlasInterface==sprite and shieldOf(box).ColorAndOpacity.A==0,
-    'the cue is created with the shield sprite, hidden')
+assert(shieldOf(box).BrushFromAtlasInterface==nil and shieldOf(box).ColorAndOpacity.A==0,
+    'the centre is clear: the shield is the Background template\'s')
 
 -- Native work per event, measured on the fakes.
 local function cost(callback)
@@ -315,11 +319,13 @@ budget.onset={cost(function() icon(indicator,LEFT) end)}
 local left=arrowOf(box,3)
 assert(left.RenderOpacity==1,'the arrow shows as its event arrives')
 local startScale,startCentre=arrowAtDefault(true,0,0)
--- 1.4 units (75.6) wide, its length along its travel that times the shape's
--- ratio; its back edge a unit (96) out, its centre half its length beyond.
-assert(equal(startScale,75.6/CHEVRON.width) and equal(startCentre,96+75.6*RATIO/2),'the spec, by hand')
-assert(shieldOf(box).BrushFromAtlasInterface==sprite and left.class=='/Script/UMG.SizeBox',
-    'cue keeps its shield; its arrows are drawn')
+-- 1.9 units (102.6) wide, its length along its travel that times the shape's
+-- ratio; with its back edge on the centre its tip is at 0%, so 5% puts its tip
+-- 5% of the rest of the way to the edge on, its centre half its length back.
+local length=102.6*RATIO
+assert(equal(startScale,102.6/CHEVRON.width) and equal(startCentre,length+0.05*(960-length)-length/2),'the spec, by hand')
+assert(shieldOf(box).ColorAndOpacity.A==0 and left.class=='/Script/UMG.SizeBox',
+    'the centre stays clear; the arrows are drawn')
 assert(front(left).R==1 and front(left).G==0.67,'the shown arrow is in the lit colour')
 assert(left.RenderOpacity==1 and equal(left.RenderScale.X,startScale) and equal(left.RenderTranslation.X,startCentre)
     and left.RenderTranslation.Y==0,'a detected arrow shows at once at full opacity, at its starting size and place')
@@ -327,11 +333,10 @@ budget.frame={cost(function() clock=clock+0.05; run() end)}
 settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6,'active cue rests at half opacity')
 local endScale,endCentre,endExtra=arrowAtDefault(true,1,1)
--- Grown to 3 units (162) wide by extending its lines, its tip 70% of the
--- way from where it started to 7 units (672).
-local tip=96+75.6*RATIO
-assert(equal(endScale,startScale) and equal(endExtra,162/startScale-CHEVRON.width)
-    and equal(endCentre,tip+(672-tip)*0.7-75.6*RATIO/2),'the spec, by hand')
+-- Grown to 5.5 units (297) wide by extending its lines, its tip 60% of the
+-- space it has on towards the screen edge.
+assert(equal(endScale,startScale) and equal(endExtra,297/startScale-CHEVRON.width)
+    and equal(endCentre,length+0.6*(960-length)-length/2),'the spec, by hand')
 assert(grownBy(arrowOf(box,4),0) and not grownBy(left,0),'only the shown arrow extends')
 assert(left.RenderOpacity==1 and equal(left.RenderScale.X,endScale) and grownBy(left,endExtra),
     'the shown arrow extends its lines to its critical size, keeping their thickness')
@@ -394,14 +399,9 @@ assert(math.abs(box.RenderOpacity-0.5)<1e-6,'quick combat changes settle on the 
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 assert(#layer.children==0,'cleanup removes the cue from the layer')
-attach(50)
-assert(#layer.children==1 and shieldOf(layer.children[1]).RenderScale.X==1.5,'reattach rebuilds once at the new scale')
-assert(layer.children[1].WidthOverride==432 and layer.children[1].content.children[2].slot.Padding.Left==18,
-    'Scale resizes only the shield: the box and the arrows keep their size')
--- Back to Scale 0%: the arrow travel below is in units of 54.
-for index=#cleanups,1,-1 do cleanups[index]() end
-cleanups={}
-attach(0)
+attach()
+assert(#layer.children==1 and layer.children[1].WidthOverride==432
+    and layer.children[1].content.children[2].slot.Padding.Left==18,'reattach rebuilds once')
 assert(#delayed==0 and layer.children[1].RenderOpacity==0,'a reattached cue waits for the next arrow')
 
 -- An indicator in view shows its attack; a hidden one's changes are not attacks.
@@ -471,27 +471,32 @@ assert(otherTop.RenderOpacity==1 and front(otherTop).G==0.2,'arrow and window to
 icon(other,SWORD_ICON)
 settle(0.05)
 
--- An unblockable attack: the centre turns to a skull in place, growing from its
--- size to twice that over 0.2s, then holding.
+-- An unblockable attack: the centre turns to a skull in place, growing over
+-- 0.2s from its starting size to its grown size, then holding. Size runs from 1
+-- unit (54) at 0% to the screen height (1080) at 100%; the default 60%-100% takes
+-- it from 1+19*0.6 units (669.6) to 1080. The centre image fills the 432 box.
+local function skullAt(share) return 54*(1+19*share)/432 end
 local cueShield=shieldOf(layer.children[1])
+-- Whether the centre shows the skull; it is clear otherwise.
+local function skullShown(image) return image.BrushFromAtlasInterface==SKULL and image.ColorAndOpacity.A==1 end
+local function clear(image) return image.ColorAndOpacity.A==0 end
 icon(other,SKULL_ICON)
-assert(cueShield.BrushFromAtlasInterface==SKULL and math.abs(cueShield.RenderScale.X-1)<1e-6,
-    'an unblockable attack shows the skull at its size')
+assert(skullShown(cueShield) and math.abs(cueShield.RenderScale.X-skullAt(0.6))<1e-6,
+    'an unblockable attack shows the skull at its starting size')
 clock=clock+0.1
 run()
-assert(math.abs(cueShield.RenderScale.X-1.5)<1e-6 and cueShield.RenderTranslation==nil,'it grows in place')
+assert(math.abs(cueShield.RenderScale.X-skullAt(0.8))<1e-6 and cueShield.RenderTranslation==nil,'it grows in place')
 settle(0.05)
-assert(math.abs(cueShield.RenderScale.X-2)<1e-6 and #delayed==0,'to twice its size, then holds')
+assert(math.abs(cueShield.RenderScale.X*432-1080)<1e-6 and #delayed==0,'to the full screen height, then holds')
 icon(other,SWORD_ICON)
 run()
-assert(math.abs(cueShield.RenderScale.X-1)<1e-6,'the shield returns at its size')
-assert(cueShield.BrushFromAtlasInterface==sprite,'the shield returns once it passes')
+assert(clear(cueShield),'the centre clears once it passes')
 settle(0.05)
 icon(other,SKULL_ICON)
 run()
 endCombat()
 run()
-assert(cueShield.BrushFromAtlasInterface==sprite,'combat end returns the shield')
+assert(clear(cueShield),'combat end clears the skull')
 settle(0.05)
 startCombat()
 run()
@@ -503,7 +508,7 @@ twin.visible=false
 icon(other,BOTTOM)
 icon(twin,BOTTOM)
 icon(twin,SKULL_ICON)
-assert(cueShield.BrushFromAtlasInterface==sprite,'a hidden indicator shows no skull')
+assert(clear(cueShield),'a hidden indicator shows no skull')
 icon(other,BOTTOM+PARRY)
 icon(twin,BOTTOM+PARRY)
 assert(front(bottom).G==0.2 and equal(bottom.RenderScale.X,bottomScale),
@@ -519,16 +524,16 @@ icon(other,SWORD_ICON)
 settle(0.05)
 -- Nor does a hidden twin take away the skull its visible indicator shows.
 icon(other,SKULL_ICON)
-assert(cueShield.BrushFromAtlasInterface==SKULL)
+assert(skullShown(cueShield))
 icon(twin,SWORD_ICON)
 icon(twin,BOTTOM+PARRY)
-assert(cueShield.BrushFromAtlasInterface==SKULL,'a hidden twin leaves the skull')
+assert(skullShown(cueShield),'a hidden twin leaves the skull')
 icon(other,SWORD_ICON)
-assert(cueShield.BrushFromAtlasInterface==sprite,'its own indicator takes it away')
+assert(clear(cueShield),'its own indicator takes it away')
 -- A skull followed straight by an arrow gives way to it.
 icon(other,SKULL_ICON)
 icon(other,BOTTOM)
-assert(cueShield.BrushFromAtlasInterface==sprite and bottom.RenderOpacity==1,'an arrow after the skull returns the shield')
+assert(clear(cueShield) and bottom.RenderOpacity==1,'an arrow after the skull clears it')
 icon(other,SWORD_ICON)
 settle(0.05)
 
@@ -552,15 +557,14 @@ settle(0.05)
 assert(cue.RenderOpacity==before,'a cue whose HUD is gone is never written')
 hud.invalid=nil
 
--- The cue settings: shield shown, arrows from 2 to 5 units moving half as far,
+-- The cue settings: arrows from 3.25 to 10 units moving from 10% to 50%,
 -- the time warning for arrows, and a larger skull with the stinger.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 assert(#posted==0,'no sound plays without one chosen')
-attach(0,{GeneralShield=1,ParryMovement=50,ParrySize={25,100},ParrySound=2,
-    UnblockableSize=150,UnblockableSound=2})
+attach(nil,{ParryMovement={10,50},ParrySize={25,100},ParrySound=2,
+    UnblockableSize={0,50},UnblockableSound=2})
 local tuned=layer.children[1]
-assert(shieldOf(tuned).ColorAndOpacity.A==0.2,'the background shield can be shown')
 endCombat()
 startCombat()
 run()
@@ -575,37 +579,37 @@ function attacks:GetArrayNum() return 3 end
 other.AttackQueue=attacks
 icon(other,BOTTOM)
 local tunedBottom=arrowOf(tuned,2)
-local tunedScale,tunedCentre=arrowAt(false,{0.25,1},0.5,0,0)
--- Two units (108) wide, its back edge a unit (54) out.
-assert(equal(tunedScale,108/CHEVRON.width) and equal(tunedCentre,54+108*RATIO/2),'the spec, by hand')
+local tunedScale,tunedCentre=arrowAt(false,{0.25,1},{0.1,0.5},0,0)
+-- 3.25 units (175.5) wide, its tip 10% of the space it has on (the bottom
+-- edge 540 away), its centre half its length back.
+local tunedLength=175.5*RATIO
+assert(equal(tunedScale,175.5/CHEVRON.width) and equal(tunedCentre,tunedLength+0.1*(540-tunedLength)-tunedLength/2),
+    'the spec, by hand')
 assert(equal(tunedBottom.RenderScale.X,tunedScale) and equal(tunedBottom.RenderTranslation.Y,tunedCentre),
-    'Indicator Size sizes the arrow where it appears')
+    'Size sizes the arrow where it appears')
 assert(#posted==1 and posted[1].event==SWISH_SOUND and posted[1].location.Z==9,
     'the chosen arrow sound plays at the attacker when the arrow appears')
 -- An indicator whose queue names no attacker plays at the player.
 other.AttackQueue=nil
 settle(0.05)
-local tunedEndScale,tunedEnd,tunedExtra=arrowAt(false,{0.25,1},0.5,1,1)
--- Extended to five units (270) wide, its tip halfway from where it started to
--- 7 units (378).
-local tunedTip=54+108*RATIO
-assert(equal(tunedEndScale,tunedScale) and equal(tunedExtra,270/tunedScale-CHEVRON.width)
-    and equal(tunedEnd,tunedTip+(378-tunedTip)/2-108*RATIO/2),'the spec, by hand')
+local tunedEndScale,tunedEnd,tunedExtra=arrowAt(false,{0.25,1},{0.1,0.5},1,1)
+-- Extended to ten units (540) wide, its tip halfway through the space it has.
+assert(equal(tunedEndScale,tunedScale) and equal(tunedExtra,540/tunedScale-CHEVRON.width)
+    and equal(tunedEnd,tunedLength+0.5*(540-tunedLength)-tunedLength/2),'the spec, by hand')
 assert(equal(tunedBottom.RenderScale.X,tunedEndScale) and grownBy(tunedBottom,tunedExtra)
     and equal(tunedBottom.RenderTranslation.Y,tunedEnd),'and Movement where it ends')
 icon(other,SKULL_ICON)
-assert(shieldOf(tuned).RenderScale.X==1.5 and #posted==2 and posted[2].event==BOOM_SOUND
+assert(math.abs(shieldOf(tuned).RenderScale.X-skullAt(0))<1e-6 and #posted==2 and posted[2].event==BOOM_SOUND
     and posted[2].location.Z==3,'the unblockable skull takes its size and plays its sound')
 icon(other,SWORD_ICON)
-assert(shieldOf(tuned).RenderScale.X==1 and shieldOf(tuned).ColorAndOpacity.A==0.2,
-    'the shield returns at its size and setting')
+assert(shieldOf(tuned).ColorAndOpacity.A==0,'the skull goes with the attack')
 icon(other,SWORD_ICON)
 settle(0.05)
 
 -- With the overlay style off, an attack still plays its sound but shows no arrow.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
-attach(0,{ParryStyle=0,ParrySound=2})
+attach(nil,{ParryStyle=0,ParrySound=2})
 local hiddenArrows=layer.children[1]
 endCombat()
 startCombat()
@@ -622,9 +626,9 @@ settle(0.05)
 -- The Chevron style draws its own arrows.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
-attach(0,{ParryStyle=2})
+attach(nil,{ParryStyle=2})
 local looks=layer.children[1]
-assert(#layer.children==1,'the center cue builds no screen edges')
+assert(#layer.children==1,'the omens build no screen edges')
 endCombat()
 startCombat()
 run()
@@ -663,7 +667,7 @@ assert(drawn.RenderOpacity==0,'the arrow goes with the attack')
 -- from 20 degrees above at half a screen height away: up is away from the camera.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
-attach(0,{ParryStyle=3})
+attach(nil,{ParryStyle=3})
 local ground=layer.children[1]
 endCombat()
 startCombat()
@@ -676,13 +680,35 @@ local function projected(x,y)
     local k=540/(540+depth*math.cos(math.rad(20)))
     return x*k,-depth*math.sin(math.rad(20))*k,k
 end
+-- Movement shares are of the furthest an arrow can show on the screen: the
+-- bottom edge (540 down) for a nearing arrow; for a receding one, where it has
+-- shrunk to a quarter of its size, short of the horizon. How far out on the
+-- plane a share of the screen distance is:
+local sin,cos=math.sin(math.rad(20)),math.cos(math.rad(20))
+local function onPlane(share,away)
+    local screen=share*(away and 0.75*540*sin/cos or 540)
+    return screen*540/(540*sin+(away and -1 or 1)*screen*cos)
+end
+-- And back: the share a distance on the plane is.
+local function shareOnPlane(flat,away)
+    local screen=flat*540*sin/(540+(away and 1 or -1)*flat*cos)
+    return screen/(away and 0.75*540*sin/cos or 540)
+end
+-- Movement is the space the arrow has: 0% puts its back edge on the centre.
+local function tipOnPlane(share,away,length)
+    local start=shareOnPlane(length,away)
+    return onPlane(start+(1-start)*share,away)
+end
+-- The default Chevron starts 1.9 units (102.6) wide and keeps that scale; its
+-- tip ends 60% of the way.
+local flatScale,length=102.6/CHEVRON.width,102.6*RATIO
 icon(other,BOTTOM)
 settle(0.05)
 local near=arrowOf(ground,2)
-local flatScale,flatCentre=arrowAtDefault(false,1,1)
-local _,nearY,nearK=projected(0,flatCentre)
+local nearCentre=tipOnPlane(0.6,false,length)-length/2
+local _,nearY,nearK=projected(0,nearCentre)
 assert(near.RenderTransformAngle==nil,'a ground arrow is drawn already turned')
-assert(equal(near.RenderTranslation.Y,nearY) and equal(near.RenderTranslation.X,0) and nearY<flatCentre,
+assert(equal(near.RenderTranslation.Y,nearY) and equal(near.RenderTranslation.X,0) and nearY<nearCentre,
     'the bottom arrow shows where its flat place projects, foreshortened')
 assert(nearK>1 and equal(near.RenderScale.X,flatScale*nearK),'and larger, being nearer')
 icon(other,SWORD_ICON)
@@ -690,9 +716,35 @@ settle(0.05)
 icon(other,TOP)
 settle(0.05)
 local far=arrowOf(ground,1)
-local _,farY,farK=projected(0,-flatCentre)
+local farCentre=tipOnPlane(0.6,true,length)-length/2
+local _,farY,farK=projected(0,-farCentre)
 assert(equal(far.RenderTranslation.Y,farY) and farK<1 and equal(far.RenderScale.X,flatScale*farK),
     'the top arrow shows further up the plane, smaller')
+assert(farCentre>nearCentre,'the same share covers more ground receding than nearing')
+icon(other,SWORD_ICON)
+settle(0.05)
+-- At 100% a nearing tip reaches the screen edge, and a receding one shows at a
+-- quarter of its size.
+for index=#cleanups,1,-1 do cleanups[index]() end
+cleanups={}
+attach(nil,{ParryStyle=3,ParryMovement={0,100}})
+ground=layer.children[1]
+endCombat()
+startCombat()
+run()
+settle(0.05)
+assert(equal(select(2,projected(0,onPlane(1,false))),540),'100% nearing is the screen edge')
+assert(equal(select(3,projected(0,-onPlane(1,true))),0.25),'100% receding is a quarter of the size')
+icon(other,BOTTOM)
+settle(0.05)
+assert(equal(arrowOf(ground,2).RenderTranslation.Y,select(2,projected(0,onPlane(1,false)-length/2))),
+    'the bottom arrow travels to the edge')
+icon(other,SWORD_ICON)
+settle(0.05)
+icon(other,TOP)
+settle(0.05)
+assert(equal(arrowOf(ground,1).RenderTranslation.Y,select(2,projected(0,-(onPlane(1,true)-length/2)))),
+    'and the top arrow to a quarter of its size')
 icon(other,SWORD_ICON)
 settle(0.05)
 -- Side arrows lie on the plane too: their arms are sheared onto it.
@@ -708,7 +760,7 @@ assert(side.RenderTransformAngle==nil and sheared>0,'side arrows are sheared ont
 -- scales as a whole as the arrow grows.
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
-attach(0,{ParryStyle=4})
+attach(nil,{ParryStyle=4})
 local fancy=layer.children[1]
 assert(imported[#imported]:match('fancy_') and #imported==2,'both pictures load from the images folder')
 endCombat()
@@ -725,11 +777,23 @@ assert(arrowOf(fancy,1).RenderTransformAngle==270 and arrowOf(fancy,3).RenderTra
     and arrowOf(fancy,4).RenderTransformAngle==180,'and turned up, right and left for the others')
 assert(pictures[1].ColorAndOpacity.A==1 and pictures[2].ColorAndOpacity.A==0,'yellow while not critical')
 settle(0.05)
--- Its box is the arrow's span, 428 along and 1774 across, sized by the 1774.
-local along,across=687-259,1774
-local from,to=54*1.4,54*3
-local first=54+from*along/across
-local last=first+(378-first)*0.7
+-- Its box is the arrow's span, 428 by 1774 picture pixels, in design units 100
+-- across, sized by the 100. Slate shrinks a centred box larger than the arrows'
+-- panel (432 less 18 each side), so it stays well inside it.
+local along,across=(687-259)*100/1774,100
+assert(equal(picture.WidthOverride,along) and picture.HeightOverride==across and across<432-36,
+    'the box is small enough not to be shrunk')
+-- Each picture's tip sits on the box's right edge, at mid-height: normal's tip
+-- is pixel column 686, rows 865 to 867; critical's column 670, rows 878 to 900.
+for index,tip in ipairs({{687,866.5},{671,889.5}}) do
+    local slot=pictures[index].slot
+    assert(equal(slot.Position.X+tip[1]*100/1774,along) and equal(slot.Position.Y+tip[2]*100/1774,50)
+        and equal(slot.Size.Y,100),'its tip on the axis, at the box\'s edge')
+end
+local from,to=54*1.9,54*5.5
+local length=from*along/across
+local first=length+0.05*(540-length)
+local last=length+0.6*(540-length)
 assert(equal(picture.RenderScale.X,to/across) and equal(picture.RenderTranslation.Y,last-to*along/across/2),
     'it scales as a whole, its tip where the travel puts it')
 icon(other,BOTTOM+PARRY)
@@ -741,16 +805,84 @@ settle(0.05)
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 fancyMissing=true
-attach(0,{ParryStyle=4})
+attach(nil,{ParryStyle=4})
 assert(#arrowOf(layer.children[1],2).content.children==6,'missing pictures fall back to the Chevron')
 fancyMissing=false
 
--- A critical attack: the arrow turns red, and the shield follows its setting.
+-- Prioritize Perfection over Buildup, by default with a Hidden, Static buildup,
+-- holds the yellow arrow back; the parry window starts its whole show, red: the
+-- arrow appears at its start and travels and grows from there.
+for index=#cleanups,1,-1 do cleanups[index]() end
+cleanups={}
+attach(nil,{ParryPerfection=1})
+endCombat()
+startCombat()
+run()
+settle(0.05)
+local perfect=arrowOf(layer.children[1],2)
+icon(other,BOTTOM)
+run()
+settle(0.05)
+assert(perfect.RenderOpacity==0,'the yellow arrow is not shown')
+icon(other,BOTTOM+PARRY)
+assert(math.abs(perfect.RenderOpacity-1)<1e-6 and front(perfect).G==0.2,'the parry window shows the arrow, red')
+assert(equal(perfect.RenderTranslation.Y,bottomStart),'from where an arrow starts')
+run()
+settle(0.05)
+assert(equal(perfect.RenderTranslation.Y,bottomEnd) and grownBy(perfect,bottomExtra) and front(perfect).G==0.2,
+    'and travels and grows as a new attack would, still red')
+icon(other,BOTTOM+PARRY)
+run()
+assert(equal(perfect.RenderTranslation.Y,bottomEnd),'a repeated parry window does not restart it')
+icon(other,SWORD_ICON)
+run()
+assert(perfect.RenderOpacity==0,'the attack resolving puts it out')
+settle(0.05)
+-- A Faint, Partial buildup: the yellow arrow shows see-through, grows and
+-- travels 30% of its way, silently; the parry window turns it red and opaque,
+-- carries it on from there and plays its sound: perfection starts.
+-- A Normal, Normal buildup shows and moves as without the option.
+for _,case in ipairs({{visibility=1,animation=1,opacity=0.35,travel=0.3},{visibility=2,animation=2,opacity=1,travel=1}}) do
+    for index=#cleanups,1,-1 do cleanups[index]() end
+    cleanups={}
+    attach(nil,{ParryPerfection=1,ParryBuildupVisibility=case.visibility,ParryBuildupAnimation=case.animation,ParrySound=2})
+    endCombat()
+    startCombat()
+    run()
+    settle(0.05)
+    local buildup=arrowOf(layer.children[1],2)
+    local sounds=#posted
+    icon(other,BOTTOM)
+    run()
+    settle(0.05)
+    assert(math.abs(buildup.RenderOpacity-case.opacity)<1e-6 and front(buildup).G==0.67,'the buildup shows yellow at its visibility')
+    local _,at,extra=arrowAtDefault(false,case.travel,case.travel)
+    assert(equal(buildup.RenderTranslation.Y,at) and grownBy(buildup,extra),'grown and travelled its share of the way')
+    assert(#posted==sounds,'the buildup plays no sound')
+    icon(other,BOTTOM+PARRY)
+    assert(math.abs(buildup.RenderOpacity-1)<1e-6 and front(buildup).G==0.2 and equal(buildup.RenderTranslation.Y,at),
+        'the parry window turns it red and opaque where it is')
+    assert(#posted==sounds+1,'the sound plays once perfection starts')
+    run()
+    settle(0.05)
+    assert(equal(buildup.RenderTranslation.Y,bottomEnd) and grownBy(buildup,bottomExtra),'and carries it on to the end')
+    icon(other,SWORD_ICON)
+    settle(0.05)
+end
+for index=#cleanups,1,-1 do cleanups[index]() end
+cleanups={}
+attach()
+endCombat()
+startCombat()
+run()
+settle(0.05)
+
+-- A critical attack: the arrow turns red.
 -- Each case shows the attack, opens its parry window and resolves it.
 local function criticalAttack(settings)
     for index=#cleanups,1,-1 do cleanups[index]() end
     cleanups={}
-    attach(0,settings)
+    attach(nil,settings)
     local cue=layer.children[1]
     endCombat()
     startCombat()
@@ -758,10 +890,9 @@ local function criticalAttack(settings)
     settle(0.05)
     icon(other,BOTTOM)
     settle(0.05)
-    local before={color=shieldOf(cue).ColorAndOpacity,scale=shieldOf(cue).RenderScale}
     icon(other,BOTTOM+PARRY)
     run()
-    return cue,before
+    return cue
 end
 local function resolveAttack()
     icon(other,SWORD_ICON)
@@ -769,45 +900,16 @@ local function resolveAttack()
 end
 local function red(color) return color.R==1 and color.G==0.2 and color.B==0 end
 
--- Critical: hidden until critical, then pops in red and grows to twice its size.
-local dynamic,before=criticalAttack({GeneralShield=3})
-assert(before.color.A==0,'a Critical shield waits unseen')
-assert(red(shieldOf(dynamic).ColorAndOpacity) and shieldOf(dynamic).ColorAndOpacity.A==1
-    and math.abs(shieldOf(dynamic).RenderScale.X-1)<1e-6,'a Critical shield pops in red at its size')
-assert(red(front(arrowOf(dynamic,2))),'the arrow turns red too')
-clock=clock+0.1
-run()
-assert(math.abs(shieldOf(dynamic).RenderScale.X-1.5)<1e-6,'growing over 0.2s')
-settle(0.05)
-assert(math.abs(shieldOf(dynamic).RenderScale.X-2)<1e-6,'to twice its size')
+local critical=criticalAttack({})
+assert(red(front(arrowOf(critical,2))),'a critical attack turns the arrow red')
+assert(shieldOf(critical).ColorAndOpacity.A==0,'and leaves the centre clear: the shield is the Background\'s')
 resolveAttack()
-assert(shieldOf(dynamic).ColorAndOpacity.A==0 and math.abs(shieldOf(dynamic).RenderScale.X-1)<1e-6,
-    'the resolve hides the shield')
-
--- In Combat: the faint shield turns red at its size, then returns.
-local static=criticalAttack({GeneralShield=1})
-assert(red(shieldOf(static).ColorAndOpacity) and math.abs(shieldOf(static).RenderScale.X-1)<1e-6,
-    'an In Combat shield turns red without growing')
-resolveAttack()
-assert(shieldOf(static).ColorAndOpacity.A==0.2 and not red(shieldOf(static).ColorAndOpacity),
-    'and returns to its faint white')
-
--- Defending: faint while the attack shows, red once critical, gone once resolved.
-local defending,shown=criticalAttack({GeneralShield=2})
-assert(shown.color.A==0.2 and not red(shown.color),'a Defending shield shows faintly with the attack')
-assert(red(shieldOf(defending).ColorAndOpacity) and math.abs(shieldOf(defending).RenderScale.X-1)<1e-6,
-    'turns red without growing once critical')
-resolveAttack()
-assert(shieldOf(defending).ColorAndOpacity.A==0,'and hides once the attack resolves')
-
--- Off: no shield, even for a critical attack; the skull still shows.
-local hidden=criticalAttack({GeneralShield=0})
-assert(shieldOf(hidden).ColorAndOpacity.A==0,'with the shield off none shows')
+-- The skull takes the centre over a critical attack.
+criticalAttack({})
 icon(other,SKULL_ICON)
-assert(shieldOf(hidden).BrushFromAtlasInterface==SKULL and shieldOf(hidden).ColorAndOpacity.A==1,
-    'the skull takes the centre')
+assert(skullShown(shieldOf(layer.children[1])),'the skull takes the centre')
 settle(0.05)
-assert(shieldOf(hidden).ColorAndOpacity.A==1,'and the critical shield never covers it')
+assert(skullShown(shieldOf(layer.children[1])),'and holds')
 icon(other,SWORD_ICON)
 resolveAttack()
 
@@ -832,7 +934,7 @@ parryMultiplier=1
 
 -- A lasting fault handling events is logged once per kind; the repeats are
 -- counted when combat ends. A direction the cue has no arrow for faults.
-local Session=require('preymonition.session')
+local Session=require('preymonition.omens')
 local logged={}
 sourceLog=setmetatable({enabled=function() return false end},{__index=function(_,level)
     return function(...)
@@ -860,8 +962,8 @@ for index=#cleanups,1,-1 do cleanups[index]() end
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Ten handles per cue, and six parts per arrow held twice (to colour and to
--- grow), for fourteen drawn cues; the Fancy cue holds its two pictures per arrow.
-assert(released==(10+2*4*6)*14+(10+4*2),'each detached cue releases its handles')
+-- grow), for sixteen drawn cues; the Fancy cue holds its two pictures per arrow.
+assert(released==(10+2*4*6)*16+(10+4*2),'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
@@ -869,27 +971,70 @@ assert(removed==1 and hookCount()==0,'sleep unhooks the indicator')
 endCombat()
 assert(removed==1,'a second sleep has nothing left to remove')
 
--- Position: Below puts the box's bottom 10% of the height above the bottom
--- edge; Above puts its top 10% below the top edge.
-for position,top in pairs({[0]=1080*0.9-432,[2]=1080*0.1}) do
+-- Position: the cue box shares the centre of the Background's shield at its
+-- default size (540 high): Below keeps that shield's bottom 10% of the height
+-- above the bottom edge, Above its top 10% below the top edge.
+for position,top in pairs({[0]=1080*0.9-270-216,[2]=1080*0.1+270-216}) do
     cleanups={}
-    attach(0,{GeneralPosition=position})
-    assert(math.abs(layer.children[1].slot.Padding.Top-top)<1e-6,'shield position '..position)
+    attach(nil,{GeneralPosition=position})
+    assert(math.abs(layer.children[1].slot.Padding.Top-top)<1e-6,'cue position '..position)
     for index=#cleanups,1,-1 do cleanups[index]() end
 end
--- A scaled shield keeps its edge there: at +50% it is 648 across, and the box
--- shares its centre.
+
+-- Movement from Center runs to the screen edge the arrow travels
+-- towards, from the cue's centre wherever Position puts it: Above centres the
+-- cue 378 down, so 100% takes a bottom arrow's tip 702 down from there.
+local function travel(movement,direction,index)
+    cleanups={}
+    attach(nil,{GeneralPosition=2,ParryMovement=movement})
+    local cue=layer.children[1]
+    endCombat()
+    startCombat()
+    run()
+    settle(0.05)
+    icon(other,direction)
+    local arrow=arrowOf(cue,index)
+    local start=arrow.RenderTranslation.Y
+    run()
+    settle(0.05)
+    local stop=arrow.RenderTranslation.Y
+    icon(other,SWORD_ICON)
+    settle(0.05)
+    for at=#cleanups,1,-1 do cleanups[at]() end
+    return start,stop
+end
+local half=102.6*RATIO/2
+local start,stop=travel({0,100},BOTTOM,2)
+assert(equal(start,half) and equal(stop,702-half),'0% is the cue\'s centre and 100% the bottom edge')
+start,stop=travel({0,100},TOP,1)
+assert(equal(start,-half) and equal(stop,-(378-half)),'and the top edge for an upward arrow')
+start,stop=travel({50,50},BOTTOM,2)
+assert(equal(start,2*half+0.5*(702-2*half)-half) and equal(stop,start),
+    '50% is halfway through the space the arrow has; equal ends keep it still')
+
+-- With no settings the cue takes the defaults: Size 30% to 80%, Movement 40% to 60%.
 cleanups={}
-attach(50,{GeneralPosition=0})
-assert(math.abs(layer.children[1].slot.Padding.Top-(1080*0.9-324-216))<1e-6,'a scaled shield sits by its own edge')
+template.attach({hud=hud,cue=layer},{settings={},screen={width=1920,height=1080,scale=1},
+    onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
+local defaultCue=layer.children[1]
+endCombat()
+startCombat()
+run()
+settle(0.05)
+icon(other,BOTTOM)
+local defaultScale,defaultStart=arrowAt(false,{0.3,0.8},{0.4,0.6},0,0)
+assert(equal(arrowOf(defaultCue,2).RenderScale.X,defaultScale) and equal(arrowOf(defaultCue,2).RenderTranslation.Y,defaultStart),
+    'the default arrow starts 3.7 units wide, its tip 40% of the space it has out')
+icon(other,SWORD_ICON)
+settle(0.05)
 for index=#cleanups,1,-1 do cleanups[index]() end
 
 -- At TRACE the hooks are the same: tracing adds lines, never hooks.
-local Session=require('preymonition.session')
+local Session=require('preymonition.omens')
 Session.setLog(dofile('Preymonition/Scripts/vendor/mc_log.lua').wrap(function() end))
 startCombat()
 assert(hookCount()==1 and next(hooks)==nil,'TRACE adds no hooks')
 removed=0
 endCombat()
 assert(removed==1 and hookCount()==0,'and unhooked with the rest')
-print('PASS: Preymonition session hooks only in combat, follows attacks, resolves, reattach and cleanup')
+print('PASS: the omens template hooks only in combat, follows attacks, resolves, reattach and cleanup')

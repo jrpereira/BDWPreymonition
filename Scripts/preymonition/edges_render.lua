@@ -10,7 +10,7 @@ local EDGES=4
 -- gradient fading inward; depth is a share of the shorter screen side.
 local BANDS,DEPTH=6,0.08
 local COLOR,CRITICAL={R=1,G=0.67,B=0.19,A=0.1},{R=1,G=0.2,B=0,A=0.1}
--- Widget names stay unique across Lua reloads, like the center cue's.
+-- Widget names stay unique across Lua reloads, like the omens'.
 local generation=0
 local nonce=string.format('%06x',math.random(0,0xffffff))
 local M={EDGES=EDGES}

@@ -1,5 +1,6 @@
 -- The game's Wwise events the cue can play, posted at the player.
-local Cue=require('preymonition.cue')
+local Combat=require('preymonition.combat')
+local Cue=require('preymonition.omens_render')
 local MC=require('mc')
 
 local EVENTS='/Game/Audio/AK_Events/Events/'
@@ -39,9 +40,9 @@ end
 -- event, both actors or Wwise are unavailable.
 function M.play(path,context,source)
     local sound=assert(Cue.find(path),'sound event unavailable: '..path)
-    local wwise=assert(Cue.default('/Script/AkAudio.Default__AkGameplayStatics'),'Wwise unavailable')
+    local wwise=assert(Combat.default('/Script/AkAudio.Default__AkGameplayStatics'),'Wwise unavailable')
     if not MC.valid(source) then
-        local statics=assert(Cue.default('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
+        local statics=assert(Combat.default('/Script/Engine.Default__GameplayStatics'),'GameplayStatics unavailable')
         source=statics:GetPlayerPawn(context,0)
         assert(MC.valid(source),'player unavailable')
     end

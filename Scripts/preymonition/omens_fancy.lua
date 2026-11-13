@@ -4,13 +4,27 @@
 local M={}
 
 M.FILES={normal='fancy_normal.png',critical='fancy_critical.png'}
--- The pictures' size in pixels, and the columns their arrow spans (alpha above
--- 8, both pictures): the rest is transparent margin. The arrow box is that span,
--- the full height; its tip is the right edge.
-local ART={width=887,height=1774,left=259,right=687}
-M.SIZE={X=ART.right-ART.left,Y=ART.height}
+-- The pictures' size in pixels, and where each one's arrow is (alpha above 8):
+-- its back column and its tip, the tip's right edge and middle row. The arms
+-- reach the full height; the rest is transparent margin.
+local ART={width=887,height=1774}
+local TIPS={normal={back=259,x=687,y=866.5},critical={back=274,x=671,y=889.5}}
+-- The arrow box: the longer arrow's span, the full height, in design units
+-- with the height UNITS, like the drawn arrows. Slate shrinks a centred box
+-- larger than the arrows' panel, so it must stay this small (the panel is about
+-- 400 at 1080p).
+local UNITS=100
+local K=UNITS/ART.height
+M.SIZE={X=(TIPS.normal.x-TIPS.normal.back)*K,Y=UNITS}
 
--- The mod folder, from where this file was loaded: <mod>/Scripts/preymonition/fancy.lua.
+-- Where a picture goes in the box, in design units: its tip on the box's right
+-- edge, at mid-height, on the arrow's axis.
+function M.placement(role)
+    local tip=TIPS[role]
+    return {X=M.SIZE.X-tip.x*K,Y=M.SIZE.Y/2-tip.y*K},{X=ART.width*K,Y=ART.height*K}
+end
+
+-- The mod folder, from where this file was loaded: <mod>/Scripts/preymonition/omens_fancy.lua.
 local function folder()
     local source=debug.getinfo(1,'S').source
     local path=source:match('^@(.+)$') or source
@@ -46,7 +60,7 @@ function M.angle(direction)
 end
 
 -- Builds one Fancy arrow from construct(classPath,name): a SizeBox the arrow's
--- span, holding a canvas with both pictures placed so the span fills the box;
+-- span, holding a canvas with both pictures placed by M.placement;
 -- the red one starts clear. Returns the box and its pictures as {image,role}.
 function M.build(construct,name,normal,critical)
     local box=construct('/Script/UMG.SizeBox',name)
@@ -60,9 +74,10 @@ function M.build(construct,name,normal,critical)
         local image=construct('/Script/UMG.Image',name..entry[2])
         image:SetBrushFromTexture(entry[1],false)
         local slot=canvas:AddChildToCanvas(image)
+        local position,size=M.placement(entry[2])
         slot:SetAlignment({X=0,Y=0})
-        slot:SetPosition({X=-ART.left,Y=0})
-        slot:SetSize({X=ART.width,Y=ART.height})
+        slot:SetPosition(position)
+        slot:SetSize(size)
         images[#images+1]={image,entry[2]}
     end
     return box,images

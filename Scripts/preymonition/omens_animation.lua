@@ -9,8 +9,9 @@ local TRAVEL = 0.2
 -- A critical arrow takes its grown size at once, if its travel has not reached
 -- it, and holds it until the attack resolves.
 local CRITICAL = 1
--- A shield revealed by a critical attack, when the cue asks for growth, and the
--- unblockable skull grow to SHIELD_GROWN times their size over the same duration.
+-- A shield revealed by a critical attack, when the cue asks for growth, grows to
+-- SHIELD_GROWN times its size over the same duration. The unblockable skull's grow
+-- goes from 0 (its starting size) to 1 (its grown size); the cue turns it into a size.
 local SHIELD_GROWN = 2
 
 local function clamp(value)
@@ -27,8 +28,8 @@ function M.new(env)
         -- critical while the shown attack is critical; scale is the revealed
         -- shield's growth.
         shield = { critical = false, scale = 1 },
-        -- The unblockable skull's growth while it shows.
-        skull = { scale = 1 },
+        -- The unblockable skull's growth while it shows, 0 to 1.
+        skull = { grow = 0 },
         finished_keys = {}, finished_jobs = {},
     }
     -- offset is the share of the arrow's outward travel, 0 at rest to 1.
@@ -48,7 +49,7 @@ function M.new(env)
     local function vanish(index)
         local arrow = state.arrows[index]
         for _, field in ipairs({ 'grow', 'offset' }) do state.tracks[field .. index] = nil end
-        arrow.opacity, arrow.grow, arrow.offset = 0, 0, 0
+        arrow.opacity, arrow.grow, arrow.offset, arrow.held = 0, 0, 0, nil
     end
 
     -- The attack is over or replaced: the shield calms at once.
@@ -111,9 +112,44 @@ function M.new(env)
         return self:has_jobs()
     end
 
+    -- The shown attack turned critical: the shield follows, growing when the cue asks.
+    local function criticalShield(self)
+        if self.shield.critical then return end
+        self.shield.critical = true
+        if env.grow then
+            track('shieldScale', self.shield, 'scale', { phase(1, SHIELD_GROWN, self.time, self.duration) })
+        end
+    end
+
+    -- Starts an arrow's growth and travel from rest, now.
+    local function travel(self, index)
+        local selected = self.arrows[index]
+        selected.grow, selected.offset = 0, 0
+        track('grow' .. index, selected, 'grow', { phase(0, 1, self.time, self.duration) })
+        track('offset' .. index, selected, 'offset', { phase(0, 1, self.time, self.duration) })
+    end
+
+    -- Carries an arrow's growth and travel on from where they are to target,
+    -- at the pace of a whole animation: a share of the way takes that share of
+    -- the duration.
+    local function carry(self, index, target)
+        local selected = self.arrows[index]
+        for _, field in ipairs({ 'grow', 'offset' }) do
+            local from = selected[field]
+            self.tracks[field .. index] = nil
+            if from < target then
+                track(field .. index, selected, field, { phase(from, target, self.time, self.duration * (target - from)) })
+            end
+        end
+    end
+
     -- An attack: its arrow shows at once at full opacity and size, then grows
-    -- and travels outward. Any other arrow goes at once.
-    function state:show(index, identity)
+    -- and travels outward. Any other arrow goes at once. mode 'held' shows the
+    -- attack's buildup (the shield follows it) until reveal: its arrow grows and
+    -- travels buildup of its way (both size and movement), or stays at rest
+    -- without it; 'critical' shows an attack first seen critical, its arrow
+    -- travelling from rest and the shield critical with it.
+    function state:show(index, identity, mode, buildup)
         assert(self.arrows[index], 'Invalid arrow index')
         if self.last == identity then return false end
         self:step(true)
@@ -129,8 +165,28 @@ function M.new(env)
         calm()
         local selected = self.arrows[index]
         selected.opacity = 1
-        track('grow' .. index, selected, 'grow', { phase(0, 1, timestamp, self.duration) })
-        track('offset' .. index, selected, 'offset', { phase(0, 1, timestamp, self.duration) })
+        if mode == 'held' then
+            selected.held = true
+            selected.grow, selected.offset = 0, 0
+            if buildup and buildup > 0 then carry(self, index, buildup) end
+        else
+            travel(self, index)
+        end
+        if mode == 'critical' then criticalShield(self) end
+        env.apply(self)
+        return true
+    end
+
+    -- A held arrow's attack went critical: the arrow carries its growth and
+    -- travel on from where its buildup left them to the end, and the shield
+    -- turns critical. False when it was not held.
+    function state:reveal(index)
+        local arrow = assert(self.arrows[index], 'Invalid arrow index')
+        if not arrow.held then return false end
+        self:step(true)
+        arrow.held = nil
+        carry(self, index, 1)
+        criticalShield(self)
         env.apply(self)
         return true
     end
@@ -142,12 +198,7 @@ function M.new(env)
         self:step(true)
         self.tracks['grow' .. index] = nil
         arrow.opacity, arrow.grow = 1, CRITICAL
-        if not self.shield.critical then
-            self.shield.critical = true
-            if env.grow then
-                track('shieldScale', self.shield, 'scale', { phase(1, SHIELD_GROWN, self.time, self.duration) })
-            end
-        end
+        criticalShield(self)
         env.apply(self)
         return true
     end
@@ -166,14 +217,14 @@ function M.new(env)
         return true
     end
 
-    -- An unblockable attack: the skull grows to twice its size like a revealed
-    -- shield; when it passes, it is back at its size for next time.
+    -- An unblockable attack: the skull grows from its starting to its grown size;
+    -- when it passes, it is back at its starting size for next time.
     function state:unblockable(shown)
         self:step(true)
-        self.tracks.skullScale = nil
-        self.skull.scale = 1
+        self.tracks.skullGrow = nil
+        self.skull.grow = 0
         if shown then
-            track('skullScale', self.skull, 'scale', { phase(1, SHIELD_GROWN, self.time, self.duration) })
+            track('skullGrow', self.skull, 'grow', { phase(0, 1, self.time, self.duration) })
         end
         env.apply(self)
         return true

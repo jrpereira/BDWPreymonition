@@ -1,7 +1,8 @@
 -- Follows MCT's MC_NPCAttackIndicator events with the cue animation of attached HUDs.
-local Animation=require('preymonition.animation')
-local Cue=require('preymonition.cue')
-local Sound=require('preymonition.sound')
+local Animation=require('preymonition.omens_animation')
+local Combat=require('preymonition.combat')
+local Cue=require('preymonition.omens_render')
+local Sound=require('preymonition.omens_sound')
 
 -- MCT watches the game's combat target indicator and delivers each change as an
 -- MC_NPCAttackIndicator update event on the next engine tick, about a frame
@@ -91,12 +92,6 @@ local function cueFor(indicator)
     end
 end
 
--- A cue built before the shield sprite was found retries it; clear until then.
-local function styleShield(record)
-    local ok,sprite=pcall(Cue.styleShield,record.ui)
-    if not ok then log.warn('shield styling failed: ',sprite)
-    elseif not sprite then log.debug('shield sprite still not found; shield stays clear') end
-end
 
 -- Plays a cue's sound for an event, when one is chosen, at the attacker behind
 -- the indicator, else the player. A failure is reported once per sound and
@@ -105,7 +100,7 @@ local failedSounds={}
 local function play(record,path,indicator)
     if not path then return end
     local ok,why=pcall(function()
-        local found,attacker=pcall(Cue.attacker,indicator)
+        local found,attacker=pcall(Combat.attacker,indicator)
         attacker=found and attacker or nil
         log.debug('sound at ',attacker and Cue.path(attacker) or 'the player')
         return Sound.play(path,Cue.context(record.ui),attacker)
@@ -136,25 +131,46 @@ end
 -- Shows an attack from an indicator in the cue of the same world. MCT reports
 -- an attack as arrow when it shows up and as critical when its parry window
 -- opens; for the cue's own attack either escalates it.
+--
+-- Prioritize Perfection over Buildup affects the arrow alone: its attack is
+-- still shown from the first arrow. Until
+-- the parry window opens the arrow is a buildup, shown and moved as Buildup
+-- visibility and animation say; then it turns red and carries its animation on
+-- from there to the end. Its sound plays only then, when perfection starts.
 local function present(indicator,path,direction,event)
     local record=cueFor(indicator)
     if not record then log.trace('arrow #',event.sequence,': no cue in the indicator world'); return end
+    local perfect=record.perfectOnly
+    local critical=event.kind=='critical'
     if record.source==path and record.direction==direction then
         if record.critical then return end
+        if perfect and not critical then return end
+        if perfect then
+            record.critical=true
+            Cue.critical(record.ui,direction)
+            if record.model:reveal(direction) then
+                log.debug('reveal ',DIRECTIONS[direction],' from ',path)
+                play(record,record.sounds.arrow,indicator)
+                pump(record)
+                return
+            end
+        end
         escalate(record,path,direction)
         return
     end
-    Cue.arm(record.ui,direction)
-    record.source,record.direction,record.critical=path,direction,nil
-    if record.model:show(direction,event.path..':'..event.sequence) then
-        log.debug('show ',DIRECTIONS[direction],' from ',path)
-        play(record,record.sounds.arrow,indicator)
+    -- First seen critical under Perfection: its show starts red now.
+    local mode=perfect and (critical and 'critical' or 'held') or nil
+    if mode=='critical' then Cue.critical(record.ui,direction) else Cue.arm(record.ui,direction) end
+    record.source,record.direction,record.critical=path,direction,mode=='critical' or nil
+    if record.model:show(direction,event.path..':'..event.sequence,mode,record.buildupTravel) then
+        log.debug('show ',DIRECTIONS[direction],mode and ' '..mode or '',' from ',path)
+        if mode~='held' then play(record,record.sounds.arrow,indicator) end
         pump(record)
     end
 end
 
--- The unblockable skull showed on an indicator, or went: shown as a skull in
--- place of the shield until it goes.
+-- The unblockable skull showed on an indicator, or went: shown at the cue's
+-- centre until it goes.
 local function unblockable(event)
     local record=cueFor(event.indicator)
     if not record then return end
@@ -162,16 +178,16 @@ local function unblockable(event)
     if event.active then
         if record.skull then return end
         record.skull=true
-        local ok,why=pcall(Cue.centre,record.ui,'skull')
-        if not ok or not why then log.warn('centre sprite unavailable: ',why) end
+        local ok,why=pcall(Cue.skull,record.ui,true)
+        if not ok or not why then log.warn('skull sprite unavailable: ',why) end
         play(record,record.sounds.skull,event.indicator)
         record.model:unblockable(true)
         pump(record)
         log.debug('unblockable attack')
     elseif record.skull then
         record.skull=nil
-        local ok,why=pcall(Cue.centre,record.ui,'shield')
-        if not ok or not why then log.warn('centre sprite unavailable: ',why) end
+        local ok,why=pcall(Cue.skull,record.ui,false)
+        if not ok then log.warn('skull clearing failed: ',why) end
         record.model:unblockable(false)
         pump(record)
         log.debug('unblockable passed')
@@ -197,7 +213,7 @@ local function endCombat()
             record.source,record.direction,record.critical=nil,nil,nil
             if record.skull then
                 record.skull=nil
-                pcall(Cue.centre,record.ui,'shield')
+                pcall(Cue.skull,record.ui,false)
                 record.model:unblockable(false)
             end
             record.model:hide(true)
@@ -213,7 +229,7 @@ local PER_MULTIPLIER,FALLBACK=0.2,1.4
 local function startCombat()
     for _,record in ipairs(cues) do
         if Cue.valid(record.ui) then
-            local read,multiplier=pcall(Cue.parryWindow,Cue.context(record.ui))
+            local read,multiplier=pcall(Combat.parryWindow,Cue.context(record.ui))
             if not (read and multiplier) then
                 log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
                 multiplier=FALLBACK
@@ -221,7 +237,6 @@ local function startCombat()
             record.model:setDuration(PER_MULTIPLIER*multiplier)
             log.debug('parry window ',multiplier,'; animations take ',
                 string.format('%.0f',PER_MULTIPLIER*multiplier*1000),' ms')
-            styleShield(record)
             if record.model:engage() then
                 log.debug('combat started; cue fading in')
                 pump(record)
@@ -273,7 +288,10 @@ end
 
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
-    local record={detached=false,
+    -- Prioritize Perfection over Buildup, and how its buildup shows: Buildup
+    -- animation 0 Static, 1 Partial (30% of its size and way), 2 Normal.
+    local record={detached=false,perfectOnly=settings.ParryPerfection==1,
+        buildupTravel=({[0]=0,[1]=0.3,[2]=1})[settings.ParryBuildupAnimation or 0] or 0,
         sounds={arrow=Sound.ARROW[settings.ParrySound],skull=Sound.UNBLOCKABLE[settings.UnblockableSound]}}
     record.onFrame=function()
         local ok,why=Cue.pass(frame,record)
@@ -296,16 +314,13 @@ function M.attach(hud,layer,params,onCleanup)
     record.ui=Cue.build(hud,layer,assert(params.screen,'screen unavailable'),settings)
     local ui=record.ui
     record.model=Animation.new({
-        now=function() return Cue.now(ui) end,
+        now=function() return Combat.now(Cue.context(ui)) end,
         apply=function(state) Cue.apply(ui,state) end,
-        -- Only the Critical shield grows when it pops in.
-        grow=ui.visuals.watermark==3,
     })
     record.model:step()
     cues[#cues+1]=record
-    log.info('cue attached, scale ',settings.GeneralScale or 0,'%, position ',settings.GeneralPosition or 1,', screen ',
-        params.screen.width,'x',params.screen.height,' @',params.screen.scale,
-        '; shield ',ui.sprite or 'not found yet')
+    log.info('cue attached, position ',settings.GeneralPosition or 1,', screen ',
+        params.screen.width,'x',params.screen.height,' @',params.screen.scale)
     if settings.ParryStyle==4 and not ui.visuals.fancy then
         log.warn('Fancy arrow pictures did not load; drawing Chevrons')
     end
