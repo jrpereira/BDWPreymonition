@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.2
+
+- Requires ModCore Templates 1.8.0 or later. No change to indicators or settings.
+
 ## v1.4.1
 
 - Requires ModCore Settings 1.7.0 or later. No change to indicators or settings.
