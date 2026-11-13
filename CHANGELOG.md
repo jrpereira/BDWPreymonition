@@ -2,7 +2,8 @@
 
 ## v1.4.0
 
-- Requires ModCore Templates 1.7.0 or later, which names the attacker behind each attack.
+- Requires ModCore Settings 1.6.0 or later and ModCore Templates 1.7.0 or later, which
+  names the attacker behind each attack.
 - New Countdown template (Countdown Overlay), with its own Position (Below, Middle, Above):
   the time left to the attack's parry window above a yellow bar that runs down. When
   ModCore Templates names the attacker, the time comes from the attack's hit window in the
