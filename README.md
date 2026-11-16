@@ -29,7 +29,7 @@ credit remain your responsibility.
 - [ModCore Settings](https://www.nexusmods.com/thebloodofdawnwalker/mods/590)
   1.9.0 or newer.
 - [ModCore Templates](https://www.nexusmods.com/thebloodofdawnwalker/mods/641)
-  1.9.0 or newer.
+  1.9.1 or later.
 - [UE4SS Lua Event Bridge](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.3.0 or newer, which
   ModCore Templates also requires. Without it no cue appears.
 - [UE4SS Lua Sound Bridge](https://github.com/jrpereira/UE4SSLuaEXtensions/releases) 1.1.0 or newer,

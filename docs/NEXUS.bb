@@ -17,7 +17,7 @@ Install these before Preymonition:
 [*][b]UE4SS compatible with your game version.[/b] See the loader links in the [url=https://www.nexusmods.com/thebloodofdawnwalker/mods/271]Dawnwalker Mod Menu requirements[/url].
 [*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/271]Dawnwalker Mod Menu[/url].
 [*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/590]ModCore Settings[/url] 1.9.0 or newer.
-[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/641]ModCore Templates[/url] 1.9.0 or newer.
+[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/641]ModCore Templates[/url] 1.9.1 or later.
 [*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/526]UE4SS Lua Event Bridge[/url] 1.3.0 or newer, which ModCore Templates also requires. Without it no cue appears.
 [*][url=https://github.com/jrpereira/UE4SSLuaEXtensions/releases]UE4SS Lua Sound Bridge[/url] 1.1.0 or newer, for the Audio Cues. Without it they are silent.
 [/list]

@@ -12,8 +12,8 @@
   style is one picture with its glow and white core side by side; the mod tints the glow
   yellow, or red in the Perfect Opportunity window.
   A picture that is not a 1774 by 1774 PNG is left out of the list.
-- Requires ModCore Settings 1.9.0, ModCore Templates 1.9.0 and UE4SS Lua Event Bridge
-  1.3.0 or newer.
+- Requires ModCore Templates 1.9.1 or later, which starts the Audio Cues on, and
+  ModCore Settings 1.9.0 and UE4SS Lua Event Bridge 1.3.0 or newer.
 - The Omens' Style and Position and the Countdown's Position save their choice by name
   (`ParryStyle=chevron`, `Position=middle`) instead of a number. Choices saved before for
   them reset to their defaults once.
