@@ -1,10 +1,12 @@
--- The omens' widgets: the arrows and the unblockable skull, centred where the
--- Background template draws its shield (preymonition.placement). The game's
+-- The omens' widgets: the arrows, centred where the Background template draws
+-- its shield at their Position (preymonition.placement), and the unblockable
+-- indicator at the screen's centre. The game's
 -- combat state comes from preymonition.combat.
 local MC=require('mc')
 local Placement=require('preymonition.placement')
 local Drawn=require('preymonition.omens_drawn')
 local Fancy=require('preymonition.omens_fancy')
+local Images=require('preymonition.omens_images')
 
 local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 -- The native lit arrow colour, which a shown arrow takes.
@@ -158,12 +160,45 @@ local function hold(object,name)
     return assert(MC.hold(object),'cue cannot keep '..name)
 end
 
--- The skull, the game's sprite, shown at the cue's centre for an unblockable
--- attack; the centre is clear otherwise.
-local SKULL='/Game/_Dawnwalker/UI/_Unified/Combat/Atlas/Frames/T_Combat_Icon_SkullRed.T_Combat_Icon_SkullRed'
-local SKULL_COLOR,CLEAR={R=1,G=1,B=1,A=1},{R=1,G=1,B=1,A=0}
--- A buildup arrow's opacity by Buildup visibility: Hidden, Faint, Normal.
-local BUILDUP_OPACITY={[0]=0,[1]=0.35,[2]=1}
+-- The unblockable indicator at the screen's centre, by Style: the mod's picture
+-- images/unblockable_<key>.png, in its own colours, listed by the menu from the
+-- folder (Scripts/choices/unblockable_style.lua). Off shows nothing; the centre is
+-- clear between unblockable attacks. A picture whose file is gone fails to load and
+-- shows nothing.
+local function unblockablePicture(key)
+    key=key or 'fiend'
+    if type(key)~='string' or key=='off' or not key:match('^[%w_]+$') then return nil end
+    return 'unblockable_'..key:lower()..'.png'
+end
+local SHOWN,CLEAR={R=1,G=1,B=1,A=1},{R=1,G=1,B=1,A=0}
+-- The arrows by Style: Off draws none, Solid and Chevron are drawn by the cue,
+-- Perspective is a Chevron lying on the ground plane, and Fancy uses the mod's
+-- pictures (a Chevron when they do not load). An unknown Style is Chevron, the default.
+local STYLES={
+    off={arrows=false,shape='chevron'},
+    solid={arrows=true,shape='solid'},
+    chevron={arrows=true,shape='chevron'},
+    perspective={arrows=true,shape='chevron',perspective=true},
+    fancy={arrows=true,shape='chevron',fancy=true},
+}
+-- A held buildup arrow's opacity by Buildup visibility, and the share of its
+-- growth and travel by Buildup animation (Partial: 30% of its size and way).
+-- An unknown value of either is Normal, the default.
+local BUILDUP_OPACITY={hidden=0,faint=0.35,normal=1}
+local BUILDUP_TRAVEL={static=0,partial=0.3,normal=1}
+
+-- The buildup, the yellow arrow before the perfect opportunity window opens:
+-- Buildup visibility and Buildup animation both Normal show and move it from
+-- the first sighting; any other pair holds it back until that window opens.
+-- Returns whether it is held, a held arrow's opacity, and its travel share.
+function M.buildup(settings)
+    local visibility=settings.ParryBuildupVisibility
+    if not BUILDUP_OPACITY[visibility] then visibility='normal' end
+    local animation=settings.ParryBuildupAnimation
+    if not BUILDUP_TRAVEL[animation] then animation='normal' end
+    local held=not (visibility=='normal' and animation=='normal')
+    return {held=held,opacity=held and BUILDUP_OPACITY[visibility] or 1,travel=BUILDUP_TRAVEL[animation]}
+end
 
 -- A range setting as shares, 0 to 1: {low, high}. MCT gives it as {low, high} percent.
 local function share(span,low,high)
@@ -174,20 +209,19 @@ end
 
 -- The cue settings: percentages of the current look, and choices.
 local function config(settings)
-    -- Style: 0 Off, 1 Solid, 2 Chevron, 3 Perspective (a Chevron
-    -- lying on the ground plane), drawn by the cue; 4 Fancy, the mod's pictures.
-    local style=settings.ParryStyle or 2
-    -- Prioritize Perfection over Buildup: Buildup visibility 0 Hidden, 1 Faint,
-    -- 2 Normal sets a buildup arrow's opacity.
-    local perfection=settings.ParryPerfection==1
+    local key=STYLES[settings.ParryStyle] and settings.ParryStyle or 'chevron'
+    local style=STYLES[key]
     return {
-        buildupOpacity=perfection and (BUILDUP_OPACITY[settings.ParryBuildupVisibility or 0] or 0) or 1,
+        buildupOpacity=M.buildup(settings).opacity,
+        position=Placement.position(settings.ParryPosition),
         -- Movement and Size are shares, 0 to 1: the movement is {appears,
         -- stops} of the way to the screen edge, the size {starting, grown}.
         move=share(settings.ParryMovement,40,60),
         size=share(settings.ParrySize,30,80),
-        arrows=style~=0,shape=style==1 and 'solid' or 'chevron',perspective=style==3,fancy=style==4,
-        -- The skull's {starting, grown} size as shares, 0 to 1.
+        style=key,arrows=style.arrows,shape=style.shape,perspective=style.perspective==true,fancy=style.fancy==true,
+        -- The unblockable indicator's Style and its {starting, grown} size as
+        -- shares, 0 to 1.
+        unblockable=unblockablePicture(settings.UnblockableStyle),
         skull=share(settings.UnblockableSize,60,100),
     }
 end
@@ -199,9 +233,11 @@ function M.build(hud,layer,screen,settings)
     layer:ClearChildren()
     generation=generation+1
     local suffix=nonce..'_'..generation
-    -- SizeBox > Overlay with the centre image (the skull) under the arrows overlay.
+    -- SizeBox > Overlay with the arrows overlay, at the arrows' Position, and a
+    -- SizeBox of the same size at the screen's centre with the unblockable image.
     local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionCue'..suffix)
     local stack=construct('/Script/UMG.Overlay',tree,'PreymonitionStack'..suffix)
+    local centre=construct('/Script/UMG.SizeBox',tree,'PreymonitionUnblockable'..suffix)
     local shield=construct('/Script/UMG.Image',tree,'PreymonitionCentre'..suffix)
     local arrows=construct('/Script/UMG.Overlay',tree,'PreymonitionArrows'..suffix)
     -- Plain numbers: each arrow's turn, the flat shape's size, the units along
@@ -220,8 +256,8 @@ function M.build(hud,layer,screen,settings)
     local ui={angle=angle,shapeSize={X=flat.width,Y=flat.height},visuals=visuals,
         unit={screen.width*UNIT,screen.height*UNIT},applied={}}
     -- The box shares the Background shield's centre at its default size, at
-    -- its Position vertically.
-    local size,top=Placement.box(screen,settings.GeneralPosition or 1,Placement.SIZE)
+    -- the arrows' Position vertically.
+    local size,top=Placement.box(screen,visuals.position,Placement.SIZE)
     ui.box=size
     -- How far each arrow's screen edge is from the cue's centre, matching ARROWS.
     local middle=top+size/2
@@ -261,9 +297,6 @@ function M.build(hud,layer,screen,settings)
     end
     -- Slate units, like the box size: the inset keeps its share of the cue at any DPI.
     local inset=18
-    local shieldSlot=stack:AddChildToOverlay(shield)
-    shieldSlot:SetHorizontalAlignment(0)
-    shieldSlot:SetVerticalAlignment(0)
     local arrowsSlot=stack:AddChildToOverlay(arrows)
     arrowsSlot:SetHorizontalAlignment(0)
     arrowsSlot:SetVerticalAlignment(0)
@@ -272,21 +305,36 @@ function M.build(hud,layer,screen,settings)
     box:SetWidthOverride(size)
     box:SetHeightOverride(size)
     box:SetRenderOpacity(0)
-    -- An Image's default brush is solid white: clear until the skull shows.
+    centre:SetContent(shield)
+    centre:SetWidthOverride(size)
+    centre:SetHeightOverride(size)
+    centre:SetRenderOpacity(0)
+    -- An Image's default brush is solid white: clear until the indicator shows.
     shield:SetColorAndOpacity(CLEAR)
-    -- The skull sizes itself, drawn around its centre; the box and the arrows
-    -- keep their size.
+    -- The indicator sizes itself, drawn around its centre; its box keeps its size.
     shield:SetRenderTransformPivot({X=0.5,Y=0.5})
-    -- Loaded now rather than at the first unblockable attack, mid-combat.
-    M.find(SKULL)
+    -- Only the chosen picture loads, now rather than at the first unblockable
+    -- attack, mid-combat; the image holds it from here on.
+    if visuals.unblockable then
+        local textures,why=Images.load(hud,{visuals.unblockable})
+        if textures then
+            shield:SetBrushFromTexture(textures[1],false)
+            ui.picture=true
+        else
+            ui.pictureMissing=why
+        end
+    end
     local slot=layer:AddChildToOverlay(box)
     -- Centred horizontally, at its Position vertically.
     slot:SetHorizontalAlignment(2)
     slot:SetVerticalAlignment(1)
     slot:SetPadding({Left=0,Top=top,Right=0,Bottom=0})
+    local centreSlot=layer:AddChildToOverlay(centre)
+    centreSlot:SetHorizontalAlignment(2)
+    centreSlot:SetVerticalAlignment(2)
 
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
-        stack=hold(stack,'stack'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
+        stack=hold(stack,'stack'),centre=hold(centre,'centre'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
         images={},parts={},growers={}}
     for index,image in ipairs(images) do handles.images[index]=hold(image,ARROWS[index]) end
     -- A drawn arrow's parts, resolved only to recolour them.
@@ -328,22 +376,23 @@ function M.arm(ui,index) paint(ui,index,LIT_COLOR) end
 -- Turns one cue arrow critical red.
 function M.critical(ui,index) paint(ui,index,CRITICAL_COLOR) end
 
--- Shows or clears the unblockable skull at the cue's centre. Returns the
--- sprite path, or nil when it cannot be found.
+-- Shows or clears the unblockable indicator at the screen's centre, its
+-- picture already on the image. Returns the picture's file, true for Style
+-- Off, or nil and why when the picture did not load.
 function M.skull(ui,shown)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
-    ui.skull=shown
-    ui.applied.skullScale=nil
+    local file=ui.visuals.unblockable
+    ui.skull=shown and file~=nil and ui.picture==true
+    ui.applied.skullScale,ui.applied.centre=nil,nil
+    if not file then return true end
+    if not ui.picture then return nil,ui.pictureMissing end
     if not shown then
         widgets.shield:SetColorAndOpacity(CLEAR)
-        return SKULL
+        return file
     end
-    local sprite=M.find(SKULL)
-    if not sprite then return nil end
     widgets.shield:SetRenderScale({X=skullScale(ui,0),Y=skullScale(ui,0)})
-    widgets.shield:SetBrushFromAtlasInterface(sprite,false)
-    widgets.shield:SetColorAndOpacity(SKULL_COLOR)
-    return SKULL
+    widgets.shield:SetColorAndOpacity(SHOWN)
+    return file
 end
 
 -- Writes a value only when it differs from what the cue last wrote there.
@@ -367,8 +416,8 @@ function arrowSize(ui,grow)
     local to=SIZE[1]+(SIZE[2]-SIZE[1])*size[2]
     return ui.unit[2]*(from+(to-from)*grow)
 end
--- The render scale that gives the skull its size for its grow (0 starting, 1
--- grown), from Size: the shield image fills the cue's box.
+-- The render scale that gives the unblockable indicator its size for its grow
+-- (0 starting, 1 grown), from Size: the image fills its box, the cue's size.
 function skullScale(ui,grow)
     local size=ui.visuals.skull
     local share=size[1]+(size[2]-size[1])*grow
@@ -484,6 +533,12 @@ function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
     set(ui,widgets.box,'box','SetRenderOpacity',state.opacity)
+    -- The centre box fades with the cue, written only while it shows something.
+    -- Resolved only then, keeping the per-frame cost of the arrows alone.
+    if ui.skull then
+        local centre=assert(MC.get(ui.handles.centre),'Preymonition cue is no longer valid')
+        set(ui,centre,'centre','SetRenderOpacity',state.opacity)
+    end
     for index,arrow in ipairs(state.arrows) do
         local out=OUTWARD[index]
         local centre,scale=flatPlace(ui,index,arrow.offset,arrow.grow)
@@ -537,8 +592,9 @@ end
 -- Clears the cue's widgets that still exist and drops every handle.
 function M.destroy(ui)
     local handles=ui.handles
-    local box,layer=MC.get(handles.box),MC.get(handles.layer)
+    local box,centre,layer=MC.get(handles.box),MC.get(handles.centre),MC.get(handles.layer)
     if box then MC.call(box,'SetRenderOpacity',0) end
+    if centre then MC.call(centre,'SetRenderOpacity',0) end
     if layer then MC.call(layer,'ClearChildren') end
     for key,handle in pairs(handles) do
         if key=='images' then

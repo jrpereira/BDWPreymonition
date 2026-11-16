@@ -1,28 +1,39 @@
 # Directional cue behavior
 
-Preymonition registers four managed MCT templates in `npc.attacks`:
-**Background** (`mc_background.lua`), a shield that lights up with the attack,
-**Omens** (`mc_omens.lua`), the attack shown as symbols around it, the cue,
-**Edges** (`mc_edges.lua`), the screen edge glows, and **Countdown**
-(`mc_countdown.lua`), a count to the parry window. Each is turned on by its own
-Enabled. MCT orders them by priority (9, 10, 11, 12): the Background attaches
+Preymonition registers five managed MCT templates in `npc.attacks`, listed on
+the settings page in this order: **Omens** (`mc_omens.lua`), the attack shown as
+symbols, the cue, **Sound Cues** (`mc_sounds.lua`), a sound for each attack,
+**Edges** (`mc_edges.lua`), the screen edge glows, **Countdown (WIP)**
+(`mc_countdown.lua`), a count to the perfect opportunity window, and
+**Background** (`mc_background.lua`), a shield behind the omens that lights up
+with the attack. Each is turned on by its own Enabled, so any of them, the Sound
+Cues alone included, can be on without the others. MCT attaches them by priority
+(Background 9, Omens 10, Edges 11, Countdown 12, Sound Cues 13): the Background
 first, so its layer sits under the omens'.
 The category attaches them once the player is in the game (`MC_PlayerReady`)
-and supplies each the HUD (`hud`) and its own full-screen overlay created on the
-HUD root (`cue`), so they never share or clear each other's layer. Each takes
+and supplies each the HUD (`hud`) and, to each template that draws, its own
+full-screen overlay created on the HUD root (`cue`), so they never share or clear
+each other's layer. The Sound Cues draw nothing and take the HUD alone. Each takes
 MCT's `MC_NPCAttackIndicator` events on their own.
+
+An attack has two windows. Its parry window opens when it is first shown (the
+`arrow` event, the yellow arrow); its perfect opportunity window opens later (the
+`critical` event, the red arrow). The game's own "parry window multiplier" is a
+difficulty timing value, used below for the animation pace.
 
 ## The omens
 
 Its requests (`preymonition/omens.lua`) follow the attack, its timeline
 (`preymonition/omens_animation.lua`) animates it and its renderer
 (`preymonition/omens_render.lua`, with `omens_drawn.lua` and `omens_fancy.lua` for
-the arrows) draws it; `omens_sound.lua` plays its sounds. The parry window,
-the attacker and the clock come from `preymonition/combat.lua`, shared with the
-countdown.
+the arrows) draws it. The parry window multiplier, the attacker and the clock
+come from `preymonition/combat.lua`, shared with the countdown.
 
-`attach` builds the cue in that layer: a size box holding the centre image (the
-unblockable skull, clear otherwise), then an overlay with four arrows the cue draws from solid images (Solid, Chevron).
+`attach` builds the cue in that layer: a size box at the arrows' Position with an
+overlay of four arrows the cue draws from solid images (Solid, Chevron), and a
+second box at the screen's centre with the unblockable picture. That picture is
+the Unblockable Style's file from the mod's `images` folder, the only one loaded,
+set on the image when the cue attaches and kept clear until an unblockable attack.
 Fancy shows two pictures from the mod's `images` folder, loaded as textures when
 the cue attaches (yellow, and red for critical), turned from pointing right to
 each direction; it scales as a whole, and falls back to the Chevron if the
@@ -57,19 +68,19 @@ game's change:
 
 - **arrow**: an attack shows on a visible indicator (icon types 1–4); our arrow
   shows.
-- **critical**: that attack's parry window opened (5–8); MCT sends the arrow
-  first if it was not seen.
+- **critical**: that attack's perfect opportunity window opened (5–8); MCT
+  sends the arrow first if it was not seen.
 - **resolve**: the indicator went back to the sword (0) or to a weak spot
   (10–13), or was hidden; the shown arrow goes.
 - **unblockable**: the indicator showed the unblockable skull (9), or it went.
-  The cue shows a skull at its centre, and the Background clears its shield
-  meanwhile; the skull grows from Unblockable
+  The cue shows its unblockable picture at the screen's centre, and the
+  Background clears its shield meanwhile; the picture grows from Unblockable
   Attack Indicator → Size's low end to its high end over the animation time,
-  then holds until the skull goes. 0% is 5% of the screen height and 100% the
+  then holds until the attack's skull goes. 0% is 5% of the screen height and 100% the
   full screen height.
 
-A frame's delay is small next to the parry window, which MCT measured opening
-0.19–0.41 s after the arrow shows. The game also updates hidden twin
+A frame's delay is small next to the perfect opportunity window, which MCT
+measured opening 0.19–0.41 s after the arrow shows. The game also updates hidden twin
 indicators: MCT counts only an indicator that is itself visible, and a hidden
 twin never takes away the skull. A critical arrow from an indicator other than
 the one the cue shows is shown as that indicator's attack.
@@ -109,27 +120,58 @@ Critical turns the arrow red, and its grown size if its travel has not got
 there, until the attack resolves, as the game turns its shield red. A resolved
 arrow goes at once.
 
-With Prioritize Perfection over Buildup on, the arrow's animation belongs to the
-parry window. Before then the yellow arrow is a buildup, shown by Buildup
+Before the perfect opportunity window the yellow arrow is a buildup, shown by Buildup
 visibility (Hidden; Faint, at 35% opacity; Normal) and moved by Buildup animation
 (Static, staying at its starting size and place; Partial, growing and travelling
-30% of the way; Normal, as without the option). When the parry window opens the
-arrow turns red and carries its growth and travel on from where the buildup
-left them to the end, at the same pace: a Static arrow animates all the way, a
-Normal one has already finished. The arrow's sound plays only then, when
-perfection starts; the buildup is silent. Hidden and Static are the defaults. The option affects only the
-arrow; the Background follows the attack from its yellow arrow as always. Combat start fades the
+30% of the way; Normal). With both at Normal, the defaults, the arrow shows and
+moves from the first sighting and jumps to its critical size when that window
+opens. Any other pair holds it back: when the perfect opportunity window opens the arrow turns
+red and carries its growth and travel on from where the buildup left them to the
+end, at the same pace, so a Static arrow animates all the way. The buildup affects
+only the arrow; the Background and the Sound Cues follow the attack from its yellow arrow as always. Combat start fades the
 idle cue in to half opacity; combat end fades it out over a second.
-
-Sounds play through Wwise at the attacker: the owner of the indicator's latest
-queued attack, else the player.
 
 Animation uses real elapsed time and absolute phase deadlines, steps once per
 frame when the engine tick is hooked, and stops once nothing moves. Each event
 and animation frame resolves the cue's widgets once, and a frame writes only the
-values that changed. Sprites and chosen sounds load when the cue
-attaches. A failure handling an event is logged once per kind; repeats are
+values that changed. Sprites load when the cue attaches. A failure handling an event is logged once per kind; repeats are
 counted when combat ends.
+
+## Sound Cues
+
+The Sound Cues template (`preymonition/sounds.lua`) plays a sound for each
+attack, independent of what any other template shows; `preymonition/sound.lua`
+loads and plays the files. Attack incoming plays when an attack is first seen,
+as its parry window opens (an `arrow` event for a new indicator path or
+direction), Perfect opportunity when its perfect opportunity window opens (its
+`critical` event), and Unblockable Attack, centred, when the unblockable
+indicator shows (once until it goes). An attack whose first event is `critical`
+plays only Perfect opportunity; MCT sends `arrow` before `critical` for an attack
+first seen in that window, so in game both play back to back. A repeated event
+for the same attack replays nothing; its `resolve` forgets it, and combat end
+forgets every attack.
+
+The arrow sounds are the mod's own WAV files, `sounds/cue_<name>.wav`
+(`tools/make_sounds.py` builds Ping, Bell and Knock), listed by
+`Scripts/choices/cue_sounds.lua` each time the menu opens and saved by name;
+selecting one in the menu plays it, centred. They play through UE4SS Lua Sound
+Bridge outside Wwise, once, at Sound volume times the game's Master and Effects
+volume (0 when the game is muted), read at attach and when combat starts. With
+Enable directional sound on, a side arrow's sound pans fully to the side the
+arrow shows on, an up arrow plays at the front pitch and a down arrow at the back
+pitch with a 1200 Hz low-pass (Differentiate back/front by pitch, -20% and +20%
+by default); off, every arrow plays as recorded, centred. The unblockable sound
+is one of the mod's `sounds/unblockable_<name>.wav` files, listed by
+`Scripts/choices/unblockable_sounds.lua` the same way (Growl by default) and
+played centred, as recorded, at the same volume. Chosen sounds load at attach;
+sounds longer than 3 seconds are refused. Without the bridge, or when the chosen
+file is gone or refused, nothing plays and the log says why, once per sound. No
+Wwise events are posted.
+
+In the module page's live preview the template takes only the preview's events
+and plays them without combat, and nothing for an event the preview marks
+silent (its sound button off, or on Auto with no Sound Notifications setting
+selected); game events never reach the preview.
 
 ## Background
 
@@ -140,8 +182,8 @@ its Size, the same places the omens use; its requests
 (`preymonition/omens_animation.lua`). Combat start fades it in to half opacity
 over 0.2 s, and combat end fades it out over a second. Visibility In Combat
 shows it faint white throughout combat; Defending a see-through yellow, the
-arrows' colour, while an attack is shown; Critical only once the parry window
-opens. Each turns red while the parry window is open; a Critical shield pops in
+arrows' colour, while an attack is shown; Critical only once the perfect
+opportunity window opens. Each turns red while that window is open; a Critical shield pops in
 red and grows to twice its size over the animation time, 200 ms times the parry
 window multiplier. The shield clears while the omens show the unblockable skull,
 and when the attack resolves it calms. Size (5% to 100% of the screen height)
@@ -157,23 +199,23 @@ deepening inward to 8% of the shorter screen side. Its requests
 while an attack is shown; Directional lights only the attacked side's. An
 attack's edges light at once on its arrow request, turn red when it goes
 critical, and go out when it resolves; a resolve for another arrow or indicator
-changes nothing. Unblockable requests are the omens' and the background's. Combat end puts every edge out. Edges have no animation and no sound.
+changes nothing. Unblockable requests are the omens', the background's and the sound cues'. Combat end puts every edge out. Edges have no animation and no sound.
 
 ## Countdown
 
-The Countdown template builds a time above a thin bar in its layer, 20% of the
+The Countdown template, a work in progress, builds a time above a thin bar in its layer, 20% of the
 screen height wide, under where the Background's shield at its default size (50% of the height)
 sits for its Position. Its requests (`preymonition/countdown.lua`) time the
 attack and its renderer (`preymonition/countdown_render.lua`) draws it, stepping
 every frame only while something moves.
 
-The parry window opens when the attacker's animation says, 0.02–0.81 s after
+The perfect opportunity window opens when the attacker's animation says, 0.02–0.81 s after
 the arrow (median 0.42 s, second difficulty). The countdown runs on game time,
 which stops while the game is paused. When the event names the attacker (its
 `stub`, from MCT), it reads the attack's hit window from the game
 (`CombatBlueprintFunctionLibrary:GetHitWindowTime`, through
 `preymonition/combat.lua`), fixed as the arrow shows: the count runs to 0.18 s
-before the hit window starts, where the parry window opened in five measured
+before the hit window starts, where the perfect opportunity window opened in five measured
 attacks (within 0.05 s), and the red bar to the hit window's end. Without a stub
 or a hit window, the count is 0.3 s times the parry window multiplier read when
 combat starts (0.42 s at 1.4, assumed when it cannot be read) and the red bar
@@ -187,16 +229,16 @@ critical request: the time reads NOW, everything turns red and the red bar runs
 down, then holds empty. A resolve, or
 combat end, hides it. The arrow showing again for the same attack keeps its
 count; a critical request for an attack not counted says NOW at once.
-Unblockable requests are the omens' and the background's.
+Unblockable requests are the omens', the background's and the sound cues'.
 
 ## Validation
 
-Offline tests cover registration of the four templates, menu generation against
+Offline tests cover registration of the five templates, menu generation against
 MCT's category, the animation timeline, the omens driven through MCT's
-attack indicator source, and the background's, edges' and countdown's requests, against fake UE objects.
+attack indicator source, the sound cues' sounds against a fake sound bridge, and the background's, edges' and countdown's requests, against fake UE objects.
 
 Checked in game on 2026-10-11, when Preymonition still hooked the game itself:
 hook delivery, placement, arrow and unblockable sounds, the skull, and combat
 start and end, including a loading screen. Not yet checked in game: delivery
 through MCT's `MC_NPCAttackIndicator`, the drawn arrows, Scale and Position,
-the Chime sound, the Edges template on its own layer, the Countdown, the Background template, and most non-default settings.
+the cue sounds, the Sound Cues template, the Edges template on its own layer, the Countdown, the Background template, and most non-default settings.

@@ -5,10 +5,11 @@ local MC=require('mc')
 local Placement=require('preymonition.placement')
 
 local SHIELD='/Game/_Dawnwalker/UI/_Unified/Combat/Atlas/Frames/T_Combat_Icon_Shield.T_Combat_Icon_Shield'
--- Visibility: 1 In Combat shows the shield faint white throughout combat, 2
+-- Visibility: In Combat shows the shield faint white throughout combat,
 -- Defending a see-through yellow (the arrows' colour) while an attack is
--- shown, 3 Critical only once its parry window opens. Each turns it red while
--- the parry window is open; Critical pops it in red and grows it.
+-- shown, Critical only once its perfect opportunity window opens. Each turns
+-- it red while the perfect opportunity window is open; Critical pops it in red
+-- and grows it.
 local CLEAR={R=1,G=1,B=1,A=0}
 local IN_COMBAT={R=1,G=1,B=1,A=0.2}
 local DEFENDING={R=1,G=0.67,B=0.19,A=0.4}
@@ -39,13 +40,15 @@ local function find(path)
     return MC.valid(object) and object or nil
 end
 
--- The settings: Visibility (1 to 3, default Defending) and the shield's drawn
--- height as a share of the screen height (5% to 100%, default 50%).
+-- The Visibility keys; an unknown value is Defending, the default.
+local VISIBILITIES={in_combat=true,defending=true,critical=true}
+
+-- The settings: Visibility, Position (an unknown one is Middle) and the
+-- shield's drawn height as a share of the screen height (5% to 100%, default 50%).
 local function config(settings)
-    local visibility=tonumber(settings.Visibility) or 2
-    if visibility<1 or visibility>3 then visibility=2 end
+    local visibility=VISIBILITIES[settings.Visibility] and settings.Visibility or 'defending'
     local size=math.max(0.05,math.min(1,(tonumber(settings.Size) or 50)/100))
-    return {visibility=visibility,size=size,position=settings.Position or 1}
+    return {visibility=visibility,size=size,position=Placement.position(settings.Position)}
 end
 
 -- The widgets as live wrappers for this call, or nil once any is gone.
@@ -146,11 +149,11 @@ function M.apply(ui,state,hidden)
     local color=CLEAR
     if ui.sprite and not hidden then
         if critical then color=CRITICAL
-        elseif visuals.visibility==1 then color=IN_COMBAT
-        elseif visuals.visibility==2 and shown then color=DEFENDING end
+        elseif visuals.visibility=='in_combat' then color=IN_COMBAT
+        elseif visuals.visibility=='defending' and shown then color=DEFENDING end
     end
     set(ui,widgets.shield,'color','SetColorAndOpacity',color)
-    local scale=(critical and visuals.visibility==3 and state.shield.scale or 1)*visuals.scale
+    local scale=(critical and visuals.visibility=='critical' and state.shield.scale or 1)*visuals.scale
     if ui.applied.scale~=scale then
         ui.applied.scale=scale
         widgets.shield:SetRenderScale({X=scale,Y=scale})

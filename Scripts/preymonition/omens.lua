@@ -2,7 +2,6 @@
 local Animation=require('preymonition.omens_animation')
 local Combat=require('preymonition.combat')
 local Cue=require('preymonition.omens_render')
-local Sound=require('preymonition.omens_sound')
 
 -- MCT watches the game's combat target indicator and delivers each change as an
 -- MC_NPCAttackIndicator update event on the next engine tick, about a frame
@@ -33,9 +32,10 @@ local function frames()
 end
 
 -- Deferred work guards itself: an animation step stops once its cue is
--- detached.
-local function later(milliseconds,callback)
-    if milliseconds<=FRAME_MS and frames() then
+-- detached. timer: always ExecuteWithDelay (a preview runs while the mod menu may
+-- hold the game's frames).
+local function later(milliseconds,callback,timer)
+    if milliseconds<=FRAME_MS and frames() and not timer then
         ExecuteInGameThreadAfterFrames(1,callback)
     else
         ExecuteWithDelay(milliseconds,function() ExecuteInGameThread(callback) end)
@@ -81,41 +81,23 @@ function pump(record)
     if record.scheduled or record.detached or not record.model:has_jobs() then return end
     record.scheduled=true
     if not record.steps then record.steps,record.since=0,log.enabled('TRACE') and os.clock() or 0 end
-    local ok,why=pcall(later,FRAME_MS,record.onFrame)
+    local ok,why=pcall(later,FRAME_MS,record.onFrame,record.preview)
     if not ok then record.scheduled=false; record.model:cancel(); fail('animation schedule',why) end
 end
 
--- sameWorld already fails for a cue that is gone.
-local function cueFor(indicator)
+-- sameWorld already fails for a cue that is gone. A preview event (ModCore
+-- Templates' live preview in the mod menu) reaches only the preview cue, a game
+-- event only the HUD's.
+local function cueFor(indicator,preview)
     for _,record in ipairs(cues) do
-        if Cue.sameWorld(indicator,record.ui) then return record end
-    end
-end
-
-
--- Plays a cue's sound for an event, when one is chosen, at the attacker behind
--- the indicator, else the player. A failure is reported once per sound and
--- never stops the cue.
-local failedSounds={}
-local function play(record,path,indicator)
-    if not path then return end
-    local ok,why=pcall(function()
-        local found,attacker=pcall(Combat.attacker,indicator)
-        attacker=found and attacker or nil
-        log.debug('sound at ',attacker and Cue.path(attacker) or 'the player')
-        return Sound.play(path,Cue.context(record.ui),attacker)
-    end)
-    if ok then log.trace('sound ',path,' playing id ',why) return end
-    if not failedSounds[path] then
-        failedSounds[path]=true
-        log.warn('sound unavailable: ',why)
+        if record.preview==(preview==true) and Cue.sameWorld(indicator,record.ui) then return record end
     end
 end
 
 -- The attack resolved: its arrow goes at once, the idle cue stays.
 local function release(record,why)
     log.debug(why,' ',record.direction and DIRECTIONS[record.direction] or 'none')
-    record.source,record.direction,record.critical=nil,nil,nil
+    record.source,record.direction,record.critical,record.paths=nil,nil,nil,nil
     if record.model:hide(false) then pump(record) end
 end
 
@@ -129,20 +111,27 @@ local function escalate(record,path,direction)
 end
 
 -- Shows an attack from an indicator in the cue of the same world. MCT reports
--- an attack as arrow when it shows up and as critical when its parry window
--- opens; for the cue's own attack either escalates it.
+-- an attack as arrow when it shows up (its parry window opens) and as critical
+-- when its perfect opportunity window opens; for the cue's own attack either
+-- escalates it.
 --
--- Prioritize Perfection over Buildup affects the arrow alone: its attack is
--- still shown from the first arrow. Until
--- the parry window opens the arrow is a buildup, shown and moved as Buildup
+-- A held buildup (any Buildup pair but Normal and Normal) affects the arrow
+-- alone: its attack is still shown from the first arrow. Until the perfect
+-- opportunity window opens the arrow is a buildup, shown and moved as Buildup
 -- visibility and animation say; then it turns red and carries its animation on
--- from there to the end. Its sound plays only then, when perfection starts.
+-- from there to the end. With Normal and Normal it shows and moves from the
+-- first arrow and jumps to its critical size when that window opens.
+--
+-- An attack in the direction of the arrow still shown counts as that arrow's,
+-- whatever its indicator: the game sometimes reports one attack twice, and a new
+-- arrow would flash in again. The arrow stays until all of them resolve.
 local function present(indicator,path,direction,event)
-    local record=cueFor(indicator)
+    local record=cueFor(indicator,event.preview)
     if not record then log.trace('arrow #',event.sequence,': no cue in the indicator world'); return end
     local perfect=record.perfectOnly
     local critical=event.kind=='critical'
-    if record.source==path and record.direction==direction then
+    if record.source and record.direction==direction then
+        record.paths[path]=true
         if record.critical then return end
         if perfect and not critical then return end
         if perfect then
@@ -150,7 +139,6 @@ local function present(indicator,path,direction,event)
             Cue.critical(record.ui,direction)
             if record.model:reveal(direction) then
                 log.debug('reveal ',DIRECTIONS[direction],' from ',path)
-                play(record,record.sounds.arrow,indicator)
                 pump(record)
                 return
             end
@@ -158,13 +146,13 @@ local function present(indicator,path,direction,event)
         escalate(record,path,direction)
         return
     end
-    -- First seen critical under Perfection: its show starts red now.
+    -- First seen critical with a held buildup: its show starts red now.
     local mode=perfect and (critical and 'critical' or 'held') or nil
     if mode=='critical' then Cue.critical(record.ui,direction) else Cue.arm(record.ui,direction) end
     record.source,record.direction,record.critical=path,direction,mode=='critical' or nil
+    record.paths={[path]=true}
     if record.model:show(direction,event.path..':'..event.sequence,mode,record.buildupTravel) then
         log.debug('show ',DIRECTIONS[direction],mode and ' '..mode or '',' from ',path)
-        if mode~='held' then play(record,record.sounds.arrow,indicator) end
         pump(record)
     end
 end
@@ -172,15 +160,14 @@ end
 -- The unblockable skull showed on an indicator, or went: shown at the cue's
 -- centre until it goes.
 local function unblockable(event)
-    local record=cueFor(event.indicator)
+    local record=cueFor(event.indicator,event.preview)
     if not record then return end
     local path=event.path
     if event.active then
         if record.skull then return end
         record.skull=true
-        local ok,why=pcall(Cue.skull,record.ui,true)
-        if not ok or not why then log.warn('skull sprite unavailable: ',why) end
-        play(record,record.sounds.skull,event.indicator)
+        local ok,file,why=pcall(Cue.skull,record.ui,true)
+        if not ok or not file then log.warn('unblockable picture unavailable: ',ok and why or file) end
         record.model:unblockable(true)
         pump(record)
         log.debug('unblockable attack')
@@ -199,8 +186,11 @@ end
 local function resolve(event)
     local path=event.path
     for _,record in ipairs(cues) do
-        if record.source==path then
-            release(record,event.reason=='sword' and 'attack resolved:' or 'indicator hidden:')
+        if record.paths and record.paths[path] and record.preview==(event.preview==true) then
+            record.paths[path]=nil
+            if next(record.paths)==nil then
+                release(record,event.reason=='sword' and 'attack resolved:' or 'indicator hidden:')
+            end
         end
     end
 end
@@ -208,9 +198,9 @@ end
 -- Combat ended: the cue fades out and resets.
 local function endCombat()
     for _,record in ipairs(cues) do
-        if Cue.valid(record.ui) then
+        if Cue.valid(record.ui) and not record.preview then
             log.debug('combat ended; fading out')
-            record.source,record.direction,record.critical=nil,nil,nil
+            record.source,record.direction,record.critical,record.paths=nil,nil,nil,nil
             if record.skull then
                 record.skull=nil
                 pcall(Cue.skull,record.ui,false)
@@ -226,30 +216,33 @@ end
 -- window multiplier, read when combat starts: 280 ms at 1.4, the second
 -- difficulty. FALLBACK stands in for the multiplier when it cannot be read.
 local PER_MULTIPLIER,FALLBACK=0.2,1.4
+-- A cue takes the parry window's pace and fades in.
+local function engage(record)
+    local read,multiplier=pcall(Combat.parryWindow,Cue.context(record.ui))
+    if not (read and multiplier) then
+        log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
+        multiplier=FALLBACK
+    end
+    record.model:setDuration(PER_MULTIPLIER*multiplier)
+    log.debug('parry window ',multiplier,'; animations take ',
+        string.format('%.0f',PER_MULTIPLIER*multiplier*1000),' ms')
+    if record.model:engage() then
+        log.debug('cue fading in')
+        pump(record)
+    else
+        log.debug('cue already showing')
+    end
+end
 local function startCombat()
     for _,record in ipairs(cues) do
-        if Cue.valid(record.ui) then
-            local read,multiplier=pcall(Combat.parryWindow,Cue.context(record.ui))
-            if not (read and multiplier) then
-                log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
-                multiplier=FALLBACK
-            end
-            record.model:setDuration(PER_MULTIPLIER*multiplier)
-            log.debug('parry window ',multiplier,'; animations take ',
-                string.format('%.0f',PER_MULTIPLIER*multiplier*1000),' ms')
-            if record.model:engage() then
-                log.debug('combat started; cue fading in')
-                pump(record)
-            else
-                log.debug('combat started; cue already showing')
-            end
-        end
+        if Cue.valid(record.ui) and not record.preview then engage(record) end
     end
 end
 
 -- MC_NPCAttackIndicator events, by kind. An arrow and a critical arrow are
--- presented alike: the parry window of a cue's own attack escalates it, and a
--- critical arrow from another indicator shows as that indicator's attack.
+-- presented alike: the perfect opportunity window of a cue's own attack
+-- escalates it, and a critical arrow from another indicator shows as that
+-- indicator's attack.
 local function arrow(event) present(event.indicator,event.path,event.direction,event) end
 local handlers={
     arrow=arrow,
@@ -260,7 +253,7 @@ local handlers={
 
 -- One MC_NPCAttackIndicator event, in a pass.
 function M.update(event)
-    if not (active and next(cues)) then return end
+    if not next(cues) or not (active or event.preview) then return end
     local handler=handlers[event.kind]
     if not handler then return end
     local ok,why=Cue.pass(handler,event)
@@ -288,18 +281,15 @@ end
 
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
-    -- Prioritize Perfection over Buildup, and how its buildup shows: Buildup
-    -- animation 0 Static, 1 Partial (30% of its size and way), 2 Normal.
-    local record={detached=false,perfectOnly=settings.ParryPerfection==1,
-        buildupTravel=({[0]=0,[1]=0.3,[2]=1})[settings.ParryBuildupAnimation or 0] or 0,
-        sounds={arrow=Sound.ARROW[settings.ParrySound],skull=Sound.UNBLOCKABLE[settings.UnblockableSound]}}
+    -- The buildup: held back until the perfect opportunity window opens unless
+    -- Buildup visibility and Buildup animation are both Normal; Buildup
+    -- animation sets how far it moves (preymonition.omens_render's buildup).
+    local buildup=Cue.buildup(settings)
+    local record={detached=false,preview=params.preview==true,perfectOnly=buildup.held,
+        buildupTravel=buildup.travel}
     record.onFrame=function()
         local ok,why=Cue.pass(frame,record)
         if not ok then record.scheduled=false; fail('animation step',why) end
-    end
-    -- Chosen sounds load now rather than at their first play, mid-combat.
-    for _,path in pairs(record.sounds) do
-        if not Sound.preload(path) then log.warn('sound event unavailable: ',path) end
     end
     onCleanup(function()
         record.detached=true
@@ -319,9 +309,14 @@ function M.attach(hud,layer,params,onCleanup)
     })
     record.model:step()
     cues[#cues+1]=record
-    log.info('cue attached, position ',settings.GeneralPosition or 1,', screen ',
+    -- A preview cue shows at once: there is no combat to wake it.
+    if record.preview then
+        local ok,why=Cue.pass(engage,record)
+        if not ok then fail('preview',why) end
+    end
+    log.info(record.preview and 'preview cue attached, position ' or 'cue attached, position ',ui.visuals.position,', screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale)
-    if settings.ParryStyle==4 and not ui.visuals.fancy then
+    if ui.visuals.style=='fancy' and not ui.visuals.fancy then
         log.warn('Fancy arrow pictures did not load; drawing Chevrons')
     end
 end

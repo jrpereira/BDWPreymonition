@@ -12,8 +12,8 @@ local WIDTH,HEIGHT,OUTLINE,LINE,FONT=0.2,0.015,0.002,0.035,0.02
 -- match the Omens template's: Middle centres it, Below and Above keep a shield
 -- half the screen height 10% of it from the bottom or top edge.
 local BELOW_CENTRE=0.2
-local CENTRES={[0]=0.65,[1]=0.5,[2]=0.35}
--- Yellow while counting down, red for the parry window. The outline and the
+local CENTRES={below=0.65,middle=0.5,above=0.35}
+-- Yellow while counting down, red for the perfect opportunity window. The outline and the
 -- remaining bar are see-through; the elapsed part is not drawn at all.
 local COLORS={
     count={text={R=1,G=0.85,B=0.1,A=1},bar={R=1,G=0.85,B=0.1,A=0.5},outline={R=1,G=0.85,B=0.1,A=0.5}},
@@ -39,7 +39,7 @@ end
 
 -- Where the countdown sits for a Position: the top of its box, in screen units.
 function M.top(position,height)
-    local centre=CENTRES[position] or CENTRES[1]
+    local centre=CENTRES[position] or CENTRES.middle
     return height*(centre+BELOW_CENTRE-LINE-HEIGHT)
 end
 
@@ -151,7 +151,7 @@ function M.now(ui)
 end
 
 -- Shows a view: nil hides the countdown; otherwise {text, fraction 0 to 1,
--- now true for the parry window}. Writes only what changed.
+-- now true for the perfect opportunity window}. Writes only what changed.
 function M.show(ui,view)
     local widgets=assert(live(ui),'countdown is no longer valid')
     local applied=ui.applied

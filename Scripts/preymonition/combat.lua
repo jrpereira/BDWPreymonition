@@ -1,4 +1,4 @@
--- The game's combat state the templates read: the parry window, an attack's
+-- The game's combat state the templates read: the parry window multiplier, an attack's
 -- attacker and hit window, and the game's clocks, plus the class defaults those
 -- reads go through.
 local MC=require('mc')
@@ -16,18 +16,6 @@ function M.default(path)
     object=MC.valid(object) and object or nil
     defaults[path]=object
     return object
-end
-
--- Where an indicator's attack comes from: the owner of the latest queued
--- attack's instigator, a combat component. Nil when the queue names none.
-function M.attacker(indicator)
-    local queue=indicator.AttackQueue
-    local count=queue and MC.call(queue,'GetArrayNum') or 0
-    for index=count,1,-1 do
-        local component=queue[index].Instigator
-        local actor=MC.valid(component) and MC.call(component,'GetOwner')
-        if actor and MC.valid(actor) then return actor end
-    end
 end
 
 -- The current difficulty's parry window multiplier on this platform, or nil

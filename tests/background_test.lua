@@ -1,7 +1,7 @@
 -- The Background template: a shield behind the omens, centred where they line
 -- up, that fades in with combat and follows the attack: faint white throughout
 -- combat (In Combat), a see-through yellow while an attack is shown (Defending),
--- or only once its parry window opens (Critical); red while it is open.
+-- or only once its perfect opportunity window opens (Critical); red while it is open.
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
 require('mc.objects').useLifetimes({weak=function(object)
     return {get=function() return (not object.invalid) and object or nil end,release=function() object.released=true end}
@@ -112,12 +112,14 @@ assert(equal(attach({Size=1}).content.RenderScale.X,54/432),'Size is at least 5%
 -- Position: Below keeps the shield's bottom 10% of the height above the bottom
 -- edge, Above its top 10% below the top edge; the box shares its centre. At its
 -- default size these are where the omens line up.
-assert(equal(attach({Position=0}).slot.Padding.Top,1080*0.9-270-216),'Below')
-assert(equal(attach({Position=2}).slot.Padding.Top,1080*0.1+270-216),'Above')
-assert(equal(attach({Position=0,Size=60}).slot.Padding.Top,1080*0.9-324-216),'a larger shield sits by its own edge')
+assert(equal(attach({Position='below'}).slot.Padding.Top,1080*0.9-270-216),'Below')
+assert(equal(attach({Position='above'}).slot.Padding.Top,1080*0.1+270-216),'Above')
+assert(equal(attach({Position='below',Size=60}).slot.Padding.Top,1080*0.9-324-216),'a larger shield sits by its own edge')
+-- A saved value the picker no longer offers, such as the old numeric 2, is Middle.
+assert(equal(attach({Position=2}).slot.Padding.Top,(1080-432)/2),'an unknown Position is Middle')
 
 -- Defending, the default: clear until an attack shows, then a see-through
--- yellow, red once its parry window opens, clear once it resolves.
+-- yellow, red once its perfect opportunity window opens, clear once it resolves.
 box=attach()
 arrow()
 assert(box.RenderOpacity==0,'requests are ignored outside combat')
@@ -126,10 +128,10 @@ assert(equal(box.RenderOpacity,0.5) and color(box).A==0,'combat fades the cue in
 arrow()
 assert(yellow(color(box)),'an attack shows it yellow')
 critical()
-assert(red(color(box)) and equal(box.content.RenderScale.X,540/432),'its parry window turns it red, at its size')
+assert(red(color(box)) and equal(box.content.RenderScale.X,540/432),'its perfect opportunity window turns it red, at its size')
 resolve()
 assert(color(box).A==0,'the resolve clears it')
--- An attack first seen in its parry window is red at once.
+-- An attack first seen in its perfect opportunity window is red at once.
 critical(3)
 assert(red(color(box)),'an attack first seen critical turns it red')
 resolve()
@@ -146,21 +148,21 @@ resolve()
 sleep()
 assert(box.RenderOpacity==0 and color(box).A==0,'combat end fades it out')
 
--- In Combat: faint white throughout combat, red during the parry window.
-box=attach({Visibility=1})
+-- In Combat: faint white throughout combat, red during the perfect opportunity window.
+box=attach({Visibility='in_combat'})
 wake()
 assert(color(box).A==0.2 and color(box).G==1,'faint white throughout combat')
 arrow()
 assert(color(box).A==0.2,'an attack leaves it faint')
 critical()
-assert(red(color(box)),'its parry window turns it red')
+assert(red(color(box)),'its perfect opportunity window turns it red')
 resolve()
 assert(color(box).A==0.2 and color(box).G==1,'then faint white again')
 sleep()
 
--- Critical: unseen until the parry window opens, then pops in red and grows to
+-- Critical: unseen until the perfect opportunity window opens, then pops in red and grows to
 -- twice its size over the animation's 280 ms.
-box=attach({Visibility=3})
+box=attach({Visibility='critical'})
 wake()
 arrow()
 assert(color(box).A==0,'a Critical shield waits unseen')
@@ -172,6 +174,15 @@ settle(0.05)
 assert(equal(box.content.RenderScale.X,2*540/432) and #frames==0,'to twice its size, then holds')
 resolve()
 assert(color(box).A==0 and equal(box.content.RenderScale.X,540/432),'the resolve hides it at its size')
+sleep()
+
+-- A saved value the picker no longer offers, such as the old numeric 3, is Defending.
+box=attach({Visibility=3})
+wake()
+assert(color(box).A==0,'it waits for an attack')
+arrow()
+assert(yellow(color(box)),'an unknown Visibility shows yellow with an attack, like Defending')
+resolve()
 sleep()
 
 -- A shield built before the game had its sprite takes it when combat starts.
@@ -192,4 +203,4 @@ local last=layer
 for index=#cleanups,1,-1 do cleanups[index]() end
 cleanups={}
 assert(#last.children==0 and early.released and early.content.released,'cleanup clears the layer and releases its handles')
-print('PASS: Background shows the shield in combat, yellow with an attack, red in its parry window, and clears for the skull')
+print('PASS: Background shows the shield in combat, yellow with an attack, red in its perfect opportunity window, and clears for the skull')

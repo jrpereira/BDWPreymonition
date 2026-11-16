@@ -1,10 +1,10 @@
 -- Takes MCT's MC_NPCAttackIndicator requests and decides which screen edges
 -- glow; preymonition.edges_render draws them. Framed lights every edge during
--- an attack, Directional only the attacked side's; a critical attack turns them
--- red, and they go out as soon as it resolves.
+-- an attack, Directional only the attacked side's; a critical attack (its perfect
+-- opportunity window open) turns them red, and they go out as soon as it resolves.
 local Render=require('preymonition.edges_render')
 
-local FRAMED,DIRECTIONAL=1,2
+local FRAMED,DIRECTIONAL='framed','directional'
 local ALL={}
 for index=1,Render.EDGES do ALL[index]=true end
 
@@ -51,8 +51,8 @@ end
 
 local handlers={}
 
--- An attack shows: its edges light. Its parry window, or any critical request,
--- turns them red.
+-- An attack shows: its edges light. Its perfect opportunity window, or any
+-- critical request, turns them red.
 function handlers.arrow(event)
     each(event.indicator,function(record)
         record.source,record.direction,record.critical=event.path,event.direction,nil
@@ -118,7 +118,7 @@ function M.attach(hud,layer,params,onCleanup)
     end)
     record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'))
     records[#records+1]=record
-    log.info('edges attached, ',record.style==DIRECTIONAL and 'directional' or 'framed')
+    log.info('edges attached, ',record.style)
 end
 
 return M

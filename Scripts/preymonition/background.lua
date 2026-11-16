@@ -70,7 +70,7 @@ function handlers.arrow(event)
     end)
 end
 
--- Its parry window opened: the shield turns red, once per attack. An attack
+-- Its perfect opportunity window opened: the shield turns red, once per attack. An attack
 -- first seen critical shows then.
 function handlers.critical(event)
     each(event.indicator,function(record)
@@ -178,7 +178,7 @@ function M.attach(hud,layer,params,onCleanup)
         now=function() return Combat.now(Render.context(ui)) end,
         apply=function(state) Render.apply(ui,state,record.hidden) end,
         -- Only the Critical shield grows when it pops in.
-        grow=ui.visuals.visibility==3,
+        grow=ui.visuals.visibility=='critical',
     })
     record.model:step()
     records[#records+1]=record

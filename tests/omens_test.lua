@@ -1,12 +1,14 @@
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
 -- Weak handles return their object only while it is live, like the bridge's,
 -- and as UE4SS does, a fresh wrapper on every get: never the same table twice.
-local released=0
+-- Handles released, and those released while detaching cues: MCT also keeps
+-- handles of its own (the attack indicators it watches).
+local released,cueReleased,detaching=0,0,false
 local function wrapper(object)
     return setmetatable({},{__index=object,__newindex=object})
 end
 require('mc.objects').useLifetimes({weak=function(object)
-    return {get=function() return wrapper(object) end,release=function() released=released+1 end}
+    return {get=function() return wrapper(object) end,release=function() released=released+1; if detaching then cueReleased=cueReleased+1 end end}
 end})
 
 local world={name='World'}
@@ -66,10 +68,6 @@ end
 local function color(strength) return {R=strength,G=strength*0.67,B=strength*0.19,A=1} end
 local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 local objects={}
--- The game's centre icon sprites.
-local FRAMES='/Game/_Dawnwalker/UI/_Unified/Combat/Atlas/Frames/'
-local SKULL=object('T_Combat_Icon_SkullRed')
-objects[FRAMES..'T_Combat_Icon_SkullRed.T_Combat_Icon_SkullRed']=SKULL
 -- Native arrow artwork: 40 wide and 30 high, resting 5 below the indicator centre.
 local ARROW_BRUSH={ImageSize={X=40,Y=30}}
 -- An indicator whose WidgetTree holds four named arrow images and its centre
@@ -93,7 +91,8 @@ local indicator=newIndicator('WBP_CombatTargetIndicator_C_1','LeftArrow')
 local clock=0
 local statics=object('GameplayStatics')
 function statics:GetRealTimeSeconds() return clock end
--- The player, and Wwise recording each event posted.
+-- The player, and Wwise recording each event posted: the omens post none (the
+-- sounds are the Sound Cues template's, tests/sounds_test.lua).
 local player=object('Player')
 function player:K2_GetActorLocation() return {X=1,Y=2,Z=3} end
 function statics:GetPlayerPawn() return player end
@@ -101,22 +100,18 @@ local posted={}
 local wwise=object('Wwise')
 function wwise:PostEventAtLocation(event,location) posted[#posted+1]={event=event,location=location}; return 1 end
 objects['/Script/AkAudio.Default__AkGameplayStatics']=wwise
-local EVENTS='/Game/Audio/AK_Events/Events/'
-local SWISH_SOUND=object('UI_Claws_Equip')
-local BOOM_SOUND=object('UI_PauseMenu_Resume')
-objects[EVENTS..'UI/UI_Inventory/UI_Claws_Equip.UI_Claws_Equip']=SWISH_SOUND
-objects[EVENTS..'UI/UI_MainMenu/UI_PauseMenu_Resume.UI_PauseMenu_Resume']=BOOM_SOUND
 
 objects['/Script/Engine.Default__GameplayStatics']=statics
--- The engine's PNG import: the Fancy pictures load from the mod's images folder,
--- here the source tree; fancyMissing makes every import fail.
+-- The engine's PNG import: the mod's pictures load from its images folder,
+-- here the source tree, each a new texture named after its file; fancyMissing
+-- makes every import fail.
 local fancyMissing=false
 local imported={}
 local rendering=object('KismetRenderingLibrary')
 function rendering:ImportFileAsTexture2D(context,path)
     imported[#imported+1]=path
     if fancyMissing then return nil end
-    local name=path:match('^Preymonition/images/(fancy_%a+)%.png$')
+    local name=path:match('^Preymonition/images/([%w_]+)%.png$')
     return name and object('Texture '..name) or nil
 end
 objects['/Script/Engine.Default__KismetRenderingLibrary']=rendering
@@ -165,13 +160,19 @@ FindAllOf=function() scans=scans+1; return {} end
 -- bridge, which hands each icon change to its pre callback.
 local hooks={}
 RegisterHook=function(path) hooks[path]=true; error('UE4SS hooks are not used') end
-local bridgeHooks,removed={},0
+local bridgeHooks,taskHooks,removed={},{},0
 UE4SSLuaEventBridge={
     GetCapabilities=function() return {hooks=true,hooks_bp=true} end,
-    Hooks={Hook=function(path,options)
+    -- MCT also requests the attack task, for the attacker's stub; the omens do
+    -- not use it, so it is kept apart and not counted.
+    Hooks={Request=function(path,options)
+        if path~=require('mc.attack_indicator').ICON then
+            taskHooks[path]=options.pre
+            return {Remove=function() taskHooks[path]=nil end}
+        end
         assert(options.object_paths and options.params[1]=='IconType')
         bridgeHooks[path]=options.pre
-        return {Unhook=function() bridgeHooks[path]=nil; removed=removed+1 end}
+        return {Remove=function() bridgeHooks[path]=nil; removed=removed+1 end}
     end},
 }
 local delayed={}
@@ -191,7 +192,7 @@ local function settle(seconds)
     error('deferred work did not settle')
 end
 -- The indicator's icon types: the game's 1-4 attack from the left, right, top
--- and bottom, 5-8 the same in the parry window, 9 the unblockable skull and 0
+-- and bottom, 5-8 the same in the perfect opportunity window, 9 the unblockable skull and 0
 -- the sword. The bridge delivers each change on the next tick; here at once.
 local ICON=require('mc.attack_indicator').ICON
 local LEFT,RIGHT,TOP,BOTTOM,PARRY,SKULL_ICON,SWORD_ICON=1,2,3,4,4,9,0
@@ -237,6 +238,12 @@ icon(indicator,SWORD_ICON)
 assert(#delayed==0,'events are ignored until a cue is attached')
 
 local cleanups={}
+-- Detaches every attached cue, newest first.
+local function detachAll()
+    detaching=true
+    for index=#cleanups,1,-1 do cleanups[index]() end
+    detaching=false
+end
 local function attach(size,visuals)
     local original={}
     -- The cue box is 40% of the short side, 432 high; the omens line up on the
@@ -290,22 +297,25 @@ local function front(arrow) return arrow.content.children[5].ColorAndOpacity end
 -- The tests' Size 10% to 50% and Movement from Center 5% to 60% (the defaults are 30%-80% and 40%-60%).
 local function arrowAtDefault(across,grow,offset) return arrowAt(across,{0.1,0.5},{0.05,0.6},grow,offset) end
 local function equal(a,b) return math.abs(a-b)<1e-6 end
--- SizeBox > Overlay of the centre image (the skull) and the arrows overlay,
--- which holds the four arrows.
-local function shieldOf(cue) return cue.content.children[1] end
-local function arrowOf(cue,index) return cue.content.children[2].children[index] end
+-- The arrows' SizeBox > Overlay > the arrows overlay, which holds the four
+-- arrows; beside it in the layer, the unblockable SizeBox at the screen's
+-- centre holds the unblockable image.
+local function centreOf(cue) return cue.parent.children[2] end
+local function shieldOf(cue) return centreOf(cue).content end
+local function arrowOf(cue,index) return cue.content.children[1].children[index] end
 
 attach()
 -- Four widgets, then per arrow a box, a canvas and six parts.
-assert(constructed==4+4*8 and #layer.children==1,'one box with a stack of centre, overlay and four drawn arrows')
+assert(constructed==5+4*8 and #layer.children==2,'the arrows\' box with its stack, overlay and four drawn arrows, and the centre box with its image')
 local box=layer.children[1]
 assert(box.WidthOverride==432 and box.HeightOverride==432,'the box is 40% of the short side')
 -- Middle by default: the box is centred on the screen's middle.
 assert(box.slot.VerticalAlignment==1 and math.abs(box.slot.Padding.Top-(1080-432)/2)<1e-6,
     'the cue is centred')
 assert(box.RenderOpacity==0,'the cue starts hidden')
-assert(shieldOf(box).BrushFromAtlasInterface==nil and shieldOf(box).ColorAndOpacity.A==0,
-    'the centre is clear: the shield is the Background template\'s')
+assert(shieldOf(box).BrushFromTexture.name=='Texture unblockable_fiend' and shieldOf(box).ColorAndOpacity.A==0,
+    'the centre holds the default Fiend picture, clear: the shield is the Background template\'s')
+assert(#imported==1 and imported[1]=='Preymonition/images/unblockable_fiend.png','only the chosen picture loads')
 
 -- Native work per event, measured on the fakes.
 local function cost(callback)
@@ -396,12 +406,12 @@ settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6,'quick combat changes settle on the idle cue')
 
 -- A settings commit reattaches the same MCT layer after its cleanup.
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 cleanups={}
 assert(#layer.children==0,'cleanup removes the cue from the layer')
 attach()
-assert(#layer.children==1 and layer.children[1].WidthOverride==432
-    and layer.children[1].content.children[2].slot.Padding.Left==18,'reattach rebuilds once')
+assert(#layer.children==2 and layer.children[1].WidthOverride==432
+    and layer.children[1].content.children[1].slot.Padding.Left==18,'reattach rebuilds once')
 assert(#delayed==0 and layer.children[1].RenderOpacity==0,'a reattached cue waits for the next arrow')
 
 -- An indicator in view shows its attack; a hidden one's changes are not attacks.
@@ -423,7 +433,7 @@ settle(0.05)
 assert(arrowOf(layer.children[1],4).RenderOpacity==0
     and math.abs(bottom.RenderOpacity-1)<1e-6,'an attack on a hidden indicator is not shown')
 
--- The parry window opens: the arrow turns red at once, 2.5 times its size,
+-- The perfect opportunity window opens: the arrow turns red at once, 2.5 times its size,
 -- where it travelled, held until resolved.
 icon(other,BOTTOM+PARRY)
 run()
@@ -464,7 +474,7 @@ assert(otherLeft.RenderOpacity==1,'and is still shown afterwards')
 icon(other,SWORD_ICON)
 settle(0.05)
 
--- A parry window whose arrow was never seen shows the arrow red at once.
+-- A perfect opportunity window whose arrow was never seen shows the arrow red at once.
 icon(other,TOP+PARRY)
 local otherTop=arrowOf(layer.children[1],1)
 assert(otherTop.RenderOpacity==1 and front(otherTop).G==0.2,'arrow and window together show it critical')
@@ -478,7 +488,10 @@ settle(0.05)
 local function skullAt(share) return 54*(1+19*share)/432 end
 local cueShield=shieldOf(layer.children[1])
 -- Whether the centre shows the skull; it is clear otherwise.
-local function skullShown(image) return image.BrushFromAtlasInterface==SKULL and image.ColorAndOpacity.A==1 end
+local function skullShown(image)
+    local color=image.ColorAndOpacity
+    return image.BrushFromTexture.name=='Texture unblockable_fiend' and color.R==1 and color.G==1 and color.B==1 and color.A==1
+end
 local function clear(image) return image.ColorAndOpacity.A==0 end
 icon(other,SKULL_ICON)
 assert(skullShown(cueShield) and math.abs(cueShield.RenderScale.X-skullAt(0.6))<1e-6,
@@ -557,13 +570,11 @@ settle(0.05)
 assert(cue.RenderOpacity==before,'a cue whose HUD is gone is never written')
 hud.invalid=nil
 
--- The cue settings: arrows from 3.25 to 10 units moving from 10% to 50%,
--- the time warning for arrows, and a larger skull with the stinger.
-for index=#cleanups,1,-1 do cleanups[index]() end
+-- The cue settings: arrows from 3.25 to 10 units moving from 10% to 50%, and a
+-- larger skull.
+detachAll()
 cleanups={}
-assert(#posted==0,'no sound plays without one chosen')
-attach(nil,{ParryMovement={10,50},ParrySize={25,100},ParrySound=2,
-    UnblockableSize={0,50},UnblockableSound=2})
+attach(nil,{ParryMovement={10,50},ParrySize={25,100},UnblockableSize={0,50}})
 local tuned=layer.children[1]
 endCombat()
 startCombat()
@@ -587,10 +598,6 @@ assert(equal(tunedScale,175.5/CHEVRON.width) and equal(tunedCentre,tunedLength+0
     'the spec, by hand')
 assert(equal(tunedBottom.RenderScale.X,tunedScale) and equal(tunedBottom.RenderTranslation.Y,tunedCentre),
     'Size sizes the arrow where it appears')
-assert(#posted==1 and posted[1].event==SWISH_SOUND and posted[1].location.Z==9,
-    'the chosen arrow sound plays at the attacker when the arrow appears')
--- An indicator whose queue names no attacker plays at the player.
-other.AttackQueue=nil
 settle(0.05)
 local tunedEndScale,tunedEnd,tunedExtra=arrowAt(false,{0.25,1},{0.1,0.5},1,1)
 -- Extended to ten units (540) wide, its tip halfway through the space it has.
@@ -599,36 +606,87 @@ assert(equal(tunedEndScale,tunedScale) and equal(tunedExtra,540/tunedScale-CHEVR
 assert(equal(tunedBottom.RenderScale.X,tunedEndScale) and grownBy(tunedBottom,tunedExtra)
     and equal(tunedBottom.RenderTranslation.Y,tunedEnd),'and Movement where it ends')
 icon(other,SKULL_ICON)
-assert(math.abs(shieldOf(tuned).RenderScale.X-skullAt(0))<1e-6 and #posted==2 and posted[2].event==BOOM_SOUND
-    and posted[2].location.Z==3,'the unblockable skull takes its size and plays its sound')
+assert(math.abs(shieldOf(tuned).RenderScale.X-skullAt(0))<1e-6,'the unblockable skull takes its size')
+other.AttackQueue=nil
 icon(other,SWORD_ICON)
 assert(shieldOf(tuned).ColorAndOpacity.A==0,'the skull goes with the attack')
 icon(other,SWORD_ICON)
 settle(0.05)
 
--- With the overlay style off, an attack still plays its sound but shows no arrow.
-for index=#cleanups,1,-1 do cleanups[index]() end
+-- With the style off, an attack shows no arrow.
+detachAll()
 cleanups={}
-attach(nil,{ParryStyle=0,ParrySound=2})
+attach(nil,{ParryStyle='off'})
 local hiddenArrows=layer.children[1]
 endCombat()
 startCombat()
 run()
 settle(0.05)
-local before=#posted
 icon(other,BOTTOM)
 settle(0.05)
-assert(arrowOf(hiddenArrows,2).RenderOpacity==0,'the overlay style off shows no arrow')
-assert(#posted==before+1,'and the parry sound still plays')
+assert(arrowOf(hiddenArrows,2).RenderOpacity==0,'the style off shows no arrow')
 icon(other,SWORD_ICON)
 settle(0.05)
 
+-- A live preview (ModCore Templates in the mod menu): attached with params.preview, the
+-- cue shows at once, without combat; preview events reach only it, game events only the
+-- HUD's cue.
+do
+    detachAll()
+    cleanups={}
+    endCombat()
+    -- A preview steps on ExecuteWithDelay; the waits are not counted against the HUD's.
+    local waitsBefore=delays
+    attach(nil,{})
+    local previewLayer=object('Preview layer')
+    template.attach({hud=hud,cue=previewLayer},{settings={ParrySize={10,50},ParryMovement={5,60}},
+        screen={width=1920,height=1080,scale=1},preview=true,
+        onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
+    settle(0.6)
+    local shown,real=previewLayer.children[1],layer.children[1]
+    assert(shown.RenderOpacity>0 and real.RenderOpacity==0,'the preview cue fades in without combat; the HUD\'s stays out')
+    template.events.update({},{kind='arrow',direction=3,path='preview:1:1',sequence=1,indicator=other,preview=true})
+    settle(0.3)
+    assert(arrowOf(shown,3).RenderOpacity>0 and arrowOf(real,3).RenderOpacity==0,'a preview event reaches only the preview cue')
+    -- A silent preview event shows as any other.
+    template.events.update({},{kind='resolve',reason='sword',path='preview:1:1',indicator=other,preview=true})
+    settle(0.3)
+    template.events.update({},{kind='arrow',direction=4,path='preview:1:2',sequence=2,indicator=other,preview=true,silent=true})
+    settle(0.3)
+    assert(arrowOf(shown,4).RenderOpacity>0,'silent: still shown')
+    template.events.update({},{kind='resolve',reason='sword',path='preview:1:2',indicator=other,preview=true})
+    settle(0.3)
+    assert(arrowOf(shown,3).RenderOpacity==0,'and resolves there')
+    -- The same direction reported again from another indicator while its arrow shows
+    -- is that arrow's attack: no new arrow, and it stays until both resolve.
+    local function send(kind,path,sequence)
+        template.events.update({},{kind=kind,direction=3,reason='sword',path=path,sequence=sequence,indicator=other,preview=true})
+    end
+    send('arrow','preview:2:1',1);settle(0.3)
+    local before=arrowOf(shown,3).RenderOpacity
+    send('critical','preview:2:2',2);settle(0.05)
+    assert(arrowOf(shown,3).RenderOpacity>=before*0.99,'a same-direction repeat does not flash the arrow in again')
+    send('resolve','preview:2:1');settle(0.3)
+    assert(arrowOf(shown,3).RenderOpacity>0,'it stays while the repeat has not resolved')
+    send('resolve','preview:2:2');settle(0.3)
+    assert(arrowOf(shown,3).RenderOpacity==0,'and goes once both have')
+    startCombat()
+    run()
+    icon(other,LEFT)
+    settle(0.3)
+    assert(arrowOf(shown,3).RenderOpacity==0,'a game event never reaches the preview cue')
+    icon(other,SWORD_ICON)
+    settle(0.3)
+    detachAll()
+    cleanups={}
+    delays=waitsBefore
+end
 -- The Chevron style draws its own arrows.
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 cleanups={}
-attach(nil,{ParryStyle=2})
+attach(nil,{ParryStyle='chevron'})
 local looks=layer.children[1]
-assert(#layer.children==1,'the omens build no screen edges')
+assert(#layer.children==2,'the omens build no screen edges: the arrows\' box and the centre box')
 endCombat()
 startCombat()
 run()
@@ -665,9 +723,9 @@ assert(drawn.RenderOpacity==0,'the arrow goes with the attack')
 
 -- The Perspective style lays the Chevron on a ground plane at the waist, seen
 -- from 20 degrees above at half a screen height away: up is away from the camera.
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 cleanups={}
-attach(nil,{ParryStyle=3})
+attach(nil,{ParryStyle='perspective'})
 local ground=layer.children[1]
 endCombat()
 startCombat()
@@ -725,9 +783,9 @@ icon(other,SWORD_ICON)
 settle(0.05)
 -- At 100% a nearing tip reaches the screen edge, and a receding one shows at a
 -- quarter of its size.
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 cleanups={}
-attach(nil,{ParryStyle=3,ParryMovement={0,100}})
+attach(nil,{ParryStyle='perspective',ParryMovement={0,100}})
 ground=layer.children[1]
 endCombat()
 startCombat()
@@ -758,11 +816,14 @@ assert(side.RenderTransformAngle==nil and sheared>0,'side arrows are sheared ont
 -- The Fancy style shows the mod's pictures, an arrow pointing right, turned to
 -- each direction; the red picture shows while the attack is critical. A picture
 -- scales as a whole as the arrow grows.
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 cleanups={}
-attach(nil,{ParryStyle=4})
+local before=#imported
+attach(nil,{ParryStyle='fancy'})
 local fancy=layer.children[1]
-assert(imported[#imported]:match('fancy_') and #imported==2,'both pictures load from the images folder')
+local fancyLoads=0
+for at=before+1,#imported do if imported[at]:match('/fancy_') then fancyLoads=fancyLoads+1 end end
+assert(fancyLoads==2,'both pictures load from the images folder')
 endCombat()
 startCombat()
 run()
@@ -802,19 +863,31 @@ assert(pictures[1].ColorAndOpacity.A==0 and pictures[2].ColorAndOpacity.A==1,'re
 icon(other,SWORD_ICON)
 settle(0.05)
 -- Without its pictures the cue draws a Chevron.
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 cleanups={}
 fancyMissing=true
-attach(nil,{ParryStyle=4})
+attach(nil,{ParryStyle='fancy'})
 assert(#arrowOf(layer.children[1],2).content.children==6,'missing pictures fall back to the Chevron')
+-- Nor does the unblockable picture load: the attack still plays out, the centre clear.
+endCombat()
+startCombat()
+run()
+settle(0.05)
+icon(other,SKULL_ICON)
+settle(0.05)
+assert(layer.children[2].content.ColorAndOpacity.A==0 and layer.children[2].content.BrushFromTexture==nil,
+    'a missing unblockable picture leaves the centre clear')
+icon(other,SWORD_ICON)
+settle(0.05)
 fancyMissing=false
 
--- Prioritize Perfection over Buildup, by default with a Hidden, Static buildup,
--- holds the yellow arrow back; the parry window starts its whole show, red: the
--- arrow appears at its start and travels and grows from there.
-for index=#cleanups,1,-1 do cleanups[index]() end
+-- A Hidden, Static buildup holds the yellow arrow back; the perfect opportunity window starts
+-- its whole show, red: the arrow appears at its start and travels and grows
+-- from there. (Normal and Normal, the defaults, show it from the first sighting,
+-- as the checks above do.)
+detachAll()
 cleanups={}
-attach(nil,{ParryPerfection=1})
+attach(nil,{ParryBuildupVisibility='hidden',ParryBuildupAnimation='static'})
 endCombat()
 startCombat()
 run()
@@ -825,7 +898,7 @@ run()
 settle(0.05)
 assert(perfect.RenderOpacity==0,'the yellow arrow is not shown')
 icon(other,BOTTOM+PARRY)
-assert(math.abs(perfect.RenderOpacity-1)<1e-6 and front(perfect).G==0.2,'the parry window shows the arrow, red')
+assert(math.abs(perfect.RenderOpacity-1)<1e-6 and front(perfect).G==0.2,'the perfect opportunity window shows the arrow, red')
 assert(equal(perfect.RenderTranslation.Y,bottomStart),'from where an arrow starts')
 run()
 settle(0.05)
@@ -833,43 +906,44 @@ assert(equal(perfect.RenderTranslation.Y,bottomEnd) and grownBy(perfect,bottomEx
     'and travels and grows as a new attack would, still red')
 icon(other,BOTTOM+PARRY)
 run()
-assert(equal(perfect.RenderTranslation.Y,bottomEnd),'a repeated parry window does not restart it')
+assert(equal(perfect.RenderTranslation.Y,bottomEnd),'a repeated perfect opportunity window does not restart it')
 icon(other,SWORD_ICON)
 run()
 assert(perfect.RenderOpacity==0,'the attack resolving puts it out')
 settle(0.05)
 -- A Faint, Partial buildup: the yellow arrow shows see-through, grows and
--- travels 30% of its way, silently; the parry window turns it red and opaque,
--- carries it on from there and plays its sound: perfection starts.
--- A Normal, Normal buildup shows and moves as without the option.
-for _,case in ipairs({{visibility=1,animation=1,opacity=0.35,travel=0.3},{visibility=2,animation=2,opacity=1,travel=1}}) do
-    for index=#cleanups,1,-1 do cleanups[index]() end
+-- travels 30% of its way; the perfect opportunity window turns it red and
+-- opaque and carries it on from there.
+-- Any pair but Normal and Normal holds it back: Normal visibility with Static
+-- animation shows it opaque at its start.
+for _,case in ipairs({{visibility='faint',animation='partial',opacity=0.35,travel=0.3},{visibility='normal',animation='static',opacity=1,travel=0}}) do
+    detachAll()
     cleanups={}
-    attach(nil,{ParryPerfection=1,ParryBuildupVisibility=case.visibility,ParryBuildupAnimation=case.animation,ParrySound=2})
+    attach(nil,{ParryBuildupVisibility=case.visibility,ParryBuildupAnimation=case.animation})
     endCombat()
     startCombat()
     run()
     settle(0.05)
     local buildup=arrowOf(layer.children[1],2)
-    local sounds=#posted
+    local waits=delays
     icon(other,BOTTOM)
     run()
     settle(0.05)
     assert(math.abs(buildup.RenderOpacity-case.opacity)<1e-6 and front(buildup).G==0.67,'the buildup shows yellow at its visibility')
     local _,at,extra=arrowAtDefault(false,case.travel,case.travel)
     assert(equal(buildup.RenderTranslation.Y,at) and grownBy(buildup,extra),'grown and travelled its share of the way')
-    assert(#posted==sounds,'the buildup plays no sound')
     icon(other,BOTTOM+PARRY)
     assert(math.abs(buildup.RenderOpacity-1)<1e-6 and front(buildup).G==0.2 and equal(buildup.RenderTranslation.Y,at),
-        'the parry window turns it red and opaque where it is')
-    assert(#posted==sounds+1,'the sound plays once perfection starts')
+        'the perfect opportunity window turns it red and opaque where it is')
+    settle(0.05)
+    assert(delays==waits,'it settles without waiting on ExecuteWithDelay')
     run()
     settle(0.05)
     assert(equal(buildup.RenderTranslation.Y,bottomEnd) and grownBy(buildup,bottomExtra),'and carries it on to the end')
     icon(other,SWORD_ICON)
     settle(0.05)
 end
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 cleanups={}
 attach()
 endCombat()
@@ -878,9 +952,9 @@ run()
 settle(0.05)
 
 -- A critical attack: the arrow turns red.
--- Each case shows the attack, opens its parry window and resolves it.
+-- Each case shows the attack, opens its perfect opportunity window and resolves it.
 local function criticalAttack(settings)
-    for index=#cleanups,1,-1 do cleanups[index]() end
+    detachAll()
     cleanups={}
     attach(nil,settings)
     local cue=layer.children[1]
@@ -958,12 +1032,12 @@ for _,line in ipairs(logged) do if line:match('^warn') and line:match('2%s+more 
 assert(repeats==2,'repeats are counted at combat end')
 startCombat()
 
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
--- Ten handles per cue, and six parts per arrow held twice (to colour and to
--- grow), for sixteen drawn cues; the Fancy cue holds its two pictures per arrow.
-assert(released==(10+2*4*6)*16+(10+4*2),'each detached cue releases its handles')
+-- Eleven handles per cue, and six parts per arrow held twice (to colour and to
+-- grow), for eighteen drawn cues; the Fancy cue holds its two pictures per arrow.
+assert(cueReleased==(11+2*4*6)*18+(11+4*2),'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
@@ -971,14 +1045,51 @@ assert(removed==1 and hookCount()==0,'sleep unhooks the indicator')
 endCombat()
 assert(removed==1,'a second sleep has nothing left to remove')
 
--- Position: the cue box shares the centre of the Background's shield at its
--- default size (540 high): Below keeps that shield's bottom 10% of the height
--- above the bottom edge, Above its top 10% below the top edge.
-for position,top in pairs({[0]=1080*0.9-270-216,[2]=1080*0.1+270-216}) do
+-- Position moves the arrows alone: their box shares the centre of the
+-- Background's shield at its default size (540 high): Below keeps that
+-- shield's bottom 10% of the height above the bottom edge, Above its top 10%
+-- below the top edge. The unblockable indicator stays at the screen's centre.
+for position,top in pairs({below=1080*0.9-270-216,above=1080*0.1+270-216}) do
     cleanups={}
-    attach(nil,{GeneralPosition=position})
+    attach(nil,{ParryPosition=position})
     assert(math.abs(layer.children[1].slot.Padding.Top-top)<1e-6,'cue position '..position)
-    for index=#cleanups,1,-1 do cleanups[index]() end
+    local centre=layer.children[2]
+    assert(centre.slot.HorizontalAlignment==2 and centre.slot.VerticalAlignment==2 and centre.slot.Padding==nil,
+        'the unblockable indicator stays centred')
+    detachAll()
+end
+
+-- Unblockable Style: Off shows nothing at the centre and loads nothing; each
+-- other Style loads only its own picture and shows it there, in its own
+-- colours, fading with the cue.
+-- Style is saved by key: Off, or the picture images/unblockable_<key>.png.
+local STYLES={'off','fiend','gore','cracked','shattered','ember','splatter'}
+for _,style in ipairs(STYLES) do
+    cleanups={}
+    local before=#imported
+    attach(nil,{UnblockableStyle=style})
+    local file=style~='off' and 'unblockable_'..style or nil
+    assert(#imported==before+(file and 1 or 0) and (not file or imported[#imported]=='Preymonition/images/'..file..'.png'),
+        'style '..style..' loads only its picture')
+    local image=layer.children[2].content
+    endCombat()
+    startCombat()
+    run()
+    settle(0.05)
+    icon(other,SKULL_ICON)
+    settle(0.05)
+    if file then
+        local color=image.ColorAndOpacity
+        assert(image.BrushFromTexture.name=='Texture '..file and color.R==1 and color.G==1 and color.A==1
+            and layer.children[2].RenderOpacity==layer.children[1].RenderOpacity,
+            'style '..style..' shows its picture in its own colours, fading with the cue')
+    else
+        assert(image.ColorAndOpacity.A==0 and image.BrushFromTexture==nil,'Off shows nothing')
+    end
+    icon(other,SWORD_ICON)
+    settle(0.05)
+    assert(image.ColorAndOpacity.A==0,'and it clears with the attack')
+    detachAll()
 end
 
 -- Movement from Center runs to the screen edge the arrow travels
@@ -986,7 +1097,7 @@ end
 -- cue 378 down, so 100% takes a bottom arrow's tip 702 down from there.
 local function travel(movement,direction,index)
     cleanups={}
-    attach(nil,{GeneralPosition=2,ParryMovement=movement})
+    attach(nil,{ParryPosition='above',ParryMovement=movement})
     local cue=layer.children[1]
     endCombat()
     startCombat()
@@ -1027,7 +1138,7 @@ assert(equal(arrowOf(defaultCue,2).RenderScale.X,defaultScale) and equal(arrowOf
     'the default arrow starts 3.7 units wide, its tip 40% of the space it has out')
 icon(other,SWORD_ICON)
 settle(0.05)
-for index=#cleanups,1,-1 do cleanups[index]() end
+detachAll()
 
 -- At TRACE the hooks are the same: tracing adds lines, never hooks.
 local Session=require('preymonition.omens')
@@ -1037,4 +1148,29 @@ assert(hookCount()==1 and next(hooks)==nil,'TRACE adds no hooks')
 removed=0
 endCombat()
 assert(removed==1 and hookCount()==0,'and unhooked with the rest')
+-- The omens play nothing: the sounds are the Sound Cues template's.
+assert(#posted==0,'the omens post no game sound')
+for _,entry in ipairs(template.menu) do assert(entry.id~='Sound','the omens have no Sound Notifications') end
+assert(template.preview.sound==nil and template.preview.background=='images/preview_unblockable.jpg',
+    'the omens\' preview shows over its picture and has no sound settings')
+-- Saved values the pickers no longer offer, such as the old numbers, are the defaults.
+local Cue,Placement=require('preymonition.omens_render'),require('preymonition.placement')
+local fallback=Cue.buildup({ParryBuildupVisibility=0,ParryBuildupAnimation=1})
+assert(not fallback.held and fallback.opacity==1 and fallback.travel==1,'an unknown buildup pair is Normal and Normal')
+local faint=Cue.buildup({ParryBuildupVisibility='faint',ParryBuildupAnimation='partial'})
+assert(faint.held and faint.opacity==0.35 and faint.travel==0.3,'Faint and Partial hold it back')
+assert(Placement.position(2)=='middle' and Placement.position('above')=='above','an unknown Position is Middle')
+detachAll()
+cleanups={}
+attach(nil,{ParryStyle=4,ParryPosition=0})
+assert(layer.children[1].slot.Padding.Top==(1080-432)/2,'an old numeric Position centres the arrows')
+endCombat()
+startCombat()
+run()
+settle(0.05)
+icon(other,BOTTOM)
+local old=arrowOf(layer.children[1],2)
+assert(old.RenderTransformAngle==180 and equal(old.WidthOverride,chevron.width) and #partsOf(old)==6,
+    'an old numeric Style draws Chevrons')
+detachAll()
 print('PASS: the omens template hooks only in combat, follows attacks, resolves, reattach and cleanup')

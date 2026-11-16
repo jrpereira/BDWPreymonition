@@ -8,73 +8,87 @@ Change these settings in the mod menu and press Apply. Each template below names
 
 ## Templates in this module
 
-### Omens Overlay
+### Omens
 
-Show the incoming attack as symbols: an arrow for its direction, or a skull when it cannot be blocked.
+Show the incoming attack as symbols: an arrow for its direction, or a picture when it cannot be blocked.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
-- **Turn on:** set Omens Overlay (`MCT_Preymonition_Omens_Enabled`) to Enabled (`1`).
+- **Turn on:** set Omens (`MCT_Preymonition_Omens_Enabled`) to Enabled (`1`).
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
-
-| Setting | Options | Default | Key |
-|---|---|---|---|
-| Position | Below (`0`), Middle (`1`), Above (`2`) | Middle | `MCT_Preymonition_Omens_GeneralPosition` |
 
 #### Parry & Block Indicator
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Style | Off (`0`), Solid (`1`), Chevron (`2`), Perspective (`3`), Fancy (`4`) | Chevron | `MCT_Preymonition_Omens_ParryStyle` |
+| Style | Off (`off`), Solid (`solid`), Chevron (`chevron`), Perspective (`perspective`), Fancy (`fancy`) | Chevron | `MCT_Preymonition_Omens_ParryStyle` |
+| Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `MCT_Preymonition_Omens_ParryPosition` |
 | Size | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 30% to 80% | `MCT_Preymonition_Omens_ParrySize` |
 | Movement from Center | A low and a high value from 0% to 100%, in steps of 5 | 40% to 60% | `MCT_Preymonition_Omens_ParryMovement` |
-| Play sound | None (`0`), Chime (`1`), Swish (`2`) | Chime | `MCT_Preymonition_Omens_ParrySound` |
-| Prioritize Perfection over Buildup | Off (`0`), On (`1`) | Off | `MCT_Preymonition_Omens_ParryPerfection` |
-| Buildup visibility<br>*Shown when Prioritize Perfection over Buildup is On.* | Hidden (`0`), Faint (`1`), Normal (`2`) | Hidden | `MCT_Preymonition_Omens_ParryBuildupVisibility` |
-| Buildup animation<br>*Shown when Prioritize Perfection over Buildup is On.* | Static (`0`), Partial (`1`), Normal (`2`) | Static | `MCT_Preymonition_Omens_ParryBuildupAnimation` |
+| Buildup visibility | Hidden (`hidden`), Faint (`faint`), Normal (`normal`) | Normal | `MCT_Preymonition_Omens_ParryBuildupVisibility` |
+| Buildup animation | Static (`static`), Partial (`partial`), Normal (`normal`) | Normal | `MCT_Preymonition_Omens_ParryBuildupAnimation` |
 
 #### Unblockable Attack Indicator
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
+| Style | Off (`off`), Cracked (`cracked`), Ember (`ember`), Fiend (`fiend`), Gore (`gore`), Shattered (`shattered`), Splatter (`splatter`); the list follows the files in the mod folder each time the menu opens | Fiend | `MCT_Preymonition_Omens_UnblockableStyle` |
 | Size | A low and a high value from 0% to 100%, in steps of 10 | 60% to 100% | `MCT_Preymonition_Omens_UnblockableSize` |
-| Play sound | None (`0`), Growl (`1`), Boom (`2`) | Growl | `MCT_Preymonition_Omens_UnblockableSound` |
 
-### Edges Overlay
+### Sound Cues
+
+Play a sound when an attack comes: as its parry window opens, as its perfect opportunity window opens, and for an unblockable attack.
+
+- **Category:** NPC Attacks. The settings appear on this module's page.
+- **Turn on:** set Sound Cues (`MCT_Preymonition_Sounds_Enabled`) to Enabled (`1`).
+- **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
+
+#### Sound Notifications
+
+| Setting | Options | Default | Key |
+|---|---|---|---|
+| Attack incoming | None (`none`), Bass (`bass`), Beep (`beep`), Bell (`bell`), Clink (`clink`), Crow (`crow`), Crunch (`crunch`), Ding (`ding`), Hit (`hit`), Hmmm (`hmmm`), Matches (`matches`), Ominous (`ominous`), Ping (`ping`), Plate (`plate`), Rattle (`rattle`), Ring (`ring`), Ruffle (`ruffle`), Rumble (`rumble`), Scrape (`scrape`), Snare (`snare`), Stretch (`stretch`), Sword (`sword`), Synth (`synth`), Whisper (`whisper`); the list follows the files in the mod folder each time the menu opens | Rumble | `MCT_Preymonition_Sounds_SoundIncoming` |
+| Perfect opportunity | None (`none`), Bass (`bass`), Beep (`beep`), Bell (`bell`), Clink (`clink`), Crow (`crow`), Crunch (`crunch`), Ding (`ding`), Hit (`hit`), Hmmm (`hmmm`), Matches (`matches`), Ominous (`ominous`), Ping (`ping`), Plate (`plate`), Rattle (`rattle`), Ring (`ring`), Ruffle (`ruffle`), Rumble (`rumble`), Scrape (`scrape`), Snare (`snare`), Stretch (`stretch`), Sword (`sword`), Synth (`synth`), Whisper (`whisper`); the list follows the files in the mod folder each time the menu opens | Ding | `MCT_Preymonition_Sounds_SoundPerfect` |
+| Unblockable Attack | None (`none`), Bleah (`bleah`), Creature (`creature`), Evil (`evil`), Growl (`growl`), Heart (`heart`), Pulse (`pulse`), Roar (`roar`), Serpent (`serpent`), Trebble (`trebble`); the list follows the files in the mod folder each time the menu opens | Growl | `MCT_Preymonition_Sounds_SoundUnblockable` |
+| Enable directional sound | Off (`0`), On (`1`) | On | `MCT_Preymonition_Sounds_SoundDirectional` |
+| Differentiate back/front by pitch<br>*Shown when Enable directional sound is On.* | A low and a high value from -50% to 50%, in steps of 5 | -20% to 20% | `MCT_Preymonition_Sounds_SoundPitch` |
+| Sound volume | 0% to 200%, in steps of 10 | 100% | `MCT_Preymonition_Sounds_SoundVolume` |
+
+### Edges
 
 Light the screen edges while an attack is incoming.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
-- **Turn on:** set Edges Overlay (`MCT_Preymonition_Edges_Enabled`) to Enabled (`1`).
+- **Turn on:** set Edges (`MCT_Preymonition_Edges_Enabled`) to Enabled (`1`).
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
 
 #### Screen Edges
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Edge Style | Framed (`1`), Directional (`2`) | Framed | `MCT_Preymonition_Edges_EdgeStyle` |
+| Edge Style | Framed (`framed`), Directional (`directional`) | Framed | `MCT_Preymonition_Edges_EdgeStyle` |
 
-### Countdown Overlay
+### Countdown (WIP)
 
-Count down to the incoming attack's parry window, then show NOW while it is open.
+Count down to the incoming attack's perfect opportunity window, then show NOW while it is open.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
-- **Turn on:** set Countdown Overlay (`MCT_Preymonition_Countdown_Enabled`) to Enabled (`1`).
+- **Turn on:** set Countdown (WIP) (`MCT_Preymonition_Countdown_Enabled`) to Enabled (`1`).
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Position | Below (`0`), Middle (`1`), Above (`2`) | Middle | `MCT_Preymonition_Countdown_Position` |
+| Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `MCT_Preymonition_Countdown_Position` |
 
-### Background Overlay
+### Background
 
-Show a shield behind the omens: yellow while an attack is shown, red once its parry window opens.
+Show a shield behind the omens: yellow while an attack is shown, red once its perfect opportunity window opens.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
-- **Turn on:** set Background Overlay (`MCT_Preymonition_Background_Enabled`) to Enabled (`1`).
+- **Turn on:** set Background (`MCT_Preymonition_Background_Enabled`) to Enabled (`1`).
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Templates]`.
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
-| Position | Below (`0`), Middle (`1`), Above (`2`) | Middle | `MCT_Preymonition_Background_Position` |
-| Visibility | In Combat (`1`), Defending (`2`), Critical (`3`) | Defending | `MCT_Preymonition_Background_Visibility` |
+| Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `MCT_Preymonition_Background_Position` |
+| Visibility | In Combat (`in_combat`), Defending (`defending`), Critical (`critical`) | Defending | `MCT_Preymonition_Background_Visibility` |
 | Size | 5% to 100%, in steps of 5 | 50% | `MCT_Preymonition_Background_Size` |

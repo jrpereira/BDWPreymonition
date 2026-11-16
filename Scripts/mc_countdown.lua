@@ -3,12 +3,13 @@ local log=require('preymonition.logging').new('Preymonition Countdown')
 local Countdown=require('preymonition.countdown')
 Countdown.setLog(log)
 
--- A countdown to the incoming attack's parry window, below the Background's
--- shield. The background, the omens and the screen edges are templates of their own.
+-- A countdown to the incoming attack's perfect opportunity window, below the
+-- Background's shield. The background, the omens, the screen edges and the sounds
+-- are templates of their own.
 local template={
     id='Countdown',
-    label='Countdown Overlay',
-    description='Count down to the incoming attack\'s parry window, then show NOW while it is open.',
+    label='Countdown (WIP)',
+    description='Count down to the incoming attack\'s perfect opportunity window, then show NOW while it is open.',
     category='npc.attacks',
     -- After the omens (10) and the edges (11).
     priority=12,
@@ -22,7 +23,8 @@ local template={
     },
     menu={
         -- The same places as the omens' Position, below a shield at its default size.
-        {id='Position', label='Position', values={[0]='Below',[1]='Middle',[2]='Above'}, default=1,
+        {id='Position', label='Position',
+            values={{key='below',label='Below'},{key='middle',label='Middle'},{key='above',label='Above'}}, default='middle',
             description='Where the countdown shows: under the Background\'s shield at the same Position, at its default size.'},
     },
 }

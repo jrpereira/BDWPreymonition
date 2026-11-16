@@ -1,5 +1,75 @@
 # Changelog
 
+## v1.5.0
+
+- Requires ModCore Settings 1.9.0, ModCore Templates 1.9.0 and UE4SS Lua Event Bridge
+  1.3.0 or newer.
+- The Omens' Style, Position, Buildup visibility and Buildup animation, the Edges' Edge
+  Style, the Countdown's Position and the Background's Position and Visibility save their
+  choice by name (`ParryStyle=chevron`, `Position=middle`) instead of a number. Choices
+  saved before for them reset to their defaults once.
+- New Sound Cues template: the sounds move out of the Omens into a template of their
+  own, with its own Enabled, so they can play with the arrows off or on their own.
+  Sound Notifications and all its settings are there, saved under
+  `MCT_Preymonition_Sounds_*`.
+- Attack incoming plays as soon as an attack is first seen, as its parry window opens,
+  whatever the Omens' Buildup visibility and Buildup animation, and whether or not the
+  Omens are on. Before, it followed the arrow and was skipped while the buildup was held
+  back. Perfect opportunity plays when its perfect opportunity window opens, and a
+  repeated event for the same attack never plays a sound again.
+- An attack reported again in the same direction while its arrow still shows no longer
+  flashes the arrow in again or replays its sound: it counts as the attack shown, and the
+  arrow goes once all of them resolve.
+- Templates are named Omens, Sound Cues, Edges, Countdown (WIP) and Background, without
+  "Overlay". The Countdown is marked as a work in progress.
+- Descriptions name the red arrow's window the perfect opportunity window: the parry
+  window opens with the yellow arrow, when the attack is first shown.
+- The preview's sound button: on Auto it sounds while a Sound Notifications setting is
+  selected; On always; Off never.
+- Selecting a sound in Attack incoming, Perfect opportunity or Unblockable Attack plays it,
+  centred, so you hear what you pick.
+- The Combat Preymonition page shows a live preview of the omens and the sound cues: four
+  attacks and an unblockable one, looping over a game scene, drawn and sounded with the
+  page's current settings before they are applied.
+- The sounds are loaded by their path in Preymonition's own folder. ModCore Templates runs
+  the templates in its own Lua state, where a bare `sounds/...` path pointed at ModCore Templates'
+  folder and no sound loaded. Needs UE4SS Lua Sound Bridge with any-path loading (1.1).
+- New Sound Notifications section replaces the Play sound rows: Attack incoming (when the
+  parry window opens, the yellow arrow), Perfect opportunity (when the perfect opportunity
+  window opens, the red arrow) and Unblockable Attack (default Growl).
+- Attack incoming and Perfect opportunity play the mod's own cue sounds (Bass, Bell, Clink,
+  Ding, Whisper and more) instead of the game's: the `cue_<name>.wav` files in its `sounds`
+  folder, listed each time the menu opens, so a file dropped in while the game runs is
+  offered the next time. Default Rumble and Ding. They are saved by name
+  (`SoundIncoming=ding`), so new files never move a saved choice. They play through UE4SS
+  Lua Sound Bridge; without it, or when the chosen file is gone, they are silent.
+- Unblockable Attack plays the mod's own sounds too (Bleah, Creature, Evil, Growl, Heart,
+  Pulse, Roar, Serpent): the `unblockable_<name>.wav` files in the `sounds` folder, listed
+  the same way. Default Growl. Growl and Boom, the game's sounds, are gone.
+- New Enable directional sound (default On): a side arrow's sound plays on the side the
+  arrow shows on, and ahead and behind are set apart by pitch, behind also muffled. New
+  Differentiate back/front by pitch, -50% to +50% (default -20% behind, +20% ahead), and
+  Sound volume, 0% to 200% (default 100%), for all of these sounds, relative to the game's
+  Effects volume times its Master volume, and silent when the game is muted; changes in the
+  game's audio settings apply from the next fight.
+- The bundled sounds are mono 48 kHz, matched in loudness (unblockable sounds a little
+  louder) and cut to start at once.
+- Requires UE4SS Lua Sound Bridge 1.0.0 or newer for the sounds, and ModCore
+  Templates and ModCore Settings with listed choices.
+- Position moves into Parry & Block Indicator and places only the arrows; the unblockable
+  indicator stays at the screen's centre.
+- New Unblockable Attack Indicator → Style: Off, Fiend (default), Gore, Cracked, Shattered,
+  Ember or Splatter, the mod's own pictures in place of the game's low-resolution skull.
+  Only the chosen picture loads. The list follows the `unblockable_<name>.png` files in the
+  `images` folder each time the menu opens, and the choice is saved by name
+  (`UnblockableStyle=fiend`).
+- Prioritize Perfection over Buildup is removed. Buildup visibility and Buildup animation
+  always show and default to Normal, today's default look: the arrow shows from the start
+  and grows to full size when the perfect opportunity window opens. Any other pair holds the yellow
+  arrow back and lets the window carry it on, as Prioritize Perfection did.
+- Settings saved under the old Position, Play sound and Prioritize Perfection keys are
+  ignored.
+
 ## v1.4.2
 
 - Requires ModCore Templates 1.8.0 or later. No change to indicators or settings.

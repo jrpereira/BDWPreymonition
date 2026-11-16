@@ -1,6 +1,6 @@
--- The Countdown template: an attack starts a yellow count to its estimated parry
--- window; the game's own parry window turns it red and says NOW while the bar runs
--- down; a resolve or combat end clears it.
+-- The Countdown template: an attack starts a yellow count to its estimated
+-- perfect opportunity window; the game's own perfect opportunity window turns it
+-- red and says NOW while the bar runs down; a resolve or combat end clears it.
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
 require('mc.objects').useLifetimes({weak=function(object)
     return {get=function() return setmetatable({},{__index=object,__newindex=object}) end,release=function() end}
@@ -113,9 +113,9 @@ update({kind='arrow',direction=2,path=PATH,indicator=indicator})
 assert(label()=='0.3s','the same attack keeps its count')
 run(0.3)
 assert(label()=='0.0s' and fill.RenderScale.X==0 and #frames==0,'a count that runs out holds at 0.0')
-assert(text.ColorAndOpacity.SpecifiedColor.G==0.85,'still yellow: NOW waits for the game\'s parry window')
+assert(text.ColorAndOpacity.SpecifiedColor.G==0.85,'still yellow: NOW waits for the game\'s perfect opportunity window')
 update({kind='critical',direction=2,path=PATH,indicator=indicator})
-assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the parry window says NOW with a full bar')
+assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the perfect opportunity window says NOW with a full bar')
 assert(text.ColorAndOpacity.SpecifiedColor.G==0.2 and fill.ColorAndOpacity.G==0.2
     and lines()[4].ColorAndOpacity.G==0.2,'and turns everything red')
 update({kind='critical',direction=2,path=PATH,indicator=indicator})
@@ -128,18 +128,18 @@ assert(shown(),'another indicator\'s resolve changes nothing')
 update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
 assert(not shown(),'the resolve clears it')
 
--- A parry window sooner than the estimate cuts the count short.
+-- A perfect opportunity window sooner than the estimate cuts the count short.
 update({kind='arrow',direction=1,path=PATH,indicator=indicator})
 run(0.1)
 update({kind='critical',direction=1,path=PATH,indicator=indicator})
-assert(label()=='NOW','an early parry window says NOW at once')
+assert(label()=='NOW','an early perfect opportunity window says NOW at once')
 -- A new attack starts a new count, yellow again.
 update({kind='arrow',direction=3,path=PATH,indicator=indicator})
 assert(label()=='0.5s' and text.ColorAndOpacity.SpecifiedColor.G==0.85,'a new attack counts again')
--- A parry window whose arrow was never seen says NOW at once.
+-- A perfect opportunity window whose arrow was never seen says NOW at once.
 update({kind='resolve',reason='hidden',path=PATH,indicator=indicator})
 update({kind='critical',direction=4,path=PATH,indicator=indicator})
-assert(shown() and label()=='NOW','an unseen attack\'s parry window says NOW')
+assert(shown() and label()=='NOW','an unseen attack\'s perfect opportunity window says NOW')
 -- Another world's attacks and unblockable skulls are not counted.
 update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
 update({kind='arrow',direction=1,path='/Game/Other',indicator=object('Other',{world=elsewhere})})
@@ -161,7 +161,7 @@ run(0.35)
 assert(label()=='0.4s' and equal(fill.RenderScale.X,0.5),'and runs down by it')
 run(0.25)
 update({kind='critical',direction=1,path=PATH,indicator=indicator,stub='/Game/Map.Map:Stubs.Guard'})
-assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the parry window says NOW')
+assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the perfect opportunity window says NOW')
 run(0.25)
 assert(equal(fill.RenderScale.X,0.5),'the red bar runs to the hit window\'s end, 0.5 s away')
 run(0.3)
@@ -185,7 +185,9 @@ assert(not shown(),'combat end clears the countdown')
 run(0.1)
 
 -- Below and Above follow the omens' shield at its default size.
-assert(equal(attach(0).children[1].slot.Padding.Top+box.HeightOverride,1080*0.85),'Below: 85% down')
-assert(equal(attach(2).children[1].slot.Padding.Top+box.HeightOverride,1080*0.55),'Above: 55% down')
+assert(equal(attach('below').children[1].slot.Padding.Top+box.HeightOverride,1080*0.85),'Below: 85% down')
+assert(equal(attach('above').children[1].slot.Padding.Top+box.HeightOverride,1080*0.55),'Above: 55% down')
+-- A saved value the picker no longer offers, such as the old numeric 2, is Middle.
+assert(equal(attach(2).children[1].slot.Padding.Top+box.HeightOverride,1080*0.7),'an unknown Position is Middle')
 for index=#cleanups,1,-1 do cleanups[index]() end
-print('PASS: Countdown counts to the parry window, says NOW in red while it is open and clears with the attack')
+print('PASS: Countdown counts to the perfect opportunity window, says NOW in red while it is open and clears with the attack')

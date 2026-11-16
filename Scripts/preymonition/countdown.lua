@@ -1,20 +1,21 @@
--- Counts down to an attack's parry window: takes MCT's MC_NPCAttackIndicator
+-- Counts down to an attack's perfect opportunity window: takes MCT's MC_NPCAttackIndicator
 -- requests and times them; preymonition.countdown_render draws the result. Times
 -- are game time, which stops while the game is paused.
 --
 -- When MCT names the attacker (the event's stub), the game already knows the
--- attack's hit window as its arrow shows; the parry window opened OPEN_BEFORE
+-- attack's hit window as its arrow shows; the perfect opportunity window opened OPEN_BEFORE
 -- seconds before the hit window started (measured 2026-11-12, five attacks, within
 -- 0.05 s). The count runs to that moment, and the red bar to the hit window's end.
 -- Without a hit window the count is an estimate: LEAD seconds times the game's
 -- parry window multiplier, read when combat starts (0.42 s at 1.4; single attacks
 -- ranged from 0.02 to 0.81 s), and the red bar runs over WINDOW seconds.
 --
--- Either way NOW comes only from the game's own parry window, so it is never
+-- Either way NOW comes only from the game's own perfect opportunity window, so it is never
 -- early: a window opening sooner cuts the count short, and a count that runs out
 -- first holds at 0.0 until it opens. Everything goes as soon as the attack resolves.
 local Combat=require('preymonition.combat')
 local Render=require('preymonition.countdown_render')
+local Placement=require('preymonition.placement')
 
 local OPEN_BEFORE=0.18
 local LEAD,FALLBACK=0.3,1.4
@@ -40,7 +41,7 @@ local function fail(kind,why)
 end
 
 -- What a record shows at a time: nil when no attack is counted; else the text,
--- the remaining share of the bar, whether it is the parry window, and whether it
+-- the remaining share of the bar, whether it is the perfect opportunity window, and whether it
 -- still changes.
 function M.view(record,now)
     if record.opened then
@@ -114,7 +115,7 @@ function handlers.arrow(event)
         local from,to=hitWindowOf(event)
         if from and to>now then
             record.count,record.hitEnd=math.max(0,from-OPEN_BEFORE-now),to
-            log.debug('counting ',string.format('%.2f',record.count),' s to the parry window from the hit window')
+            log.debug('counting ',string.format('%.2f',record.count),' s to the perfect opportunity window from the hit window')
         else
             record.count,record.hitEnd=record.lead,nil
             log.debug('counting ',string.format('%.2f',record.count),' s, estimated: ',
@@ -124,7 +125,7 @@ function handlers.arrow(event)
     end)
 end
 
--- Its parry window opened: NOW, once per attack.
+-- Its perfect opportunity window opened: NOW, once per attack.
 function handlers.critical(event)
     each(event.indicator,function(record)
         if record.opened and record.source==event.path and record.direction==event.direction then return end
@@ -156,7 +157,7 @@ function M.update(event)
     if not ok then fail(event.kind,why) end
 end
 
--- Combat started: the count takes the current difficulty's parry window.
+-- Combat started: the count takes the current difficulty's parry window multiplier.
 function M.wake()
     if active then return end
     active=true
@@ -208,7 +209,7 @@ function M.attach(hud,layer,params,onCleanup)
         log.debug('countdown detached; ',#records,' attached')
         return true
     end)
-    local position=settings.Position or 1
+    local position=Placement.position(settings.Position)
     record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),position)
     records[#records+1]=record
     log.info('countdown attached, position ',position)

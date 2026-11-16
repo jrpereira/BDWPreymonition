@@ -12,19 +12,29 @@ M.MARGIN=0.1
 -- Omens line up on a shield this size.
 M.SIZE=0.5
 
--- The shield's vertical centre for a Position (0 Below, 1 Middle, 2 Above),
--- given its drawn size in screen units.
+-- The shield's vertical centre for each Position key, given the screen height
+-- and the shield's drawn size in screen units.
+local CENTRES={
+    below=function(height,size) return height*(1-M.MARGIN)-size/2 end,
+    middle=function(height) return height/2 end,
+    above=function(height,size) return height*M.MARGIN+size/2 end,
+}
+
+-- A Position setting as one of its keys: an unknown value is Middle, the default.
+function M.position(key)
+    return CENTRES[key] and key or 'middle'
+end
+
+-- The shield's vertical centre for a Position, given its drawn size in screen units.
 function M.centre(position,height,size)
-    if position==1 then return height/2 end
-    if position==2 then return height*M.MARGIN+size/2 end
-    return height*(1-M.MARGIN)-size/2
+    return CENTRES[M.position(position)](height,size)
 end
 
 -- The cue box's side and the top of the box for a Position, for a shield
 -- drawn at share of the screen height.
 function M.box(screen,position,share)
     local side=math.min(screen.width,screen.height)*M.SHARE
-    local centre=M.centre(position or 1,screen.height,screen.height*share)
+    local centre=M.centre(position,screen.height,screen.height*share)
     return side,math.max(0,centre-side/2)
 end
 

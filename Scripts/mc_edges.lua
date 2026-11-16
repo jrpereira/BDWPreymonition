@@ -3,11 +3,11 @@ local log=require('preymonition.logging').new('Preymonition Edges')
 local Edges=require('preymonition.edges')
 Edges.setLog(log)
 
--- The screen edges glow while an attack is incoming. The omens are a
--- template of their own (mc_omens.lua).
+-- The screen edges glow while an attack is incoming. The omens and the sounds
+-- are templates of their own (mc_omens.lua, mc_sounds.lua).
 local template={
     id='Edges',
-    label='Edges Overlay',
+    label='Edges',
     description='Light the screen edges while an attack is incoming.',
     category='npc.attacks',
     -- After the omens (10).
@@ -22,8 +22,8 @@ local template={
     },
     menu={
         {id='Edge', label='Screen Edges', style='none', fields={
-            {id='.Style', label='Edge Style', values={[1]='Framed',[2]='Directional'}, default=1,
-                description='Framed lights every screen edge during an attack, Directional only the edge on the attack\'s side. They turn red when the parry window opens.'},
+            {id='.Style', label='Edge Style', values={{key='framed',label='Framed'},{key='directional',label='Directional'}}, default='framed',
+                description='Framed lights every screen edge during an attack, Directional only the edge on the attack\'s side. They turn red when the perfect opportunity window opens.'},
         }},
     },
 }

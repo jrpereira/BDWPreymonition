@@ -40,7 +40,7 @@ FName=function(value) return {ToString=function() return value end} end
 ExecuteWithDelay=function() error('edges defer nothing') end
 
 local template=dofile('Preymonition/Scripts/mc_edges.lua')
-assert(template.id=='Edges' and template.label=='Edges Overlay' and template.category=='npc.attacks')
+assert(template.id=='Edges' and template.label=='Edges' and template.category=='npc.attacks')
 local hud=object('HUD',{WidgetTree=object('WidgetTree')})
 local cleanups={}
 local function attach(style)
@@ -91,8 +91,14 @@ assert(lit(layer)=='off off off off','another world\'s attack is ignored')
 update({kind='unblockable',active=true,path=PATH,indicator=indicator})
 assert(lit(layer)=='off off off off')
 
--- Directional lights only the attacked side's edge.
+-- A saved value the picker no longer offers, such as the old numeric 2, is Framed.
 layer=attach(2)
+update({kind='arrow',direction=3,path=PATH,indicator=indicator})
+assert(lit(layer)=='on on on on','an unknown Edge Style is Framed')
+update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
+
+-- Directional lights only the attacked side's edge.
+layer=attach('directional')
 update({kind='arrow',direction=3,path=PATH,indicator=indicator})
 assert(lit(layer)=='off off on off','Directional lights the left edge for a left attack')
 update({kind='arrow',direction=4,path=PATH,indicator=indicator})
