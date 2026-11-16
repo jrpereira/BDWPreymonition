@@ -1,5 +1,5 @@
 -- The Countdown template: an attack starts a yellow count to its estimated
--- perfect opportunity window; the game's own perfect opportunity window turns it
+-- Perfect Opportunity window; the game's own Perfect Opportunity window turns it
 -- red and says NOW while the bar runs down; a resolve or combat end clears it.
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
 require('mc.objects').useLifetimes({weak=function(object)
@@ -45,8 +45,17 @@ local statics={
         {Conv_StringToText=function(_,text) return {text=text} end}),
 }
 StaticFindObject=function(path) return statics[path] or {path=path} end
+-- The engine refuses a second object under one name in an outer (a crash in game): every
+-- name built must be new.
+local builtNames={}
+local function newName(name)
+    local text=name:ToString()
+    assert(not builtNames[text],'widget name built twice: '..text)
+    builtNames[text]=true
+    return text
+end
 StaticConstructObject=function(class,_,name)
-    local made=object(name:ToString())
+    local made=object(newName(name))
     if class.path=='/Script/UMG.TextBlock' then made.Font={Size=24} end
     return made
 end
@@ -113,9 +122,9 @@ update({kind='arrow',direction=2,path=PATH,indicator=indicator})
 assert(label()=='0.3s','the same attack keeps its count')
 run(0.3)
 assert(label()=='0.0s' and fill.RenderScale.X==0 and #frames==0,'a count that runs out holds at 0.0')
-assert(text.ColorAndOpacity.SpecifiedColor.G==0.85,'still yellow: NOW waits for the game\'s perfect opportunity window')
+assert(text.ColorAndOpacity.SpecifiedColor.G==0.85,'still yellow: NOW waits for the game\'s Perfect Opportunity window')
 update({kind='critical',direction=2,path=PATH,indicator=indicator})
-assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the perfect opportunity window says NOW with a full bar')
+assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the Perfect Opportunity window says NOW with a full bar')
 assert(text.ColorAndOpacity.SpecifiedColor.G==0.2 and fill.ColorAndOpacity.G==0.2
     and lines()[4].ColorAndOpacity.G==0.2,'and turns everything red')
 update({kind='critical',direction=2,path=PATH,indicator=indicator})
@@ -128,18 +137,18 @@ assert(shown(),'another indicator\'s resolve changes nothing')
 update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
 assert(not shown(),'the resolve clears it')
 
--- A perfect opportunity window sooner than the estimate cuts the count short.
+-- A Perfect Opportunity window sooner than the estimate cuts the count short.
 update({kind='arrow',direction=1,path=PATH,indicator=indicator})
 run(0.1)
 update({kind='critical',direction=1,path=PATH,indicator=indicator})
-assert(label()=='NOW','an early perfect opportunity window says NOW at once')
+assert(label()=='NOW','an early Perfect Opportunity window says NOW at once')
 -- A new attack starts a new count, yellow again.
 update({kind='arrow',direction=3,path=PATH,indicator=indicator})
 assert(label()=='0.5s' and text.ColorAndOpacity.SpecifiedColor.G==0.85,'a new attack counts again')
--- A perfect opportunity window whose arrow was never seen says NOW at once.
+-- A Perfect Opportunity window whose arrow was never seen says NOW at once.
 update({kind='resolve',reason='hidden',path=PATH,indicator=indicator})
 update({kind='critical',direction=4,path=PATH,indicator=indicator})
-assert(shown() and label()=='NOW','an unseen attack\'s perfect opportunity window says NOW')
+assert(shown() and label()=='NOW','an unseen attack\'s Perfect Opportunity window says NOW')
 -- Another world's attacks and unblockable skulls are not counted.
 update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
 update({kind='arrow',direction=1,path='/Game/Other',indicator=object('Other',{world=elsewhere})})
@@ -161,7 +170,7 @@ run(0.35)
 assert(label()=='0.4s' and equal(fill.RenderScale.X,0.5),'and runs down by it')
 run(0.25)
 update({kind='critical',direction=1,path=PATH,indicator=indicator,stub='/Game/Map.Map:Stubs.Guard'})
-assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the perfect opportunity window says NOW')
+assert(label()=='NOW' and equal(fill.RenderScale.X,1),'the Perfect Opportunity window says NOW')
 run(0.25)
 assert(equal(fill.RenderScale.X,0.5),'the red bar runs to the hit window\'s end, 0.5 s away')
 run(0.3)
@@ -184,10 +193,69 @@ template.events.sleep({},{name='sleep'})
 assert(not shown(),'combat end clears the countdown')
 run(0.1)
 
--- Below and Above follow the omens' shield at its default size.
+-- A live preview (ModCore Templates in the mod menu): attached with params.preview, it
+-- counts without combat for preview events, the menu's widget as their indicator. With
+-- no attack to time it counts 0.7 s, the npc.attacks script's gap from arrow to
+-- critical, on real time (the game may be paused under the menu), stepping by engine
+-- frames, which tick with the menu open; its red bar runs over 0.5 s, to the script's
+-- resolve. Game events never reach it and combat end leaves it.
+do
+    local statics_=statics['/Script/Engine.Default__GameplayStatics']
+    local realTime=100
+    statics_.GetRealTimeSeconds=function() return realTime end
+    local delayed={}
+    ExecuteWithDelay=function(_,callback) delayed[#delayed+1]=callback end
+    ExecuteInGameThread=function(callback) callback() end
+    -- Real time runs; game time stands still, as while paused.
+    local function tick(seconds)
+        realTime=realTime+seconds
+        local pending=frames
+        frames={}
+        for _,callback in ipairs(pending) do callback() end
+    end
+    local real=attach(nil).children[1]
+    local previewLayer=object('Preview layer')
+    template.attach({hud=hud,cue=previewLayer},{settings={},screen={width=1920,height=1080,scale=1},preview=true,
+        onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
+    local own=previewLayer.children[1]
+    local ownText,ownFill=own.content.children[1],own.content.children[2].content.children[1]
+    local menu=object('Menu')
+    local function send(kind,path,direction)
+        update({kind=kind,direction=direction or 3,reason='sword',path=path,sequence=1,indicator=menu,preview=true})
+    end
+    assert(own.RenderOpacity==0,'the preview countdown waits unseen: it has no idle state')
+    send('arrow','preview:1:1')
+    assert(own.RenderOpacity==1 and ownText.Text.text=='0.7s' and real.RenderOpacity==0,
+        'a preview arrow counts 0.7 s on the preview alone, without combat')
+    assert(#frames==1 and #delayed==0,'a preview steps by frames, never ExecuteWithDelay')
+    tick(0.35)
+    assert(ownText.Text.text=='0.4s' and equal(ownFill.RenderScale.X,0.5),'on real time, while game time stands still')
+    tick(0.36)
+    assert(ownText.Text.text=='0.0s' and #frames==0,'it runs out as the script\'s critical comes')
+    send('critical','preview:1:1')
+    assert(ownText.Text.text=='NOW' and equal(ownFill.RenderScale.X,1),'the preview critical says NOW')
+    tick(0.25)
+    assert(equal(ownFill.RenderScale.X,0.5),'its red bar runs over 0.5 s')
+    template.events.wake({},{name='wake'})
+    update({kind='arrow',direction=1,path=PATH,indicator=indicator})
+    assert(real.RenderOpacity==1 and ownText.Text.text=='NOW','a game event never reaches the preview')
+    send('resolve','preview:1:1')
+    assert(own.RenderOpacity==0 and real.RenderOpacity==1,'a preview resolve leaves the HUD\'s count')
+    send('arrow','preview:2:1')
+    template.events.sleep({},{name='sleep'})
+    assert(real.RenderOpacity==0 and own.RenderOpacity==1,'combat end leaves the preview')
+    for index=#cleanups,1,-1 do cleanups[index]() end
+    cleanups={}
+    tick(0.1)
+    assert(#previewLayer.children==0 and #frames==0,'cleanup clears it and stops its steps')
+    ExecuteWithDelay=function() error('the countdown waits on frames') end
+    frames={}
+end
+
+-- Below and Above follow the omens' cue area at its default size.
 assert(equal(attach('below').children[1].slot.Padding.Top+box.HeightOverride,1080*0.85),'Below: 85% down')
 assert(equal(attach('above').children[1].slot.Padding.Top+box.HeightOverride,1080*0.55),'Above: 55% down')
 -- A saved value the picker no longer offers, such as the old numeric 2, is Middle.
 assert(equal(attach(2).children[1].slot.Padding.Top+box.HeightOverride,1080*0.7),'an unknown Position is Middle')
 for index=#cleanups,1,-1 do cleanups[index]() end
-print('PASS: Countdown counts to the perfect opportunity window, says NOW in red while it is open and clears with the attack')
+print('PASS: Countdown counts to the Perfect Opportunity window, says NOW in red while it is open and clears with the attack, in preview too')

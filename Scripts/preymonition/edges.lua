@@ -1,12 +1,14 @@
 -- Takes MCT's MC_NPCAttackIndicator requests and decides which screen edges
--- glow; preymonition.edges_render draws them. Framed lights every edge during
--- an attack, Directional only the attacked side's; a critical attack (its perfect
--- opportunity window open) turns them red, and they go out as soon as it resolves.
+-- glow; preymonition.edges_render draws them. Only the attacked side's edge
+-- lights: yellow from the attack's parry window (Activate Edges → Attack
+-- incoming), red from its Perfect Opportunity window (→ Perfect Opportunity),
+-- out as soon as it resolves. An unblockable attack lights every edge red while
+-- it shows (→ Unblockable Attack), over any directional attack.
 local Render=require('preymonition.edges_render')
 
-local FRAMED,DIRECTIONAL='framed','directional'
 local ALL={}
 for index=1,Render.EDGES do ALL[index]=true end
+local NONE={}
 
 local records={}
 -- Whether combat is on: requests arrive only while it is.
@@ -26,24 +28,34 @@ local function fail(kind,why)
     if not count then log.error('edges ',kind,' failed: ',why) end
 end
 
--- Renders a record's attack: its edges lit by style, red while critical.
+-- Renders a record: every edge red while an unblockable attack shows, else its
+-- attack's side, red once critical with Perfect Opportunity on, yellow with
+-- Attack incoming on, or nothing.
 local function render(record)
-    local lit={}
-    if record.direction then
-        if record.style==DIRECTIONAL then lit[record.direction]=true else lit=ALL end
+    if record.unblockable then return Render.show(record.ui,ALL,true) end
+    local direction=record.direction
+    if direction and record.critical and record.activate.perfect then
+        Render.show(record.ui,{[direction]=true},true)
+    elseif direction and record.activate.incoming then
+        Render.show(record.ui,{[direction]=true},false)
+    else
+        Render.show(record.ui,NONE,false)
     end
-    Render.show(record.ui,lit,record.critical)
 end
 
 local function clear(record)
-    record.source,record.direction,record.critical=nil,nil,nil
+    record.source,record.direction,record.critical,record.unblockable=nil,nil,nil,nil
     render(record)
 end
 
--- The records in the indicator's world.
-local function each(indicator,callback)
+-- The records an event reaches. A preview event (ModCore Templates' live preview
+-- in the mod menu, the menu's widget as its indicator) reaches only the preview
+-- records, a game event only the others in the indicator's world.
+local function each(event,callback)
+    local preview=event.preview==true
     for _,record in ipairs(records) do
-        if Render.valid(record.ui) and Render.sameWorld(record.ui,indicator) then
+        if record.preview==preview and Render.valid(record.ui)
+            and (preview or Render.sameWorld(record.ui,event.indicator)) then
             callback(record)
         end
     end
@@ -51,34 +63,47 @@ end
 
 local handlers={}
 
--- An attack shows: its edges light. Its perfect opportunity window, or any
--- critical request, turns them red.
+-- An attack is first seen: its parry window opens.
 function handlers.arrow(event)
-    each(event.indicator,function(record)
+    each(event,function(record)
         record.source,record.direction,record.critical=event.path,event.direction,nil
         render(record)
     end)
 end
 
+-- Its Perfect Opportunity window opens. An attack first seen here is tracked
+-- from now on.
 function handlers.critical(event)
-    each(event.indicator,function(record)
-        if record.source~=event.path or record.direction~=event.direction then
-            record.source,record.direction=event.path,event.direction
-        end
-        record.critical=true
+    each(event,function(record)
+        record.source,record.direction,record.critical=event.path,event.direction,true
         render(record)
     end)
 end
 
 function handlers.resolve(event)
-    each(event.indicator,function(record)
-        if record.source==event.path then clear(record) end
+    each(event,function(record)
+        if record.source==event.path then
+            record.source,record.direction,record.critical=nil,nil,nil
+            render(record)
+        end
+    end)
+end
+
+-- An unblockable attack shows (active) or goes. While it shows it wins over the
+-- directional attack, which shows again once it goes.
+function handlers.unblockable(event)
+    each(event,function(record)
+        local on=event.active==true and record.activate.unblockable or nil
+        if record.unblockable~=on then
+            record.unblockable=on
+            render(record)
+        end
     end)
 end
 
 -- One MC_NPCAttackIndicator request.
 function M.update(event)
-    if not (active and next(records)) then return end
+    if not next(records) or not (active or event.preview) then return end
     local handler=handlers[event.kind]
     if not handler then return end
     local ok,why=pcall(handler,event)
@@ -89,12 +114,12 @@ function M.wake()
     active=true
 end
 
--- Combat ended: every edge goes out.
+-- Combat ended: every edge goes out, but the preview's.
 function M.sleep()
     if not active then return end
     active=false
     for _,record in ipairs(records) do
-        if Render.valid(record.ui) then
+        if not record.preview and Render.valid(record.ui) then
             local ok,why=pcall(clear,record)
             if not ok then fail('combat end',why) end
         end
@@ -105,9 +130,32 @@ function M.sleep()
     failures={}
 end
 
+-- A slider's saved percentage within its range, or its default.
+local function percent(value,low,high,default)
+    if type(value)~='number' or value~=value then return default/100 end
+    return math.max(low,math.min(high,value))/100
+end
+
+-- An Activate Edges switch: On unless saved Off.
+local function switch(value) return value~=0 and value~=false end
+
+-- The Visuals' Style, Thickness and Intensity as the renderer takes them.
+-- An unknown or unsafe Style key draws bands.
+local function look(settings)
+    local style=settings.VisualsStyle
+    if type(style)~='string' or not style:match('^[%w_]+$') then style=nil end
+    return {gradient=style and style:lower() or 'soft',
+        thickness=percent(settings.VisualsThickness,2,20,8),intensity=percent(settings.VisualsIntensity,10,100,50)}
+end
+
+-- Gradients whose pictures failed to load, warned about once each.
+local warned={}
+
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
-    local record={style=settings.EdgeStyle==DIRECTIONAL and DIRECTIONAL or FRAMED}
+    local record={preview=params.preview==true,activate={incoming=switch(settings.ActivateIncoming),
+        perfect=switch(settings.ActivatePerfect),unblockable=switch(settings.ActivateUnblockable)}}
+    local options=look(settings)
     onCleanup(function()
         for index,current in ipairs(records) do
             if current==record then table.remove(records,index); break end
@@ -116,9 +164,15 @@ function M.attach(hud,layer,params,onCleanup)
         log.debug('edges detached; ',#records,' attached')
         return true
     end)
-    record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'))
+    record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),options)
+    if record.ui.fallback and not warned[options.gradient] then
+        warned[options.gradient]=true
+        log.warn('edge style ',options.gradient,' unavailable, drawing bands: ',record.ui.fallback)
+    end
     records[#records+1]=record
-    log.info('edges attached, ',record.style)
+    local on={}
+    for _,name in ipairs({'incoming','perfect','unblockable'}) do if record.activate[name] then on[#on+1]=name end end
+    log.info(record.preview and 'preview edges attached, ' or 'edges attached, ',#on>0 and table.concat(on,'+') or 'none',', ',record.ui.gradient)
 end
 
 return M

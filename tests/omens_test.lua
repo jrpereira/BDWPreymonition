@@ -92,7 +92,7 @@ local clock=0
 local statics=object('GameplayStatics')
 function statics:GetRealTimeSeconds() return clock end
 -- The player, and Wwise recording each event posted: the omens post none (the
--- sounds are the Sound Cues template's, tests/sounds_test.lua).
+-- sounds are the Audio Cues template's, tests/audio_test.lua).
 local player=object('Player')
 function player:K2_GetActorLocation() return {X=1,Y=2,Z=3} end
 function statics:GetPlayerPawn() return player end
@@ -103,16 +103,19 @@ objects['/Script/AkAudio.Default__AkGameplayStatics']=wwise
 
 objects['/Script/Engine.Default__GameplayStatics']=statics
 -- The engine's PNG import: the mod's pictures load from its images folder,
--- here the source tree, each a new texture named after its file; fancyMissing
--- makes every import fail.
-local fancyMissing=false
+-- here the source tree, each a new texture named after its file; picturesMissing
+-- makes every import fail. A picture the mod does not ship fails as well.
+local picturesMissing=false
 local imported={}
 local rendering=object('KismetRenderingLibrary')
 function rendering:ImportFileAsTexture2D(context,path)
     imported[#imported+1]=path
-    if fancyMissing then return nil end
+    if picturesMissing then return nil end
     local name=path:match('^Preymonition/images/([%w_]+)%.png$')
-    return name and object('Texture '..name) or nil
+    -- Only a picture the mod ships loads, as in the game.
+    local file=name and io.open(path,'rb')
+    if file then file:close() end
+    return file and object('Texture '..name) or nil
 end
 objects['/Script/Engine.Default__KismetRenderingLibrary']=rendering
 -- The game's combat subsystem, reached without a scan, holds the parry window
@@ -147,10 +150,19 @@ FName=function(value)
     return {ToString=function() return value end,GetComparisonIndex=function() return 'index:'..value end}
 end
 local constructed=0
+-- The engine refuses a second object under one name in an outer (a crash in game): every
+-- name built must be new.
+local builtNames={}
+local function newName(name)
+    local text=name:ToString()
+    assert(not builtNames[text],'widget name built twice: '..text)
+    builtNames[text]=true
+    return text
+end
 StaticConstructObject=function(class,outer,name)
     assert(outer==hudTree,'cue widgets belong to the HUD widget tree')
     constructed=constructed+1
-    return object(name:ToString(),{class=class.path})
+    return object(newName(name),{class=class.path})
 end
 -- Combat state comes from the combat hooks; scanning every object is too slow.
 local scans=0
@@ -192,7 +204,7 @@ local function settle(seconds)
     error('deferred work did not settle')
 end
 -- The indicator's icon types: the game's 1-4 attack from the left, right, top
--- and bottom, 5-8 the same in the perfect opportunity window, 9 the unblockable skull and 0
+-- and bottom, 5-8 the same in the Perfect Opportunity window, 9 the unblockable skull and 0
 -- the sword. The bridge delivers each change on the next tick; here at once.
 local ICON=require('mc.attack_indicator').ICON
 local LEFT,RIGHT,TOP,BOTTOM,PARRY,SKULL_ICON,SWORD_ICON=1,2,3,4,4,9,0
@@ -246,8 +258,8 @@ local function detachAll()
 end
 local function attach(size,visuals)
     local original={}
-    -- The cue box is 40% of the short side, 432 high; the omens line up on the
-    -- Background's shield at its default size, half the screen height. The
+    -- The cue box is 40% of the short side, 432 high; the omens line up on a
+    -- cue area half the screen height. The
     -- hand-worked arrows below use Size 10% to 50% and Movement 5% to 60%.
     local settings={ParrySize={10,50},ParryMovement={5,60}}
     for key,value in pairs(visuals or {}) do settings[key]=value end
@@ -262,38 +274,29 @@ end
 -- 1+9L to 1+9H units. Movement from Center {L,H} is the space the arrow has:
 -- at 0% its back edge (at its starting size) is on the centre, at 100% its tip
 -- is at the screen edge. It shows with its tip at L and stops it at H.
--- The default Chevron is sized by its width, the larger side; its length along
--- its travel is its height, turned or not. Returns its render scale and how far
--- its centre is from the cue's.
-local Drawn=require('preymonition.omens_drawn')
-local CHEVRON=Drawn.layout('chevron')
-local RATIO=CHEVRON.height/CHEVRON.width
--- It keeps its starting scale and grows by extending its lines from the tip:
--- also returns how many design units wider than its shape it is.
+-- Every Style's arrow is a picture (preymonition.omens_fancy): a box the arrow's span
+-- along its travel and SIZE.Y across, sized by its larger side, scaling as a whole as it
+-- grows. Its length along its travel is its span, turned or not. Returns its render
+-- scale and how far its centre is from the cue's.
+local Fancy=require('preymonition.omens_fancy')
+local SHAPE=Fancy.SIZE
+local LONG=math.max(SHAPE.X,SHAPE.Y)
+local RATIO=SHAPE.X/LONG
 local function arrowAt(across,size,move,grow,offset)
     local edge=across and 960 or 540
     local from,to=54*(1+9*size[1]),54*(1+9*size[2])
-    local size=from+(to-from)*grow
-    -- Movement is the space the arrow has: at 0% its back edge is on the
-    -- centre, at 100% its tip at the screen edge.
+    local now=from+(to-from)*grow
+    -- Movement is the space the arrow has: at 0% its back edge (at its starting
+    -- size) is on the centre, at 100% its tip at the screen edge.
     local length=from*RATIO
     local first=length+move[1]*(edge-length)
     local last=length+move[2]*(edge-length)
-    local scale=from/CHEVRON.width
-    return scale,first+(last-first)*offset-from*RATIO/2,size/scale-CHEVRON.width
+    return now/LONG,first+(last-first)*offset-now*RATIO/2
 end
--- Whether a drawn arrow's lines are extended for a shape that much wider: every
--- part keeps its thickness and extends its length alike.
-local function grownBy(arrow,extra)
-    for index,part in ipairs(arrow.content.children) do
-        local x,y=Drawn.growScale(CHEVRON.parts[index],extra)
-        local now=part.RenderScale or {X=1,Y=1}
-        if math.abs(now.X-x)>1e-6 or math.abs(now.Y-y)>1e-6 then return false end
-    end
-    return true
-end
--- A drawn arrow's front part, which shows its colour.
-local function front(arrow) return arrow.content.children[5].ColorAndOpacity end
+-- An arrow's glow layer, which shows its colour; the core stays white.
+local function front(arrow) return arrow.content.children[1].children[1].ColorAndOpacity end
+local function lit(color) return color.R==Fancy.NORMAL.R and color.G==Fancy.NORMAL.G and color.B==Fancy.NORMAL.B end
+local function red(color) return color.R==Fancy.CRITICAL.R and color.G==Fancy.CRITICAL.G and color.B==Fancy.CRITICAL.B end
 -- The tests' Size 10% to 50% and Movement from Center 5% to 60% (the defaults are 30%-80% and 40%-60%).
 local function arrowAtDefault(across,grow,offset) return arrowAt(across,{0.1,0.5},{0.05,0.6},grow,offset) end
 local function equal(a,b) return math.abs(a-b)<1e-6 end
@@ -305,8 +308,8 @@ local function shieldOf(cue) return centreOf(cue).content end
 local function arrowOf(cue,index) return cue.content.children[1].children[index] end
 
 attach()
--- Four widgets, then per arrow a box, a canvas and six parts.
-assert(constructed==5+4*8 and #layer.children==2,'the arrows\' box with its stack, overlay and four drawn arrows, and the centre box with its image')
+-- Five widgets, then per arrow a box, a canvas and its two layers, each a clip holding the picture.
+assert(constructed==5+4*6 and #layer.children==2,'the arrows\' box with its stack, overlay and four arrows, and the centre box with its image')
 local box=layer.children[1]
 assert(box.WidthOverride==432 and box.HeightOverride==432,'the box is 40% of the short side')
 -- Middle by default: the box is centred on the screen's middle.
@@ -314,8 +317,11 @@ assert(box.slot.VerticalAlignment==1 and math.abs(box.slot.Padding.Top-(1080-432
     'the cue is centred')
 assert(box.RenderOpacity==0,'the cue starts hidden')
 assert(shieldOf(box).BrushFromTexture.name=='Texture unblockable_fiend' and shieldOf(box).ColorAndOpacity.A==0,
-    'the centre holds the default Fiend picture, clear: the shield is the Background template\'s')
-assert(#imported==1 and imported[1]=='Preymonition/images/unblockable_fiend.png','only the chosen picture loads')
+    'the centre holds the default Fiend picture, clear until an unblockable attack')
+assert(#imported==2 and imported[1]=='Preymonition/images/omen_chevron.png' and imported[2]=='Preymonition/images/unblockable_fiend.png',
+    'only the chosen pictures load: the default Chevron arrow and the Fiend')
+assert(arrowOf(box,1).content.children[1].children[1].BrushFromTexture.name=='Texture omen_chevron',
+    'the default arrows are the Chevron picture')
 
 -- Native work per event, measured on the fakes.
 local function cost(callback)
@@ -329,27 +335,26 @@ budget.onset={cost(function() icon(indicator,LEFT) end)}
 local left=arrowOf(box,3)
 assert(left.RenderOpacity==1,'the arrow shows as its event arrives')
 local startScale,startCentre=arrowAtDefault(true,0,0)
--- 1.9 units (102.6) wide, its length along its travel that times the shape's
+-- 1.9 units (102.6) across, its length along its travel that times the shape's
 -- ratio; with its back edge on the centre its tip is at 0%, so 5% puts its tip
 -- 5% of the rest of the way to the edge on, its centre half its length back.
 local length=102.6*RATIO
-assert(equal(startScale,102.6/CHEVRON.width) and equal(startCentre,length+0.05*(960-length)-length/2),'the spec, by hand')
+assert(equal(startScale,102.6/LONG) and equal(startCentre,length+0.05*(960-length)-length/2),'the spec, by hand')
 assert(shieldOf(box).ColorAndOpacity.A==0 and left.class=='/Script/UMG.SizeBox',
-    'the centre stays clear; the arrows are drawn')
-assert(front(left).R==1 and front(left).G==0.67,'the shown arrow is in the lit colour')
+    'the centre stays clear; the arrows show')
+assert(lit(front(left)),'the shown arrow is in the lit colour')
 assert(left.RenderOpacity==1 and equal(left.RenderScale.X,startScale) and equal(left.RenderTranslation.X,startCentre)
     and left.RenderTranslation.Y==0,'a detected arrow shows at once at full opacity, at its starting size and place')
 budget.frame={cost(function() clock=clock+0.05; run() end)}
 settle(0.05)
 assert(math.abs(box.RenderOpacity-0.5)<1e-6,'active cue rests at half opacity')
-local endScale,endCentre,endExtra=arrowAtDefault(true,1,1)
--- Grown to 5.5 units (297) wide by extending its lines, its tip 60% of the
--- space it has on towards the screen edge.
-assert(equal(endScale,startScale) and equal(endExtra,297/startScale-CHEVRON.width)
-    and equal(endCentre,length+0.6*(960-length)-length/2),'the spec, by hand')
-assert(grownBy(arrowOf(box,4),0) and not grownBy(left,0),'only the shown arrow extends')
-assert(left.RenderOpacity==1 and equal(left.RenderScale.X,endScale) and grownBy(left,endExtra),
-    'the shown arrow extends its lines to its critical size, keeping their thickness')
+local endScale,endCentre=arrowAtDefault(true,1,1)
+-- Grown to 5.5 units (297) across as a whole, its tip 60% of the space it has on
+-- towards the screen edge, its centre half its grown length back.
+assert(equal(endScale,297/LONG) and equal(endCentre,length+0.6*(960-length)-297*RATIO/2),'the spec, by hand')
+assert(equal(arrowOf(box,4).RenderScale.X,startScale),'only the shown arrow grows')
+assert(left.RenderOpacity==1 and equal(left.RenderScale.X,endScale) and equal(left.RenderScale.Y,endScale),
+    'the shown arrow scales as a whole to its grown size')
 assert(equal(left.RenderTranslation.X,endCentre) and left.RenderTranslation.Y==0,
     'the game\'s left arrow shows and travels out on the screen\'s right')
 assert(arrowOf(box,1).RenderOpacity==0,'other arrows stay hidden')
@@ -419,7 +424,7 @@ local other=newIndicator('WBP_CombatTargetIndicator_C_2','BottomArrow')
 local bottom=arrowOf(layer.children[1],2)
 icon(other,BOTTOM)
 local _,bottomStart=arrowAtDefault(false,0,0)
-local bottomScale,bottomEnd,bottomExtra=arrowAtDefault(false,1,1)
+local bottomScale,bottomEnd=arrowAtDefault(false,1,1)
 assert(equal(bottom.RenderTranslation.Y,bottomStart),'the bottom arrow shows up by the height\'s units')
 run()
 settle(0.05)
@@ -433,18 +438,18 @@ settle(0.05)
 assert(arrowOf(layer.children[1],4).RenderOpacity==0
     and math.abs(bottom.RenderOpacity-1)<1e-6,'an attack on a hidden indicator is not shown')
 
--- The perfect opportunity window opens: the arrow turns red at once, 2.5 times its size,
+-- The Perfect Opportunity window opens: the arrow turns red at once, 2.5 times its size,
 -- where it travelled, held until resolved.
 icon(other,BOTTOM+PARRY)
 run()
-assert(front(bottom).R==1 and front(bottom).G==0.2,'a critical arrow turns red at once')
-assert(equal(bottom.RenderScale.X,bottomScale) and grownBy(bottom,bottomExtra) and math.abs(bottom.RenderOpacity-1)<1e-6
+assert(red(front(bottom)),'a critical arrow turns red at once')
+assert(equal(bottom.RenderScale.X,bottomScale) and equal(bottom.RenderScale.X,bottomScale) and math.abs(bottom.RenderOpacity-1)<1e-6
     and equal(bottom.RenderTranslation.Y,bottomEnd),'a critical arrow jumps to its grown size where it travelled')
 assert(#delayed==0,'a critical arrow needs no frames: it does not pulse')
 -- The same attack out of its window again changes nothing.
 icon(other,BOTTOM)
 run()
-assert(front(bottom).G==0.2,'the critical arrow holds')
+assert(red(front(bottom)),'the critical arrow holds')
 -- The sword means no attack is pending: resolved.
 icon(other,SWORD_ICON)
 run()
@@ -474,10 +479,10 @@ assert(otherLeft.RenderOpacity==1,'and is still shown afterwards')
 icon(other,SWORD_ICON)
 settle(0.05)
 
--- A perfect opportunity window whose arrow was never seen shows the arrow red at once.
+-- A Perfect Opportunity window whose arrow was never seen shows the arrow red at once.
 icon(other,TOP+PARRY)
 local otherTop=arrowOf(layer.children[1],1)
-assert(otherTop.RenderOpacity==1 and front(otherTop).G==0.2,'arrow and window together show it critical')
+assert(otherTop.RenderOpacity==1 and red(front(otherTop)),'arrow and window together show it critical')
 icon(other,SWORD_ICON)
 settle(0.05)
 
@@ -524,7 +529,7 @@ icon(twin,SKULL_ICON)
 assert(clear(cueShield),'a hidden indicator shows no skull')
 icon(other,BOTTOM+PARRY)
 icon(twin,BOTTOM+PARRY)
-assert(front(bottom).G==0.2 and equal(bottom.RenderScale.X,bottomScale),
+assert(red(front(bottom)) and equal(bottom.RenderScale.X,bottomScale),
     'the visible indicator still turns critical')
 icon(twin,SWORD_ICON)
 assert(bottom.RenderOpacity==1,'a hidden indicator resolves nothing it did not show')
@@ -591,20 +596,19 @@ other.AttackQueue=attacks
 icon(other,BOTTOM)
 local tunedBottom=arrowOf(tuned,2)
 local tunedScale,tunedCentre=arrowAt(false,{0.25,1},{0.1,0.5},0,0)
--- 3.25 units (175.5) wide, its tip 10% of the space it has on (the bottom
+-- 3.25 units (175.5) across, its tip 10% of the space it has on (the bottom
 -- edge 540 away), its centre half its length back.
 local tunedLength=175.5*RATIO
-assert(equal(tunedScale,175.5/CHEVRON.width) and equal(tunedCentre,tunedLength+0.1*(540-tunedLength)-tunedLength/2),
+assert(equal(tunedScale,175.5/LONG) and equal(tunedCentre,tunedLength+0.1*(540-tunedLength)-tunedLength/2),
     'the spec, by hand')
 assert(equal(tunedBottom.RenderScale.X,tunedScale) and equal(tunedBottom.RenderTranslation.Y,tunedCentre),
     'Size sizes the arrow where it appears')
 settle(0.05)
-local tunedEndScale,tunedEnd,tunedExtra=arrowAt(false,{0.25,1},{0.1,0.5},1,1)
--- Extended to ten units (540) wide, its tip halfway through the space it has.
-assert(equal(tunedEndScale,tunedScale) and equal(tunedExtra,540/tunedScale-CHEVRON.width)
-    and equal(tunedEnd,tunedLength+0.5*(540-tunedLength)-tunedLength/2),'the spec, by hand')
-assert(equal(tunedBottom.RenderScale.X,tunedEndScale) and grownBy(tunedBottom,tunedExtra)
-    and equal(tunedBottom.RenderTranslation.Y,tunedEnd),'and Movement where it ends')
+local tunedEndScale,tunedEnd=arrowAt(false,{0.25,1},{0.1,0.5},1,1)
+-- Grown to ten units (540) across, its tip halfway through the space it has.
+assert(equal(tunedEndScale,540/LONG)
+    and equal(tunedEnd,tunedLength+0.5*(540-tunedLength)-540*RATIO/2),'the spec, by hand')
+assert(equal(tunedBottom.RenderScale.X,tunedEndScale) and equal(tunedBottom.RenderTranslation.Y,tunedEnd),'and Movement where it ends')
 icon(other,SKULL_ICON)
 assert(math.abs(shieldOf(tuned).RenderScale.X-skullAt(0))<1e-6,'the unblockable skull takes its size')
 other.AttackQueue=nil
@@ -635,7 +639,7 @@ do
     detachAll()
     cleanups={}
     endCombat()
-    -- A preview steps on ExecuteWithDelay; the waits are not counted against the HUD's.
+    -- A preview steps by frames like the HUD's; any waits are not counted against the HUD's.
     local waitsBefore=delays
     attach(nil,{})
     local previewLayer=object('Preview layer')
@@ -681,162 +685,73 @@ do
     cleanups={}
     delays=waitsBefore
 end
--- The Chevron style draws its own arrows.
-detachAll()
-cleanups={}
-attach(nil,{ParryStyle='chevron'})
-local looks=layer.children[1]
-assert(#layer.children==2,'the omens build no screen edges: the arrows\' box and the centre box')
-endCombat()
-startCombat()
-run()
-settle(0.05)
-icon(other,BOTTOM)
-local drawn=arrowOf(looks,2)
--- A drawn arrow: a box its shape's size, turned to its direction, holding a canvas
--- of solid parts, back to front: black outlines, dimmer insets, then the front.
-local chevron=CHEVRON
-local function partsOf(arrow) return arrow.content.children end
-assert(drawn.class=='/Script/UMG.SizeBox' and drawn.RenderTransformAngle==180
-    and equal(drawn.WidthOverride,chevron.width) and #partsOf(drawn)==6,'the bottom chevron is drawn, turned down')
-local function colours(arrow)
-    local list={}
-    for index,part in ipairs(partsOf(arrow)) do list[index]=part.ColorAndOpacity end
-    return list
+-- Chevron and Solid are pictures like Fancy (below): omen_chevron.png and omen_solid.png,
+-- each loaded once, the bottom arrow turned down, its glow tinted and its core white,
+-- scaling as a whole as it grows.
+for _,style in ipairs({'chevron','solid'}) do
+    detachAll()
+    cleanups={}
+    local before=#imported
+    attach(nil,{ParryStyle=style})
+    local looks=layer.children[1]
+    assert(#layer.children==2,'the omens build no screen edges: the arrows\' box and the centre box')
+    local loads=0
+    for at=before+1,#imported do
+        if imported[at]=='Preymonition/images/omen_'..style..'.png' then loads=loads+1 end
+    end
+    assert(loads==1,style..' loads its picture once')
+    endCombat()
+    startCombat()
+    run()
+    settle(0.05)
+    icon(other,BOTTOM)
+    local shown=arrowOf(looks,2)
+    local layers=shown.content.children
+    local glow,core=layers[1].children[1],layers[2].children[1]
+    assert(shown.class=='/Script/UMG.SizeBox' and shown.RenderTransformAngle==90 and #layers==2
+        and equal(shown.WidthOverride,SHAPE.X) and shown.HeightOverride==SHAPE.Y
+        and glow.BrushFromTexture.name=='Texture omen_'..style and core.BrushFromTexture.name=='Texture omen_'..style,
+        style..': the bottom arrow is its picture turned down, glow under core')
+    assert(lit(glow.ColorAndOpacity) and core.ColorAndOpacity.G==1 and core.ColorAndOpacity.B==1,
+        style..': the glow yellow, the core white')
+    settle(0.05)
+    assert(shown.RenderOpacity==1 and equal(shown.RenderScale.X,bottomScale) and equal(shown.RenderScale.Y,bottomScale)
+        and equal(shown.RenderTranslation.Y,bottomEnd),style..': it scales as a whole, its tip where the travel puts it')
+    icon(other,BOTTOM+PARRY)
+    run()
+    assert(red(glow.ColorAndOpacity) and core.ColorAndOpacity.G==1,style..': the glow red once critical, the core still white')
+    icon(other,SWORD_ICON)
+    settle(0.05)
+    assert(shown.RenderOpacity==0,style..': the arrow goes with the attack')
 end
-local lit=colours(drawn)
-assert(lit[1].R==0 and lit[2].R==0,'a thin black outline')
-assert(equal(lit[3].R,0.55) and equal(lit[3].G,0.67*0.55),'a dimmer inset of the arrow colour')
-assert(lit[5].R==1 and lit[5].G==0.67,'and the front in the arrow colour')
-settle(0.05)
--- Its size and place follow the same spec, from the drawn shape's box.
-local chevronScale,_,chevronExtra=arrowAtDefault(false,1,1)
-assert(drawn.RenderOpacity==1 and equal(drawn.RenderScale.X,chevronScale) and grownBy(drawn,chevronExtra),
-    'a drawn arrow keeps its starting scale and extends its lines')
-icon(other,BOTTOM+PARRY)
-run()
-local red=colours(drawn)
-assert(red[1].R==0 and red[5].R==1 and red[5].G==0.2 and equal(red[3].G,0.2*0.55),'critical turns the inset and front red')
-icon(other,SWORD_ICON)
-settle(0.05)
-assert(drawn.RenderOpacity==0,'the arrow goes with the attack')
 
--- The Perspective style lays the Chevron on a ground plane at the waist, seen
--- from 20 degrees above at half a screen height away: up is away from the camera.
-detachAll()
-cleanups={}
-attach(nil,{ParryStyle='perspective'})
-local ground=layer.children[1]
-endCombat()
-startCombat()
-run()
-settle(0.05)
--- A flat place, as the spec puts it, projected onto the plane: its depth is
--- how far up it is; nearer things grow.
-local function projected(x,y)
-    local depth=-y
-    local k=540/(540+depth*math.cos(math.rad(20)))
-    return x*k,-depth*math.sin(math.rad(20))*k,k
-end
--- Movement shares are of the furthest an arrow can show on the screen: the
--- bottom edge (540 down) for a nearing arrow; for a receding one, where it has
--- shrunk to a quarter of its size, short of the horizon. How far out on the
--- plane a share of the screen distance is:
-local sin,cos=math.sin(math.rad(20)),math.cos(math.rad(20))
-local function onPlane(share,away)
-    local screen=share*(away and 0.75*540*sin/cos or 540)
-    return screen*540/(540*sin+(away and -1 or 1)*screen*cos)
-end
--- And back: the share a distance on the plane is.
-local function shareOnPlane(flat,away)
-    local screen=flat*540*sin/(540+(away and 1 or -1)*flat*cos)
-    return screen/(away and 0.75*540*sin/cos or 540)
-end
--- Movement is the space the arrow has: 0% puts its back edge on the centre.
-local function tipOnPlane(share,away,length)
-    local start=shareOnPlane(length,away)
-    return onPlane(start+(1-start)*share,away)
-end
--- The default Chevron starts 1.9 units (102.6) wide and keeps that scale; its
--- tip ends 60% of the way.
-local flatScale,length=102.6/CHEVRON.width,102.6*RATIO
-icon(other,BOTTOM)
-settle(0.05)
-local near=arrowOf(ground,2)
-local nearCentre=tipOnPlane(0.6,false,length)-length/2
-local _,nearY,nearK=projected(0,nearCentre)
-assert(near.RenderTransformAngle==nil,'a ground arrow is drawn already turned')
-assert(equal(near.RenderTranslation.Y,nearY) and equal(near.RenderTranslation.X,0) and nearY<nearCentre,
-    'the bottom arrow shows where its flat place projects, foreshortened')
-assert(nearK>1 and equal(near.RenderScale.X,flatScale*nearK),'and larger, being nearer')
-icon(other,SWORD_ICON)
-settle(0.05)
-icon(other,TOP)
-settle(0.05)
-local far=arrowOf(ground,1)
-local farCentre=tipOnPlane(0.6,true,length)-length/2
-local _,farY,farK=projected(0,-farCentre)
-assert(equal(far.RenderTranslation.Y,farY) and farK<1 and equal(far.RenderScale.X,flatScale*farK),
-    'the top arrow shows further up the plane, smaller')
-assert(farCentre>nearCentre,'the same share covers more ground receding than nearing')
-icon(other,SWORD_ICON)
-settle(0.05)
--- At 100% a nearing tip reaches the screen edge, and a receding one shows at a
--- quarter of its size.
-detachAll()
-cleanups={}
-attach(nil,{ParryStyle='perspective',ParryMovement={0,100}})
-ground=layer.children[1]
-endCombat()
-startCombat()
-run()
-settle(0.05)
-assert(equal(select(2,projected(0,onPlane(1,false))),540),'100% nearing is the screen edge')
-assert(equal(select(3,projected(0,-onPlane(1,true))),0.25),'100% receding is a quarter of the size')
-icon(other,BOTTOM)
-settle(0.05)
-assert(equal(arrowOf(ground,2).RenderTranslation.Y,select(2,projected(0,onPlane(1,false)-length/2))),
-    'the bottom arrow travels to the edge')
-icon(other,SWORD_ICON)
-settle(0.05)
-icon(other,TOP)
-settle(0.05)
-assert(equal(arrowOf(ground,1).RenderTranslation.Y,select(2,projected(0,-(onPlane(1,true)-length/2)))),
-    'and the top arrow to a quarter of its size')
-icon(other,SWORD_ICON)
-settle(0.05)
--- Side arrows lie on the plane too: their arms are sheared onto it.
-local side=arrowOf(ground,3)
-local sheared=0
-for _,part in ipairs(side.content.children) do
-    if part.RenderShear and math.abs(part.RenderShear.X)>1e-3 then sheared=sheared+1 end
-end
-assert(side.RenderTransformAngle==nil and sheared>0,'side arrows are sheared onto the plane')
-
--- The Fancy style shows the mod's pictures, an arrow pointing right, turned to
--- each direction; the red picture shows while the attack is critical. A picture
--- scales as a whole as the arrow grows.
+-- The Fancy style shows the mod's picture, omen_fancy.png: an arrow pointing right, its glow
+-- on the left half and its white core on the right, turned to each direction. The glow is
+-- tinted yellow, red while the attack is critical; the core stays white. The arrow scales
+-- as a whole as it grows.
 detachAll()
 cleanups={}
 local before=#imported
 attach(nil,{ParryStyle='fancy'})
 local fancy=layer.children[1]
 local fancyLoads=0
-for at=before+1,#imported do if imported[at]:match('/fancy_') then fancyLoads=fancyLoads+1 end end
-assert(fancyLoads==2,'both pictures load from the images folder')
+for at=before+1,#imported do if imported[at]:match('/omen_fancy%.png$') then fancyLoads=fancyLoads+1 end end
+assert(fancyLoads==1,'the one picture loads from the images folder')
 endCombat()
 startCombat()
 run()
 settle(0.05)
 icon(other,BOTTOM)
 local picture=arrowOf(fancy,2)
-local pictures=picture.content.children
-assert(picture.class=='/Script/UMG.SizeBox' and picture.RenderTransformAngle==90 and #pictures==2
-    and pictures[1].BrushFromTexture.name=='Texture fancy_normal' and pictures[2].BrushFromTexture.name=='Texture fancy_critical',
-    'the bottom arrow is the right-pointing picture turned down')
+local layers=picture.content.children
+local glow,core=layers[1].children[1],layers[2].children[1]
+assert(picture.class=='/Script/UMG.SizeBox' and picture.RenderTransformAngle==90 and #layers==2
+    and glow.BrushFromTexture.name=='Texture omen_fancy' and core.BrushFromTexture.name=='Texture omen_fancy',
+    'the bottom arrow is the right-pointing picture turned down, glow under core')
 assert(arrowOf(fancy,1).RenderTransformAngle==270 and arrowOf(fancy,3).RenderTransformAngle==0
     and arrowOf(fancy,4).RenderTransformAngle==180,'and turned up, right and left for the others')
-assert(pictures[1].ColorAndOpacity.A==1 and pictures[2].ColorAndOpacity.A==0,'yellow while not critical')
+assert(glow.ColorAndOpacity.G==0.75 and glow.ColorAndOpacity.A==1 and core.ColorAndOpacity.G==1
+    and core.ColorAndOpacity.B==1,'the glow yellow, the core white')
 settle(0.05)
 -- Its box is the arrow's span, 428 by 1774 picture pixels, in design units 100
 -- across, sized by the 100. Slate shrinks a centred box larger than the arrows'
@@ -844,12 +759,15 @@ settle(0.05)
 local along,across=(687-259)*100/1774,100
 assert(equal(picture.WidthOverride,along) and picture.HeightOverride==across and across<432-36,
     'the box is small enough not to be shrunk')
--- Each picture's tip sits on the box's right edge, at mid-height: normal's tip
--- is pixel column 686, rows 865 to 867; critical's column 670, rows 878 to 900.
-for index,tip in ipairs({{687,866.5},{671,889.5}}) do
-    local slot=pictures[index].slot
-    assert(equal(slot.Position.X+tip[1]*100/1774,along) and equal(slot.Position.Y+tip[2]*100/1774,50)
-        and equal(slot.Size.Y,100),'its tip on the axis, at the box\'s edge')
+-- Each layer is a half-size clip with the tip on the box's right edge, at mid-height (pixel
+-- column 686, rows 865 to 867); the picture inside is twice as wide, shifted to its half.
+local half=887*100/1774
+for index,layerBox in ipairs(layers) do
+    local slot=layerBox.slot
+    assert(equal(slot.Position.X+687*100/1774,along) and equal(slot.Position.Y+866.5*100/1774,50)
+        and equal(slot.Size.X,half) and equal(slot.Size.Y,100),'its tip on the axis, at the box\'s edge')
+    local inner=layerBox.children[1].slot
+    assert(equal(inner.Position.X,-(index-1)*half) and equal(inner.Size.X,2*half),'the picture shifted to its half')
 end
 local from,to=54*1.9,54*5.5
 local length=from*along/across
@@ -859,19 +777,52 @@ assert(equal(picture.RenderScale.X,to/across) and equal(picture.RenderTranslatio
     'it scales as a whole, its tip where the travel puts it')
 icon(other,BOTTOM+PARRY)
 run()
-assert(pictures[1].ColorAndOpacity.A==0 and pictures[2].ColorAndOpacity.A==1,'red once critical')
+assert(glow.ColorAndOpacity.G==0.06 and glow.ColorAndOpacity.R==0.72 and core.ColorAndOpacity.G==1,'the glow red once critical, the core still white')
 icon(other,SWORD_ICON)
 settle(0.05)
--- Without its pictures the cue draws a Chevron.
+-- Without its picture no arrows show, and the cue warns once it attaches.
+local Session=require('preymonition.omens')
+local warnings={}
+local function capture()
+    local logger={enabled=function() return false end}
+    for _,level in ipairs({'trace','debug','info','warn','error','critical'}) do
+        logger[level]=function(...)
+            if level=='warn' then
+                local parts={}
+                for index=1,select('#',...) do parts[#parts+1]=tostring((select(index,...))) end
+                warnings[#warnings+1]=table.concat(parts)
+            end
+        end
+    end
+    Session.setLog(logger)
+end
+capture()
+-- Whether a cue's arrows hold no picture.
+local function bare(cue)
+    for index=1,4 do
+        for _,layerBox in ipairs(arrowOf(cue,index).content.children) do
+            if layerBox.children[1].BrushFromTexture~=nil then return false end
+        end
+    end
+    return true
+end
 detachAll()
 cleanups={}
-fancyMissing=true
+picturesMissing=true
 attach(nil,{ParryStyle='fancy'})
-assert(#arrowOf(layer.children[1],2).content.children==6,'missing pictures fall back to the Chevron')
+local missing=layer.children[1]
+assert(bare(missing),'a picture that does not load leaves the arrows without one')
+assert(#warnings==1 and warnings[1]=='arrow picture for Style fancy did not load; no arrows show',
+    'and the cue warns that no arrows show')
 -- Nor does the unblockable picture load: the attack still plays out, the centre clear.
 endCombat()
 startCombat()
 run()
+settle(0.05)
+icon(other,BOTTOM)
+settle(0.05)
+assert(arrowOf(missing,2).RenderOpacity==0,'an attack shows no arrow')
+icon(other,SWORD_ICON)
 settle(0.05)
 icon(other,SKULL_ICON)
 settle(0.05)
@@ -879,15 +830,15 @@ assert(layer.children[2].content.ColorAndOpacity.A==0 and layer.children[2].cont
     'a missing unblockable picture leaves the centre clear')
 icon(other,SWORD_ICON)
 settle(0.05)
-fancyMissing=false
+picturesMissing=false
 
--- A Hidden, Static buildup holds the yellow arrow back; the perfect opportunity window starts
--- its whole show, red: the arrow appears at its start and travels and grows
--- from there. (Normal and Normal, the defaults, show it from the first sighting,
--- as the checks above do.)
+-- Attack Incoming Off with Perfect Opportunity Start holds the yellow arrow
+-- back unseen and still; the Perfect Opportunity window starts its whole show, red: the
+-- arrow appears at its start and travels and grows from there. (Normal and
+-- Normal, the defaults, show it from the first sighting, as the checks above do.)
 detachAll()
 cleanups={}
-attach(nil,{ParryBuildupVisibility='hidden',ParryBuildupAnimation='static'})
+attach(nil,{ParryIncoming='off',ParryPerfect='start'})
 endCombat()
 startCombat()
 run()
@@ -898,48 +849,98 @@ run()
 settle(0.05)
 assert(perfect.RenderOpacity==0,'the yellow arrow is not shown')
 icon(other,BOTTOM+PARRY)
-assert(math.abs(perfect.RenderOpacity-1)<1e-6 and front(perfect).G==0.2,'the perfect opportunity window shows the arrow, red')
+assert(math.abs(perfect.RenderOpacity-1)<1e-6 and red(front(perfect)),'the Perfect Opportunity window shows the arrow, red')
 assert(equal(perfect.RenderTranslation.Y,bottomStart),'from where an arrow starts')
 run()
 settle(0.05)
-assert(equal(perfect.RenderTranslation.Y,bottomEnd) and grownBy(perfect,bottomExtra) and front(perfect).G==0.2,
+assert(equal(perfect.RenderTranslation.Y,bottomEnd) and equal(perfect.RenderScale.X,bottomScale) and red(front(perfect)),
     'and travels and grows as a new attack would, still red')
 icon(other,BOTTOM+PARRY)
 run()
-assert(equal(perfect.RenderTranslation.Y,bottomEnd),'a repeated perfect opportunity window does not restart it')
+assert(equal(perfect.RenderTranslation.Y,bottomEnd),'a repeated Perfect Opportunity window does not restart it')
 icon(other,SWORD_ICON)
 run()
 assert(perfect.RenderOpacity==0,'the attack resolving puts it out')
 settle(0.05)
--- A Faint, Partial buildup: the yellow arrow shows see-through, grows and
--- travels 30% of its way; the perfect opportunity window turns it red and
--- opaque and carries it on from there.
--- Any pair but Normal and Normal holds it back: Normal visibility with Static
--- animation shows it opaque at its start.
-for _,case in ipairs({{visibility='faint',animation='partial',opacity=0.35,travel=0.3},{visibility='normal',animation='static',opacity=1,travel=0}}) do
+-- Every other pair with red but Normal and Normal holds the yellow arrow back:
+-- it shows at Attack Incoming's opacity and grows and travels its share of the
+-- way (Priority: 30% at Normal, none at Faint; Perfect Opportunity Normal: all
+-- of it); the Perfect Opportunity window turns it red and opaque and carries
+-- it on from there.
+for _,case in ipairs({
+    {incoming='normal',perfect='halfway',opacity=1,travel=0.5},
+    {incoming='faint',perfect='start',opacity=0.35,travel=0},
+    {incoming='faint',perfect='halfway',opacity=0.35,travel=0.5},
+    {incoming='faint',perfect='end',opacity=0.35,travel=1},
+    {incoming='off',perfect='end',opacity=0,travel=1}}) do
+    local name=case.incoming..' and '..case.perfect..': '
     detachAll()
     cleanups={}
-    attach(nil,{ParryBuildupVisibility=case.visibility,ParryBuildupAnimation=case.animation})
+    attach(nil,{ParryIncoming=case.incoming,ParryPerfect=case.perfect})
     endCombat()
     startCombat()
     run()
     settle(0.05)
-    local buildup=arrowOf(layer.children[1],2)
+    local held=arrowOf(layer.children[1],2)
     local waits=delays
     icon(other,BOTTOM)
     run()
     settle(0.05)
-    assert(math.abs(buildup.RenderOpacity-case.opacity)<1e-6 and front(buildup).G==0.67,'the buildup shows yellow at its visibility')
-    local _,at,extra=arrowAtDefault(false,case.travel,case.travel)
-    assert(equal(buildup.RenderTranslation.Y,at) and grownBy(buildup,extra),'grown and travelled its share of the way')
+    assert(math.abs(held.RenderOpacity-case.opacity)<1e-6 and lit(front(held)),name..'the yellow arrow shows at Attack Incoming\'s opacity')
+    local atScale,at=arrowAtDefault(false,case.travel,case.travel)
+    assert(equal(held.RenderTranslation.Y,at) and equal(held.RenderScale.X,atScale),name..'grown and travelled its share of the way')
     icon(other,BOTTOM+PARRY)
-    assert(math.abs(buildup.RenderOpacity-1)<1e-6 and front(buildup).G==0.2 and equal(buildup.RenderTranslation.Y,at),
-        'the perfect opportunity window turns it red and opaque where it is')
+    assert(math.abs(held.RenderOpacity-1)<1e-6 and red(front(held)) and equal(held.RenderTranslation.Y,at),
+        name..'the Perfect Opportunity window turns it red and opaque where it is')
     settle(0.05)
-    assert(delays==waits,'it settles without waiting on ExecuteWithDelay')
+    assert(delays==waits,name..'it settles without waiting on ExecuteWithDelay')
     run()
     settle(0.05)
-    assert(equal(buildup.RenderTranslation.Y,bottomEnd) and grownBy(buildup,bottomExtra),'and carries it on to the end')
+    assert(equal(held.RenderTranslation.Y,bottomEnd) and equal(held.RenderScale.X,bottomScale),name..'and carries it on to the end')
+    icon(other,SWORD_ICON)
+    settle(0.05)
+end
+-- Perfect Opportunity Off: only yellow shows. The arrow shows at Attack
+-- Incoming's opacity and moves as usual; the Perfect Opportunity window turns
+-- it neither red nor to its critical size, and an attack first seen in that
+-- window shows yellow too. With Attack Incoming Off as well no arrow shows; the
+-- unblockable picture still does.
+for _,case in ipairs({{incoming='normal',opacity=1},{incoming='faint',opacity=0.35},{incoming='off',opacity=0}}) do
+    local name=case.incoming..' and off: '
+    detachAll()
+    cleanups={}
+    attach(nil,{ParryIncoming=case.incoming,ParryPerfect='off'})
+    local cue=layer.children[1]
+    endCombat()
+    startCombat()
+    run()
+    settle(0.05)
+    local yellow=arrowOf(cue,2)
+    icon(other,BOTTOM)
+    assert(math.abs(yellow.RenderOpacity-case.opacity)<1e-6 and lit(front(yellow)),name..'the arrow shows yellow at once')
+    assert(equal(yellow.RenderTranslation.Y,bottomStart),name..'from where an arrow starts')
+    run()
+    settle(0.05)
+    assert(equal(yellow.RenderTranslation.Y,bottomEnd) and equal(yellow.RenderScale.X,bottomScale),name..'and moves as usual')
+    icon(other,BOTTOM+PARRY)
+    run()
+    settle(0.05)
+    assert(math.abs(yellow.RenderOpacity-case.opacity)<1e-6 and lit(front(yellow)),name..'the Perfect Opportunity window leaves it yellow')
+    assert(equal(yellow.RenderTranslation.Y,bottomEnd) and equal(yellow.RenderScale.X,bottomScale),name..'at its grown size, not its critical one')
+    icon(other,SWORD_ICON)
+    run()
+    assert(yellow.RenderOpacity==0,name..'the attack resolving puts it out')
+    settle(0.05)
+    local left=arrowOf(cue,3)
+    icon(other,LEFT+PARRY)
+    run()
+    settle(0.05)
+    assert(math.abs(left.RenderOpacity-case.opacity)<1e-6 and lit(front(left)),name..'an attack first seen critical shows yellow')
+    icon(other,SWORD_ICON)
+    settle(0.05)
+    icon(other,SKULL_ICON)
+    settle(0.05)
+    assert(skullShown(shieldOf(cue)),name..'the unblockable picture shows')
     icon(other,SWORD_ICON)
     settle(0.05)
 end
@@ -952,7 +953,7 @@ run()
 settle(0.05)
 
 -- A critical attack: the arrow turns red.
--- Each case shows the attack, opens its perfect opportunity window and resolves it.
+-- Each case shows the attack, opens its Perfect Opportunity window and resolves it.
 local function criticalAttack(settings)
     detachAll()
     cleanups={}
@@ -972,11 +973,10 @@ local function resolveAttack()
     icon(other,SWORD_ICON)
     settle(0.05)
 end
-local function red(color) return color.R==1 and color.G==0.2 and color.B==0 end
 
 local critical=criticalAttack({})
 assert(red(front(arrowOf(critical,2))),'a critical attack turns the arrow red')
-assert(shieldOf(critical).ColorAndOpacity.A==0,'and leaves the centre clear: the shield is the Background\'s')
+assert(shieldOf(critical).ColorAndOpacity.A==0,'and leaves the centre clear')
 resolveAttack()
 -- The skull takes the centre over a critical attack.
 criticalAttack({})
@@ -1035,9 +1035,9 @@ startCombat()
 detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
--- Eleven handles per cue, and six parts per arrow held twice (to colour and to
--- grow), for eighteen drawn cues; the Fancy cue holds its two pictures per arrow.
-assert(cueReleased==(11+2*4*6)*18+(11+4*2),'each detached cue releases its handles')
+-- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
+-- twenty-four cues.
+assert(cueReleased==(11+4*2)*24,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
@@ -1045,9 +1045,9 @@ assert(removed==1 and hookCount()==0,'sleep unhooks the indicator')
 endCombat()
 assert(removed==1,'a second sleep has nothing left to remove')
 
--- Position moves the arrows alone: their box shares the centre of the
--- Background's shield at its default size (540 high): Below keeps that
--- shield's bottom 10% of the height above the bottom edge, Above its top 10%
+-- Position moves the arrows alone: their box shares the centre of a cue area
+-- half the screen height (540 high): Below keeps that area's bottom 10% of the
+-- height above the bottom edge, Above its top 10%
 -- below the top edge. The unblockable indicator stays at the screen's centre.
 for position,top in pairs({below=1080*0.9-270-216,above=1080*0.1+270-216}) do
     cleanups={}
@@ -1069,7 +1069,9 @@ for _,style in ipairs(STYLES) do
     local before=#imported
     attach(nil,{UnblockableStyle=style})
     local file=style~='off' and 'unblockable_'..style or nil
-    assert(#imported==before+(file and 1 or 0) and (not file or imported[#imported]=='Preymonition/images/'..file..'.png'),
+    -- Besides the arrows' Chevron picture.
+    assert(#imported==before+(file and 2 or 1) and imported[before+1]=='Preymonition/images/omen_chevron.png'
+        and (not file or imported[#imported]=='Preymonition/images/'..file..'.png'),
         'style '..style..' loads only its picture')
     local image=layer.children[2].content
     endCombat()
@@ -1092,9 +1094,9 @@ for _,style in ipairs(STYLES) do
     detachAll()
 end
 
--- Movement from Center runs to the screen edge the arrow travels
--- towards, from the cue's centre wherever Position puts it: Above centres the
--- cue 378 down, so 100% takes a bottom arrow's tip 702 down from there.
+-- Movement from Center runs from the cue's centre wherever Position puts it. Up and
+-- down travel alike, as far as the nearer screen edge: Above centres the cue 378 down,
+-- so 100% takes a bottom arrow's tip 378 down from there, as far as a top arrow's goes up.
 local function travel(movement,direction,index)
     cleanups={}
     attach(nil,{ParryPosition='above',ParryMovement=movement})
@@ -1114,13 +1116,14 @@ local function travel(movement,direction,index)
     for at=#cleanups,1,-1 do cleanups[at]() end
     return start,stop
 end
-local half=102.6*RATIO/2
+-- An arrow starts 102.6 across and grows to 297; its centre is half its length back from its tip.
+local half,grown=102.6*RATIO/2,297*RATIO/2
 local start,stop=travel({0,100},BOTTOM,2)
-assert(equal(start,half) and equal(stop,702-half),'0% is the cue\'s centre and 100% the bottom edge')
+assert(equal(start,half) and equal(stop,378-grown),'0% is the cue\'s centre and 100% as far as the nearer edge')
 start,stop=travel({0,100},TOP,1)
-assert(equal(start,-half) and equal(stop,-(378-half)),'and the top edge for an upward arrow')
+assert(equal(start,-half) and equal(stop,-(378-grown)),'and the top edge for an upward arrow')
 start,stop=travel({50,50},BOTTOM,2)
-assert(equal(start,2*half+0.5*(702-2*half)-half) and equal(stop,start),
+assert(equal(start,2*half+0.5*(378-2*half)-half) and equal(stop+grown,start+half),
     '50% is halfway through the space the arrow has; equal ends keep it still')
 
 -- With no settings the cue takes the defaults: Size 30% to 80%, Movement 40% to 60%.
@@ -1148,29 +1151,65 @@ assert(hookCount()==1 and next(hooks)==nil,'TRACE adds no hooks')
 removed=0
 endCombat()
 assert(removed==1 and hookCount()==0,'and unhooked with the rest')
--- The omens play nothing: the sounds are the Sound Cues template's.
+-- The omens play nothing: the sounds are the Audio Cues template's.
 assert(#posted==0,'the omens post no game sound')
-for _,entry in ipairs(template.menu) do assert(entry.id~='Sound','the omens have no Sound Notifications') end
-assert(template.preview.sound==nil and template.preview.background=='images/preview_unblockable.jpg',
+for _,entry in ipairs(template.menu) do assert(entry.id~='Sound','the omens have no Sounds group') end
+assert(template.preview.sound==nil and template.preview.background=='images/preview_background.jpg',
     'the omens\' preview shows over its picture and has no sound settings')
 -- Saved values the pickers no longer offer, such as the old numbers, are the defaults.
 local Cue,Placement=require('preymonition.omens_render'),require('preymonition.placement')
-local fallback=Cue.buildup({ParryBuildupVisibility=0,ParryBuildupAnimation=1})
-assert(not fallback.held and fallback.opacity==1 and fallback.travel==1,'an unknown buildup pair is Normal and Normal')
-local faint=Cue.buildup({ParryBuildupVisibility='faint',ParryBuildupAnimation='partial'})
-assert(faint.held and faint.opacity==0.35 and faint.travel==0.3,'Faint and Partial hold it back')
+local function phases(incoming,perfect)
+    local entry=Cue.phases({ParryIncoming=incoming,ParryPerfect=perfect})
+    return table.concat({tostring(entry.held),entry.opacity,entry.travel,tostring(entry.red)},' ')
+end
+assert(phases(0,1)=='false 1 1 true','an unknown pair is Normal and End')
+assert(phases('faint','priority')=='true 0.35 1 true','an unknown Perfect Opportunity is End')
+assert(phases('hidden','halfway')=='true 1 0.5 true','an unknown Attack Incoming is Normal')
+-- The whole table: held, opacity, travel and red for each pair.
+for pair,expected in pairs({
+    ['normal end']='false 1 1 true',['faint end']='true 0.35 1 true',['off end']='true 0 1 true',
+    ['normal halfway']='true 1 0.5 true',['faint halfway']='true 0.35 0.5 true',['off halfway']='true 0 0.5 true',
+    ['normal start']='true 1 0 true',['faint start']='true 0.35 0 true',['off start']='true 0 0 true',
+    ['normal off']='false 1 1 false',['faint off']='false 0.35 1 false',['off off']='false 0 1 false'}) do
+    local incoming,perfect=pair:match('^(%S+) (%S+)$')
+    assert(phases(incoming,perfect)==expected,pair..' is '..phases(incoming,perfect))
+end
 assert(Placement.position(2)=='middle' and Placement.position('above')=='above','an unknown Position is Middle')
+-- Old numeric Styles, Perspective's 3 among them, load the Chevron picture.
+for _,number in ipairs({4,3}) do
+    detachAll()
+    cleanups={}
+    attach(nil,{ParryStyle=number,ParryPosition=0})
+    assert(layer.children[1].slot.Padding.Top==(1080-432)/2,'an old numeric Position centres the arrows')
+    endCombat()
+    startCombat()
+    run()
+    settle(0.05)
+    icon(other,BOTTOM)
+    local old=arrowOf(layer.children[1],2)
+    assert(old.RenderTransformAngle==90 and old.RenderOpacity==1 and #old.content.children==2
+        and old.content.children[1].children[1].BrushFromTexture.name=='Texture omen_chevron',
+        'an old numeric Style shows Chevrons')
+    icon(other,SWORD_ICON)
+    settle(0.05)
+end
+-- A saved name with no picture, like the retired Perspective (only ever saved as a name
+-- by unreleased builds), is a Style whose picture does not load: no arrows, and a warning.
 detachAll()
 cleanups={}
-attach(nil,{ParryStyle=4,ParryPosition=0})
-assert(layer.children[1].slot.Padding.Top==(1080-432)/2,'an old numeric Position centres the arrows')
+warnings={}
+capture()
+attach(nil,{ParryStyle='perspective'})
 endCombat()
 startCombat()
 run()
 settle(0.05)
 icon(other,BOTTOM)
-local old=arrowOf(layer.children[1],2)
-assert(old.RenderTransformAngle==180 and equal(old.WidthOverride,chevron.width) and #partsOf(old)==6,
-    'an old numeric Style draws Chevrons')
+settle(0.05)
+assert(arrowOf(layer.children[1],2).RenderOpacity==0 and bare(layer.children[1]),'a saved Perspective Style shows no arrows')
+assert(#warnings==1 and warnings[1]=='arrow picture for Style perspective did not load; no arrows show',
+    'and warns that its picture did not load')
+icon(other,SWORD_ICON)
+settle(0.05)
 detachAll()
 print('PASS: the omens template hooks only in combat, follows attacks, resolves, reattach and cleanup')

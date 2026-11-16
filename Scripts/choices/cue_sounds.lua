@@ -1,4 +1,4 @@
--- Sound Notifications -> Attack incoming and Perfect opportunity: the mod's cue
+-- Audio Cues -> Sounds -> Attack incoming and Perfect Opportunity: the mod's cue
 -- sounds sounds/cue_<x>.wav, listed by ModCore Settings each time the settings page
 -- is built, after None. Self-contained: it runs in the menu's Lua state.
 return function(context)

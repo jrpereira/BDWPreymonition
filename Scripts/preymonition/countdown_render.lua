@@ -8,12 +8,12 @@ local Combat=require('preymonition.combat')
 -- the text's line above it and the text's font size.
 local WIDTH,HEIGHT,OUTLINE,LINE,FONT=0.2,0.015,0.002,0.035,0.02
 -- Position puts the bar's bottom this share of the screen height below the
--- centre of a shield at its default size, near the shield's point. The centres
--- match the Omens template's: Middle centres it, Below and Above keep a shield
--- half the screen height 10% of it from the bottom or top edge.
+-- centre of the omens' cue area at its default size. The centres match the
+-- Omens template's: Middle centres it, Below and Above keep an area half the
+-- screen height 10% of it from the bottom or top edge.
 local BELOW_CENTRE=0.2
 local CENTRES={below=0.65,middle=0.5,above=0.35}
--- Yellow while counting down, red for the perfect opportunity window. The outline and the
+-- Yellow while counting down, red for the Perfect Opportunity window. The outline and the
 -- remaining bar are see-through; the elapsed part is not drawn at all.
 local COLORS={
     count={text={R=1,G=0.85,B=0.1,A=1},bar={R=1,G=0.85,B=0.1,A=0.5},outline={R=1,G=0.85,B=0.1,A=0.5}},
@@ -145,13 +145,15 @@ function M.context(ui)
     return assert(MC.get(ui.handles.hud),'countdown is no longer valid')
 end
 
--- Game time in seconds, the clock an attack's hit window is in.
-function M.now(ui)
+-- Game time in seconds, the clock an attack's hit window is in; real: real time,
+-- running while the game is paused.
+function M.now(ui,real)
+    if real then return Combat.now(M.context(ui)) end
     return Combat.gameTime(M.context(ui))
 end
 
 -- Shows a view: nil hides the countdown; otherwise {text, fraction 0 to 1,
--- now true for the perfect opportunity window}. Writes only what changed.
+-- now true for the Perfect Opportunity window}. Writes only what changed.
 function M.show(ui,view)
     local widgets=assert(live(ui),'countdown is no longer valid')
     local applied=ui.applied

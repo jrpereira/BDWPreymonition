@@ -1,23 +1,21 @@
 # Directional cue behavior
 
-Preymonition registers five managed MCT templates in `npc.attacks`, listed on
-the settings page in this order: **Omens** (`mc_omens.lua`), the attack shown as
-symbols, the cue, **Sound Cues** (`mc_sounds.lua`), a sound for each attack,
-**Edges** (`mc_edges.lua`), the screen edge glows, **Countdown (WIP)**
-(`mc_countdown.lua`), a count to the perfect opportunity window, and
-**Background** (`mc_background.lua`), a shield behind the omens that lights up
-with the attack. Each is turned on by its own Enabled, so any of them, the Sound
-Cues alone included, can be on without the others. MCT attaches them by priority
-(Background 9, Omens 10, Edges 11, Countdown 12, Sound Cues 13): the Background
-first, so its layer sits under the omens'.
+Preymonition registers four managed MCT templates in `npc.attacks`, listed on
+the settings page in this order: **Omens Overlay** (`mc_omens.lua`), the attack shown as
+symbols, the cue, **Audio Cues** (`mc_audio.lua`), a sound for each attack,
+**Edges Flash** (`mc_edges.lua`), the screen edge glows, and **Countdown (WIP)**
+(`mc_countdown.lua`), a count to the Perfect Opportunity window. Each is turned
+on by its own Enabled, so any of them, the Audio Cues alone included, can be on
+without the others. MCT attaches them by priority (Omens 10, Edges 11,
+Countdown 12, Audio Cues 13).
 The category attaches them once the player is in the game (`MC_PlayerReady`)
 and supplies each the HUD (`hud`) and, to each template that draws, its own
 full-screen overlay created on the HUD root (`cue`), so they never share or clear
-each other's layer. The Sound Cues draw nothing and take the HUD alone. Each takes
+each other's layer. The Audio Cues draw nothing and take the HUD alone. Each takes
 MCT's `MC_NPCAttackIndicator` events on their own.
 
 An attack has two windows. Its parry window opens when it is first shown (the
-`arrow` event, the yellow arrow); its perfect opportunity window opens later (the
+`arrow` event, the yellow arrow); its Perfect Opportunity window opens later (the
 `critical` event, the red arrow). The game's own "parry window multiplier" is a
 difficulty timing value, used below for the animation pace.
 
@@ -25,26 +23,28 @@ difficulty timing value, used below for the animation pace.
 
 Its requests (`preymonition/omens.lua`) follow the attack, its timeline
 (`preymonition/omens_animation.lua`) animates it and its renderer
-(`preymonition/omens_render.lua`, with `omens_drawn.lua` and `omens_fancy.lua` for
-the arrows) draws it. The parry window multiplier, the attacker and the clock
+(`preymonition/omens_render.lua`, with `omens_fancy.lua` for the arrows) draws
+it. The parry window multiplier, the attacker and the clock
 come from `preymonition/combat.lua`, shared with the countdown.
 
 `attach` builds the cue in that layer: a size box at the arrows' Position with an
-overlay of four arrows the cue draws from solid images (Solid, Chevron), and a
+overlay of four arrows, each its Style's picture, and a
 second box at the screen's centre with the unblockable picture. That picture is
 the Unblockable Style's file from the mod's `images` folder, the only one loaded,
 set on the image when the cue attaches and kept clear until an unblockable attack.
-Fancy shows two pictures from the mod's `images` folder, loaded as textures when
-the cue attaches (yellow, and red for critical), turned from pointing right to
-each direction; it scales as a whole, and falls back to the Chevron if the
-pictures do not load. Perspective draws the Chevron as seen lying on a plane parallel to the ground
-at the waist, from a camera 20 degrees above and half a screen height away: each
-arm is sheared to the shape it projects to where the arrow appears, and as the
-arrow travels it moves to where its flat place projects, scaled by its nearness. The box is 40% of the
-shorter screen side and centred horizontally. Position places it vertically on
-the Background's shield at its default size, 50% of the screen height
-(`preymonition/placement.lua`, shared with the Background): Below keeps that
-shield's bottom 10% of the screen height above the bottom edge, Above keeps its
+Every Style but Off (Solid, Chevron, Fancy and any other the menu lists) shows one picture from the mod's
+`images` folder, `omen_<style>.png`, loaded as a texture when the cue attaches. It holds
+two layers side by side: the glow on the left half, drawn tinted (yellow, red in the
+Perfect Opportunity window), and the white core on the right, drawn on top untinted, each
+shown through a clip that shifts the picture to its half. `tools/make_omen_layers.py`
+makes it from the colour art in `art/<style>.png`; each half must share Fancy's canvas
+and arrow placement (887 by 1774, tip and back where `omens_fancy.lua` says). The menu
+lists every `omen_<style>.png` each time it opens. The arrow is turned from pointing right
+to each direction and scales as a whole. If the picture does not load, no arrows show
+and the cue logs a warning; a saved Style that is not a name is Chevron. The box is 40% of the shorter screen side and centred
+horizontally. Position places it vertically, centred on a cue area 50% of the
+screen height tall (`preymonition/placement.lua`, shared with the Countdown): Below keeps that
+area's bottom 10% of the screen height above the bottom edge, Above keeps its
 top 10% below the top edge, and Middle centres it.
 
 The arrows take their artwork, rest position and rotation from the indicator
@@ -68,18 +68,17 @@ game's change:
 
 - **arrow**: an attack shows on a visible indicator (icon types 1–4); our arrow
   shows.
-- **critical**: that attack's perfect opportunity window opened (5–8); MCT
+- **critical**: that attack's Perfect Opportunity window opened (5–8); MCT
   sends the arrow first if it was not seen.
 - **resolve**: the indicator went back to the sword (0) or to a weak spot
   (10–13), or was hidden; the shown arrow goes.
 - **unblockable**: the indicator showed the unblockable skull (9), or it went.
-  The cue shows its unblockable picture at the screen's centre, and the
-  Background clears its shield meanwhile; the picture grows from Unblockable
+  The cue shows its unblockable picture at the screen's centre; the picture grows from Unblockable
   Attack Indicator → Size's low end to its high end over the animation time,
   then holds until the attack's skull goes. 0% is 5% of the screen height and 100% the
   full screen height.
 
-A frame's delay is small next to the perfect opportunity window, which MCT
+A frame's delay is small next to the Perfect Opportunity window, which MCT
 measured opening 0.19–0.41 s after the arrow shows. The game also updates hidden twin
 indicators: MCT counts only an indicator that is itself visible, and a hidden
 twin never takes away the skull. A critical arrow from an indicator other than
@@ -102,33 +101,46 @@ for the current difficulty, read from its combat subsystem when combat starts:
 An arrow shows at full opacity, then over the animation time grows while its
 tip travels outward. Movement from Center is a range on the space the arrow
 has: at 0% the arrow, at its starting size, has its back edge on the cue's
-centre; at 100% its tip is at the screen edge it travels towards. The arrow
+centre; at 100% its tip is at the screen edge it travels towards. Up and down
+arrows travel alike, as far as the nearer of the top and bottom edges, so at Below or
+Above an arrow from behind moves as much as one from ahead. The arrow
 appears with its tip at the low end and its tip stops at the high end, so equal
-ends keep it still, and a large arrow never starts across the centre. In Perspective the shares
-are of the furthest the arrow can show on the screen: the screen edge, or for the
-up arrow, which recedes towards the horizon and never reaches the edge, where it
-has shrunk to a quarter of its size. A receding arrow therefore covers more of
-the ground plane than a nearing one at the same share. Size is a range whose low end sets the size
-an arrow appears at and whose high end the size it grows to, in units of 5% of
-the screen height, from 1 at 0% to 10 at 100%. An arrow grows by extending its lines back
-from the tip, so its outline and inset keep their thickness: a Chevron's arms
-lengthen, a Solid triangle's layers grow about their tips. Both have a 135
-degree tip. The game's left and right arrows show on the opposite sides of the
+ends keep it still, and a large arrow never starts across the centre. Size is a
+range whose low end sets the size an arrow appears at and whose high end the
+size it grows to, in units of 5% of the screen height, from 1 at 0% to 10 at 100%. An arrow's picture scales as a whole
+as it grows, its tip where the travel puts it. Solid and Chevron have a 135
+degree tip (`tools/make_omen_shapes.py`). The game's left and right arrows show on the opposite sides of the
 screen, so the cue shows them there too.
 
 Critical turns the arrow red, and its grown size if its travel has not got
-there, until the attack resolves, as the game turns its shield red. A resolved
+there, until the attack resolves, as the game turns its shield red (unless
+Perfect Opportunity is Off). A resolved
 arrow goes at once.
 
-Before the perfect opportunity window the yellow arrow is a buildup, shown by Buildup
-visibility (Hidden; Faint, at 35% opacity; Normal) and moved by Buildup animation
-(Static, staying at its starting size and place; Partial, growing and travelling
-30% of the way; Normal). With both at Normal, the defaults, the arrow shows and
-moves from the first sighting and jumps to its critical size when that window
-opens. Any other pair holds it back: when the perfect opportunity window opens the arrow turns
-red and carries its growth and travel on from where the buildup left them to the
-end, at the same pace, so a Static arrow animates all the way. The buildup affects
-only the arrow; the Background and the Sound Cues follow the attack from its yellow arrow as always. Combat start fades the
+The arrow has two phases: the Yellow arrow before the Perfect Opportunity window, set
+by Attack Incoming (Normal; Faint, at 35% opacity; Off, not shown), and the red arrow
+taking over, set by Perfect Opportunity (End, Start, Halfway, Off). Attack Incoming sets
+the yellow arrow's opacity and Perfect Opportunity the share of its growth and travel;
+the yellow arrow is held back unless Attack Incoming is Normal and Perfect Opportunity
+End, and Off never turns it red:
+
+| Attack Incoming | Perfect Opportunity | Held | Yellow opacity | Yellow travel | Red |
+|---|---|---|---|---|---|
+| Normal | End | no | 100% | all | yes |
+| Faint or Off | End | yes | 35% or 0% | all | yes |
+| any | Halfway | yes | by Attack Incoming | 50% | yes |
+| any | Start | yes | by Attack Incoming | none | yes |
+| any | Off | no | by Attack Incoming | all | no |
+
+An arrow not held, at Normal and Normal, the defaults, shows and moves from the
+first sighting and jumps to its critical size when that window opens. A held
+arrow turns red when the Perfect Opportunity window opens and carries its growth
+and travel on from where it was to the end, at the same pace, so one that has
+not moved animates all the way. Without red the Perfect Opportunity window
+changes nothing: the arrow stays yellow, at Attack Incoming's opacity, and an
+attack first seen in that window shows yellow too. Unknown saved values are
+Normal. These settings affect only the arrow; the unblockable indicator shows
+as always, and the Audio Cues follow the attack from its yellow arrow. Combat start fades the
 idle cue in to half opacity; combat end fades it out over a second.
 
 Animation uses real elapsed time and absolute phase deadlines, steps once per
@@ -137,16 +149,16 @@ and animation frame resolves the cue's widgets once, and a frame writes only the
 values that changed. Sprites load when the cue attaches. A failure handling an event is logged once per kind; repeats are
 counted when combat ends.
 
-## Sound Cues
+## Audio Cues
 
-The Sound Cues template (`preymonition/sounds.lua`) plays a sound for each
+The Audio Cues template (`preymonition/audio.lua`) plays a sound for each
 attack, independent of what any other template shows; `preymonition/sound.lua`
 loads and plays the files. Attack incoming plays when an attack is first seen,
 as its parry window opens (an `arrow` event for a new indicator path or
-direction), Perfect opportunity when its perfect opportunity window opens (its
+direction), Perfect Opportunity when its Perfect Opportunity window opens (its
 `critical` event), and Unblockable Attack, centred, when the unblockable
 indicator shows (once until it goes). An attack whose first event is `critical`
-plays only Perfect opportunity; MCT sends `arrow` before `critical` for an attack
+plays only Perfect Opportunity; MCT sends `arrow` before `critical` for an attack
 first seen in that window, so in game both play back to back. A repeated event
 for the same attack replays nothing; its `resolve` forgets it, and combat end
 forgets every attack.
@@ -154,7 +166,9 @@ forgets every attack.
 The arrow sounds are the mod's own WAV files, `sounds/cue_<name>.wav`
 (`tools/make_sounds.py` builds Ping, Bell and Knock), listed by
 `Scripts/choices/cue_sounds.lua` each time the menu opens and saved by name;
-selecting one in the menu plays it, centred. They play through UE4SS Lua Sound
+selecting one in the menu plays it, centred. The three sounds sit under Sounds;
+Enable directional sound, Differentiate back/front by pitch and Sound volume
+under Options. They play through UE4SS Lua Sound
 Bridge outside Wwise, once, at Sound volume times the game's Master and Effects
 volume (0 when the game is muted), read at attach and when combat starts. With
 Enable directional sound on, a side arrow's sound pans fully to the side the
@@ -170,52 +184,58 @@ Wwise events are posted.
 
 In the module page's live preview the template takes only the preview's events
 and plays them without combat, and nothing for an event the preview marks
-silent (its sound button off, or on Auto with no Sound Notifications setting
+silent (its sound button off, or on Auto with no Sounds or Options setting
 selected); game events never reach the preview.
-
-## Background
-
-The Background template builds the game's shield sprite in a box in its layer
-(`preymonition/background_render.lua`), centred where Position puts a shield of
-its Size, the same places the omens use; its requests
-(`preymonition/background.lua`) follow the attack with the omens' timeline
-(`preymonition/omens_animation.lua`). Combat start fades it in to half opacity
-over 0.2 s, and combat end fades it out over a second. Visibility In Combat
-shows it faint white throughout combat; Defending a see-through yellow, the
-arrows' colour, while an attack is shown; Critical only once the perfect
-opportunity window opens. Each turns red while that window is open; a Critical shield pops in
-red and grows to twice its size over the animation time, 200 ms times the parry
-window multiplier. The shield clears while the omens show the unblockable skull,
-and when the attack resolves it calms. Size (5% to 100% of the screen height)
-scales the shield about its centre; the omens and the countdown line up on it at
-its default, 50%.
 
 ## Screen edges
 
-The Edges template builds four edge glows in its layer, each six nested bands
-deepening inward to 8% of the shorter screen side. Its requests
+The Edges template builds four edge glows in its layer, reaching in Thickness
+(2% to 20%, default 8%) of the shorter screen side. With Visuals → Style Bands each
+glow is six nested bands deepening inward, each with opacity
+1-(1-Intensity)^(1/6) so that where all six overlap, at the screen edge, they
+reach Intensity (10% to 100%, default 50%). With a gradient picture (default
+Soft) each glow is one image of `images/edge_<key>_v.png` (top and bottom) or
+`images/edge_<key>_h.png` (left and right screen edges), white and opaque at
+the screen edge, tinted yellow or red with Intensity as its opacity; the bottom
+and right screen edges show it mirrored by a render scale of -1 around its
+centre. The pictures load through `KismetRenderingLibrary:ImportFileAsTexture2D`
+from the mod folder, as the Unblockable pictures do (`preymonition/omens_images.lua`),
+once per file for the session while the engine keeps them; a gradient whose
+pictures cannot load draws Bands and logs a warning once. The Style list
+(`choices/edge_gradients.lua`) offers Bands, then every `_v` picture with a
+matching `_h` picture, each time the menu opens; `tools/make_edge_gradients.py`
+writes the shipped Linear and Soft pairs. Its requests
 (`preymonition/edges.lua`) decide what shows and its renderer
-(`preymonition/edges_render.lua`) draws it. Edge Style Framed lights every edge
-while an attack is shown; Directional lights only the attacked side's. An
-attack's edges light at once on its arrow request, turn red when it goes
-critical, and go out when it resolves; a resolve for another arrow or indicator
-changes nothing. Unblockable requests are the omens', the background's and the sound cues'. Combat end puts every edge out. Edges have no animation and no sound.
+(`preymonition/edges_render.lua`) draws it. Only the attacked side's edge
+lights, the game's left on the screen's right edge and its right on the left.
+Activate Edges holds three switches, all On by default. With Attack incoming
+On, the edge lights yellow on the attack's arrow request, as its parry window
+opens; with Perfect Opportunity On, it lights red on its critical request. With
+only Attack incoming On it stays yellow to the resolve; with only Perfect
+Opportunity On it stays dark until critical; with both Off attacks light
+nothing. A later attack moves the edge to its side; the edge goes out when the
+attack it shows resolves, and a resolve for another indicator changes nothing.
+With Unblockable Attack On, an active unblockable request lights all four
+edges red, over the directional edge, until its inactive request, after which
+the directional attack, if still open, shows again as it now stands. Combat
+end puts every edge out and forgets both. Edges have no animation and no
+sound.
 
 ## Countdown
 
 The Countdown template, a work in progress, builds a time above a thin bar in its layer, 20% of the
-screen height wide, under where the Background's shield at its default size (50% of the height)
+screen height wide, under where the omens' cue area (50% of the height)
 sits for its Position. Its requests (`preymonition/countdown.lua`) time the
 attack and its renderer (`preymonition/countdown_render.lua`) draws it, stepping
 every frame only while something moves.
 
-The perfect opportunity window opens when the attacker's animation says, 0.02–0.81 s after
+The Perfect Opportunity window opens when the attacker's animation says, 0.02–0.81 s after
 the arrow (median 0.42 s, second difficulty). The countdown runs on game time,
 which stops while the game is paused. When the event names the attacker (its
 `stub`, from MCT), it reads the attack's hit window from the game
 (`CombatBlueprintFunctionLibrary:GetHitWindowTime`, through
 `preymonition/combat.lua`), fixed as the arrow shows: the count runs to 0.18 s
-before the hit window starts, where the perfect opportunity window opened in five measured
+before the hit window starts, where the Perfect Opportunity window opened in five measured
 attacks (within 0.05 s), and the red bar to the hit window's end. Without a stub
 or a hit window, the count is 0.3 s times the parry window multiplier read when
 combat starts (0.42 s at 1.4, assumed when it cannot be read) and the red bar
@@ -229,16 +249,37 @@ critical request: the time reads NOW, everything turns red and the red bar runs
 down, then holds empty. A resolve, or
 combat end, hides it. The arrow showing again for the same attack keeps its
 count; a critical request for an attack not counted says NOW at once.
-Unblockable requests are the omens', the background's and the sound cues'.
+Unblockable requests are the omens' and the sound cues'.
+
+## Live preview
+
+The Combat Preymonition page in the mod menu shows a live preview: ModCore
+Templates attaches every selected template, each to its own layer in the
+preview over the Omens' picture (`images/preview_background.jpg`), with the
+page's current settings, applied or not, and loops npc.attacks' script: four
+attacks, left, right, ahead and behind, each first seen (arrow), 700 ms later in
+its Perfect Opportunity window (critical) and 500 ms after that resolved, then
+an unblockable attack for 2 s. All four templates take part. The layers stack
+by priority as on the HUD.
+
+Each template keeps the preview's events to its preview attachment and the
+game's away from it; the preview plays without combat, and combat start and end
+leave it alone. A preview attachment shows its idle state at once: the omens'
+cue fades in. Its animation steps on ExecuteWithDelay rather than
+engine frames, which the mod menu may hold. The Edges light and turn red as in
+combat. The Countdown has no attack to time there and the game may be paused,
+so in the preview it counts 0.7 s, the script's gap from arrow to critical, on
+real time, says NOW as the script's critical comes and runs its red bar over
+the 0.5 s to the resolve. The Audio Cues sound as above.
 
 ## Validation
 
-Offline tests cover registration of the five templates, menu generation against
+Offline tests cover registration of the four templates, menu generation against
 MCT's category, the animation timeline, the omens driven through MCT's
-attack indicator source, the sound cues' sounds against a fake sound bridge, and the background's, edges' and countdown's requests, against fake UE objects.
+attack indicator source, the audio cues' sounds against a fake sound bridge, and the edges' and countdown's requests, against fake UE objects, each in combat and in the live preview.
 
 Checked in game on 2026-10-11, when Preymonition still hooked the game itself:
 hook delivery, placement, arrow and unblockable sounds, the skull, and combat
 start and end, including a loading screen. Not yet checked in game: delivery
-through MCT's `MC_NPCAttackIndicator`, the drawn arrows, Scale and Position,
-the cue sounds, the Sound Cues template, the Edges template on its own layer, the Countdown, the Background template, and most non-default settings.
+through MCT's `MC_NPCAttackIndicator`, the Solid and Chevron pictures, Scale and Position,
+the cue sounds, the Audio Cues template, the Edges template on its own layer, its Activate Edges switches and unblockable lighting, and its gradient pictures, Thickness and Intensity, the Countdown, the live preview of the Edges and the Countdown, and most non-default settings.

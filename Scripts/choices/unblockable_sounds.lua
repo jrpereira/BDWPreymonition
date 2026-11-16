@@ -1,4 +1,4 @@
--- Sound Notifications -> Unblockable Attack: the mod's unblockable sounds
+-- Audio Cues -> Sounds -> Unblockable Attack: the mod's unblockable sounds
 -- sounds/unblockable_<x>.wav, listed by ModCore Settings each time the settings
 -- page is built, after None. Self-contained: it runs in the menu's Lua state.
 return function(context)

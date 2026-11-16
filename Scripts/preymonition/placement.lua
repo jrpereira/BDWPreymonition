@@ -1,19 +1,18 @@
--- Where the shield sits, shared by the templates that line up on it: the
--- Background draws it, the Omens centre their arrows and skull on it.
+-- Where the omens' cue area sits, shared by the templates that line up on it:
+-- the Omens centre their arrows on it and the Countdown sits under it.
 local M={}
 
--- The cue box, as a share of the shorter screen side. The shield image fills it
--- before its Size scales it to its share of the screen height.
+-- The cue box, as a share of the shorter screen side.
 M.SHARE=0.4
--- Position keeps the shield this share of the screen height from the bottom
+-- Position keeps the cue area this share of the screen height from the bottom
 -- (Below) or top (Above) edge; Middle centres it.
 M.MARGIN=0.1
--- The shield's default drawn height, as a share of the screen height: the
--- Omens line up on a shield this size.
+-- The cue area's height, as a share of the screen height: the Omens line up
+-- on an area this size.
 M.SIZE=0.5
 
--- The shield's vertical centre for each Position key, given the screen height
--- and the shield's drawn size in screen units.
+-- The cue area's vertical centre for each Position key, given the screen
+-- height and the area's size in screen units.
 local CENTRES={
     below=function(height,size) return height*(1-M.MARGIN)-size/2 end,
     middle=function(height) return height/2 end,
@@ -25,13 +24,13 @@ function M.position(key)
     return CENTRES[key] and key or 'middle'
 end
 
--- The shield's vertical centre for a Position, given its drawn size in screen units.
+-- The cue area's vertical centre for a Position, given its size in screen units.
 function M.centre(position,height,size)
     return CENTRES[M.position(position)](height,size)
 end
 
--- The cue box's side and the top of the box for a Position, for a shield
--- drawn at share of the screen height.
+-- The cue box's side and the top of the box for a Position, for a cue area
+-- share of the screen height tall.
 function M.box(screen,position,share)
     local side=math.min(screen.width,screen.height)*M.SHARE
     local centre=M.centre(position,screen.height,screen.height*share)

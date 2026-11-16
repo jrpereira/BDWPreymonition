@@ -1,7 +1,7 @@
--- The Sound Cues template: MC_NPCAttackIndicator events play the mod's own sounds
+-- The Audio Cues template: MC_NPCAttackIndicator events play the mod's own sounds
 -- through UE4SSLuaSoundBridge, whatever the other templates show. Attack incoming
 -- plays when an attack is first seen (its parry window opens, the yellow arrow),
--- Perfect opportunity when its perfect opportunity window opens (the red arrow),
+-- Perfect Opportunity when its Perfect Opportunity window opens (the red arrow),
 -- and Unblockable Attack, centred, for an unblockable attack.
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
 
@@ -30,15 +30,15 @@ function userSettings:IsValid() return true end
 function userSettings:GetSetting(id,out) out.OutSettingValue=gameAudio[id]; return gameAudio[id]~=nil end
 function userSettings:GetSettingAsBool(_,out) out.OutSettingBool=gameAudio.mute; return true end
 FindFirstOf=function(class) return class=='RebelGameUserSettings' and userSettings or nil end
--- The Sound Cues never defer work and draw nothing.
-ExecuteWithDelay=function() error('the sound cues defer nothing') end
-StaticConstructObject=function() error('the sound cues draw nothing') end
+-- The Audio Cues never defer work and draw nothing.
+ExecuteWithDelay=function() error('the audio cues defer nothing') end
+StaticConstructObject=function() error('the audio cues draw nothing') end
 
-local template=dofile('Preymonition/Scripts/mc_sounds.lua')
-assert(template.id=='Sounds' and template.label=='Sound Cues' and template.category=='npc.attacks')
+local template=dofile('Preymonition/Scripts/mc_audio.lua')
+assert(template.id=='Audio' and template.label=='Audio Cues' and template.category=='npc.attacks')
 assert(template.objects.hud and template.objects.cue==nil,'the HUD alone: no layer')
-assert(template.preview.sound=='Sound' and template.preview.background==nil,
-    'the preview sounds while a Sound Notifications setting is selected; the Omens give its picture')
+assert(template.preview.sound==true and template.preview.background==nil and template.defaultEnabled==true,
+    'on by default; the preview sounds while any Audio Cues setting is selected; the Omens give its picture')
 assert(not template.description:find(';',1,true),'no semicolons in the description')
 
 local hud={}
@@ -82,15 +82,15 @@ arrow(LEFT)
 assert(#plays==0,'nothing plays outside combat')
 wake()
 
--- An attack: Attack incoming when it is first seen, Perfect opportunity when its
--- perfect opportunity window opens, each once; whatever the Omens' buildup.
+-- An attack: Attack incoming when it is first seen, Perfect Opportunity when its
+-- Perfect Opportunity window opens, each once; whatever the Omens' Attack Incoming and Perfect Opportunity.
 local mark=#plays
 arrow(BOTTOM)
 assert(played(mark)=='cue_rumble','Attack incoming plays on the first arrow')
 arrow(BOTTOM)
 assert(played(mark)=='cue_rumble','a repeated arrow does not replay it')
 critical(BOTTOM)
-assert(played(mark)=='cue_rumble cue_ding','Perfect opportunity plays when it goes critical')
+assert(played(mark)=='cue_rumble cue_ding','Perfect Opportunity plays when it goes critical')
 critical(BOTTOM)
 arrow(BOTTOM)
 assert(played(mark)=='cue_rumble cue_ding','repeated events for the same attack replay nothing')
@@ -121,10 +121,10 @@ resolve(OTHER)
 arrow(LEFT)
 assert(played(mark)=='cue_rumble cue_ding cue_rumble','once all resolve, the next attack plays')
 resolve()
--- An attack first seen critical plays only Perfect opportunity.
+-- An attack first seen critical plays only Perfect Opportunity.
 mark=#plays
 critical(RIGHT)
-assert(played(mark)=='cue_ding','first seen critical: only Perfect opportunity')
+assert(played(mark)=='cue_ding','first seen critical: only Perfect Opportunity')
 arrow(RIGHT)
 assert(played(mark)=='cue_ding','and its arrow plays nothing after it')
 resolve()
@@ -168,7 +168,7 @@ local function cueSound(direction)
     return table.concat(out,' ')
 end
 loads={}
-soundCue({SoundIncoming='ping',SoundPerfect='none',SoundUnblockable='none',SoundVolume=150})
+soundCue({SoundIncoming='ping',SoundPerfect='none',SoundUnblockable='none',OptionsVolume=150})
 assert(#loads==1 and loads[1]==ROOT..'/sounds/cue_ping.wav','only the chosen sound loads; None loads nothing')
 assert(cueSound(LEFT)=='1/-/-/1.5','the game\'s left arrow pans right, at its volume')
 assert(cueSound(RIGHT)=='-1/-/-/1.5','and its right arrow left')
@@ -176,35 +176,36 @@ assert(cueSound(TOP)=='-/1.2/-/1.5','a top arrow plays 20% higher by default')
 assert(cueSound(BOTTOM)=='-/0.8/1200/1.5','a bottom arrow 20% lower and muffled, once')
 assert(#loads==1,'no reload')
 -- Differentiate back/front by pitch sets both pitches.
-soundCue({SoundIncoming='ping',SoundPitch={-35,10}})
+soundCue({SoundIncoming='ping',OptionsPitch={-35,10}})
 assert(cueSound(TOP)=='-/1.1/-/1.0' and cueSound(BOTTOM)=='-/0.65/1200/1.0','the chosen pitches')
 -- Directional sound off: every arrow plays as recorded, centred.
-soundCue({SoundIncoming='ping',SoundDirectional=0,SoundPitch={-35,10}})
+soundCue({SoundIncoming='ping',OptionsDirectional=0,OptionsPitch={-35,10}})
 assert(cueSound(LEFT)=='-/-/-/1.0' and cueSound(TOP)=='-/-/-/1.0' and cueSound(BOTTOM)=='-/-/-/1.0',
     'without directional sound the arrows play alike')
 -- The game's Master and Effects volume scale the sounds, read when combat
 -- starts; muted, they are silent. Unreadable, the last value stays.
 gameAudio[1],gameAudio[3]=80,50
-soundCue({SoundIncoming='ping',SoundDirectional=0,SoundVolume=150})
+soundCue({SoundIncoming='ping',OptionsDirectional=0,OptionsVolume=150})
 assert(cueSound(TOP)=='-/-/-/0.6','Sound volume times the game\'s Master and Effects volume')
 gameAudio.mute=true
-soundCue({SoundIncoming='ping',SoundDirectional=0})
+soundCue({SoundIncoming='ping',OptionsDirectional=0})
 assert(cueSound(TOP)=='-/-/-/0.0','silent while the game is muted')
 gameAudio.mute,gameAudio[3]=false,nil
-soundCue({SoundIncoming='ping',SoundDirectional=0})
+soundCue({SoundIncoming='ping',OptionsDirectional=0})
 assert(cueSound(TOP)=='-/-/-/0.0','an unreadable volume keeps the last one read')
 gameAudio[3]=100
-soundCue({SoundIncoming='ping',SoundDirectional=0})
+soundCue({SoundIncoming='ping',OptionsDirectional=0})
 assert(cueSound(TOP)=='-/-/-/0.8','and a readable one replaces it')
 gameAudio[1]=100
--- The Omens' buildup settings change nothing here: a held, hidden yellow arrow
+-- The Omens' Attack Incoming and Perfect Opportunity change nothing here: a
+-- held, hidden yellow arrow
 -- still plays Attack incoming as the attack is first seen.
-soundCue({SoundIncoming='ping',SoundPerfect='ding',ParryBuildupVisibility='hidden',ParryBuildupAnimation='static',ParryStyle='off'})
+soundCue({SoundIncoming='ping',SoundPerfect='ding',ParryIncoming='off',ParryPerfect='start',ParryStyle='off'})
 mark=#plays
 arrow(BOTTOM)
 critical(BOTTOM)
 resolve()
-assert(played(mark)=='cue_ping cue_ding','Attack incoming and Perfect opportunity whatever the Omens show')
+assert(played(mark)=='cue_ping cue_ding','Attack incoming and Perfect Opportunity whatever the Omens show')
 -- A sound whose file is gone plays nothing.
 missingFiles[ROOT..'/sounds/cue_gone_file.wav']=true
 soundCue({SoundIncoming='gone_file'})
@@ -215,12 +216,12 @@ soundCue({SoundIncoming='knock'})
 assert(cueSound(LEFT)=='','without the sound bridge nothing plays')
 UE4SSLuaSoundBridge=soundBridge()
 -- A play the bridge refuses is reported once and stops nothing.
-local Sounds=require('preymonition.sounds')
+local Audio=require('preymonition.audio')
 local warned=0
 local logger={enabled=function() return false end}
 for _,level in ipairs({'trace','debug','info','error','critical'}) do logger[level]=function() end end
 logger.warn=function() warned=warned+1 end
-Sounds.setLog(logger)
+Audio.setLog(logger)
 soundCue({SoundIncoming='ping'})
 local Sound=require('preymonition.sound')
 local play=Sound.play
@@ -257,28 +258,36 @@ assert(played(mark)=='cue_bell cue_clink cue_bell cue_ping','a game event reache
 resolve()
 sleep()
 
--- Sound Notifications: Attack incoming and Perfect opportunity offer None and the
--- cue sounds listed from the sounds folder, with no notes; then the unblockable
--- sounds, directional sound and its pitches, and the volume.
-local soundGroup
-for _,entry in ipairs(template.menu) do if entry.id=='Sound' then soundGroup=entry end end
-local soundFields,order={},{}
-for _,field in ipairs(soundGroup.fields) do soundFields[field.id]=field; order[#order+1]=field.id end
-assert(table.concat(order,' ')=='.Incoming .Perfect .Unblockable .Directional .Pitch .Volume','the six rows in order')
+-- Sounds: Attack incoming and Perfect Opportunity offer None and the cue sounds
+-- listed from the sounds folder, with no notes; then the unblockable sounds.
+-- Options: directional sound and its pitches, and the volume.
+local groups,groupOrder={},{}
+for _,entry in ipairs(template.menu) do groups[entry.id]=entry; groupOrder[#groupOrder+1]=entry.id end
+assert(table.concat(groupOrder,' ')=='Sound Options','Sounds, then Options')
+local soundGroup,optionsGroup=groups.Sound,groups.Options
+local function rows(group)
+    local fields,order={},{}
+    for _,field in ipairs(group.fields) do fields[field.id]=field; order[#order+1]=field.id end
+    return fields,table.concat(order,' ')
+end
+local soundFields,soundOrder=rows(soundGroup)
+local optionFields,optionOrder=rows(optionsGroup)
+assert(soundOrder=='.Incoming .Perfect .Unblockable','the three sound rows in order')
+assert(optionsGroup.label=='Options' and optionOrder=='.Directional .Pitch .Volume','the three option rows in order')
 local incoming,perfectField,skullField=soundFields['.Incoming'],soundFields['.Perfect'],soundFields['.Unblockable']
-assert(soundGroup.label=='Sound Notifications' and incoming.label=='Attack incoming'
-    and perfectField.label=='Perfect opportunity' and skullField.label=='Unblockable Attack','the three pickers')
+assert(soundGroup.label=='Sounds' and incoming.label=='Attack incoming'
+    and perfectField.label=='Perfect Opportunity' and skullField.label=='Unblockable Attack','the three pickers')
 assert(incoming.values==perfectField.values and incoming.default=='rumble' and perfectField.default=='ding',
     'the same keyed options; Rumble and Ding by default')
 assert(#incoming.values==2 and incoming.values[1].key=='none' and incoming.values[1].note==nil
     and incoming.values[2].from=='choices/cue_sounds.lua','None, then the listed cue sounds')
 assert(skullField.default=='growl' and #skullField.values==2 and skullField.values[1].key=='none'
     and skullField.values[2].from=='choices/unblockable_sounds.lua','None, then the listed unblockable sounds; Growl by default')
-assert(soundFields['.Directional'].default==1 and soundFields['.Directional'].widget=='switch','directional on by default')
-local pitch=soundFields['.Pitch']
+assert(optionFields['.Directional'].default==1 and optionFields['.Directional'].widget=='switch','directional on by default')
+local pitch=optionFields['.Pitch']
 assert(pitch.type=='range' and pitch.values.min==-50 and pitch.values.max==50 and pitch.default[1]==-20 and pitch.default[2]==20
     and pitch.conditions.visible.field=='.Directional','pitch from -50% to 50%, -20% and 20% by default, with directional sound')
-assert(soundFields['.Volume'].default==100 and soundFields['.Volume'].label=='Sound volume','sounds play as recorded by default')
+assert(optionFields['.Volume'].default==100 and optionFields['.Volume'].label=='Sound volume','sounds play as recorded by default')
 
 detachAll()
 wake()
@@ -286,4 +295,4 @@ mark=#plays
 arrow(LEFT)
 assert(#plays==mark,'detached, nothing plays')
 sleep()
-print('PASS: the Sound Cues play Attack incoming, Perfect opportunity and Unblockable Attack once per attack, directional, in preview and in combat')
+print('PASS: the Audio Cues play Attack incoming, Perfect Opportunity and Unblockable Attack once per attack, directional, in preview and in combat')

@@ -32,13 +32,20 @@ local function frames()
 end
 
 -- Deferred work guards itself: an animation step stops once its cue is
--- detached. timer: always ExecuteWithDelay (a preview runs while the mod menu may
--- hold the game's frames).
+-- detached. The preview steps by frames too: the engine ticks with the mod menu open
+-- (checked live, 2026-11-16), and an ExecuteWithDelay every frame for minutes left
+-- UE4SS with dead callbacks and crashed the game. timer is ignored.
 local function later(milliseconds,callback,timer)
-    if milliseconds<=FRAME_MS and frames() and not timer then
+    if milliseconds<=FRAME_MS and frames() then
         ExecuteInGameThreadAfterFrames(1,callback)
     else
-        ExecuteWithDelay(milliseconds,function() ExecuteInGameThread(callback) end)
+        -- On the game thread: ExecuteWithDelay runs its callback on UE4SS's async thread,
+        -- in this mod's Lua state while the game thread may use it.
+        if type(rawget(_G,'ExecuteInGameThreadWithDelay'))=='function' then
+            ExecuteInGameThreadWithDelay(math.max(1,math.floor(milliseconds)),callback)
+        else
+            ExecuteWithDelay(milliseconds,function() ExecuteInGameThread(callback) end)
+        end
     end
 end
 
@@ -112,15 +119,17 @@ end
 
 -- Shows an attack from an indicator in the cue of the same world. MCT reports
 -- an attack as arrow when it shows up (its parry window opens) and as critical
--- when its perfect opportunity window opens; for the cue's own attack either
+-- when its Perfect Opportunity window opens; for the cue's own attack either
 -- escalates it.
 --
--- A held buildup (any Buildup pair but Normal and Normal) affects the arrow
--- alone: its attack is still shown from the first arrow. Until the perfect
--- opportunity window opens the arrow is a buildup, shown and moved as Buildup
--- visibility and animation say; then it turns red and carries its animation on
--- from there to the end. With Normal and Normal it shows and moves from the
--- first arrow and jumps to its critical size when that window opens.
+-- Attack Incoming and Perfect Opportunity affect the arrow alone: its attack
+-- is still shown from the first arrow (preymonition.omens_render's phases).
+-- A held arrow is the yellow arrow until the Perfect Opportunity window opens,
+-- shown and moved as the pair says; then it turns red and carries its
+-- animation on from there to the end. An arrow not held shows and moves from
+-- the first arrow and jumps to its critical size when that window opens.
+-- Without red (Perfect Opportunity Off) a critical event counts as an arrow:
+-- the arrow stays yellow and moves as usual until the attack resolves.
 --
 -- An attack in the direction of the arrow still shown counts as that arrow's,
 -- whatever its indicator: the game sometimes reports one attack twice, and a new
@@ -128,13 +137,13 @@ end
 local function present(indicator,path,direction,event)
     local record=cueFor(indicator,event.preview)
     if not record then log.trace('arrow #',event.sequence,': no cue in the indicator world'); return end
-    local perfect=record.perfectOnly
-    local critical=event.kind=='critical'
+    local held=record.held
+    local critical=record.red and event.kind=='critical'
     if record.source and record.direction==direction then
         record.paths[path]=true
-        if record.critical then return end
-        if perfect and not critical then return end
-        if perfect then
+        if record.critical or not record.red then return end
+        if held and not critical then return end
+        if held then
             record.critical=true
             Cue.critical(record.ui,direction)
             if record.model:reveal(direction) then
@@ -146,12 +155,12 @@ local function present(indicator,path,direction,event)
         escalate(record,path,direction)
         return
     end
-    -- First seen critical with a held buildup: its show starts red now.
-    local mode=perfect and (critical and 'critical' or 'held') or nil
+    -- First seen critical with a held arrow: its show starts red now.
+    local mode=held and (critical and 'critical' or 'held') or nil
     if mode=='critical' then Cue.critical(record.ui,direction) else Cue.arm(record.ui,direction) end
     record.source,record.direction,record.critical=path,direction,mode=='critical' or nil
     record.paths={[path]=true}
-    if record.model:show(direction,event.path..':'..event.sequence,mode,record.buildupTravel) then
+    if record.model:show(direction,event.path..':'..event.sequence,mode,record.travel) then
         log.debug('show ',DIRECTIONS[direction],mode and ' '..mode or '',' from ',path)
         pump(record)
     end
@@ -240,7 +249,7 @@ local function startCombat()
 end
 
 -- MC_NPCAttackIndicator events, by kind. An arrow and a critical arrow are
--- presented alike: the perfect opportunity window of a cue's own attack
+-- presented alike: the Perfect Opportunity window of a cue's own attack
 -- escalates it, and a critical arrow from another indicator shows as that
 -- indicator's attack.
 local function arrow(event) present(event.indicator,event.path,event.direction,event) end
@@ -281,12 +290,13 @@ end
 
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
-    -- The buildup: held back until the perfect opportunity window opens unless
-    -- Buildup visibility and Buildup animation are both Normal; Buildup
-    -- animation sets how far it moves (preymonition.omens_render's buildup).
-    local buildup=Cue.buildup(settings)
-    local record={detached=false,preview=params.preview==true,perfectOnly=buildup.held,
-        buildupTravel=buildup.travel}
+    -- The arrow's phases by Attack Incoming and Perfect Opportunity: whether
+    -- the yellow arrow is held back until the Perfect Opportunity window opens,
+    -- how far it moves, and whether that window turns it red
+    -- (preymonition.omens_render's phases).
+    local phases=Cue.phases(settings)
+    local record={detached=false,preview=params.preview==true,held=phases.held,
+        travel=phases.travel,red=phases.red}
     record.onFrame=function()
         local ok,why=Cue.pass(frame,record)
         if not ok then record.scheduled=false; fail('animation step',why) end
@@ -316,8 +326,8 @@ function M.attach(hud,layer,params,onCleanup)
     end
     log.info(record.preview and 'preview cue attached, position ' or 'cue attached, position ',ui.visuals.position,', screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale)
-    if ui.visuals.style=='fancy' and not ui.visuals.fancy then
-        log.warn('Fancy arrow pictures did not load; drawing Chevrons')
+    if ui.visuals.missing then
+        log.warn('arrow picture for Style ',ui.visuals.style,' did not load; no arrows show')
     end
 end
 

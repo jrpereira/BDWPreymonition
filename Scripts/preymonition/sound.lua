@@ -1,5 +1,5 @@
--- The Sound Cues' sounds: the mod's own WAV files, played through UE4SSLuaSoundBridge.
--- Attack incoming and Perfect opportunity play sounds/cue_<key>.wav and an
+-- The Audio Cues' sounds: the mod's own WAV files, played through UE4SSLuaSoundBridge.
+-- Attack incoming and Perfect Opportunity play sounds/cue_<key>.wav and an
 -- unblockable attack sounds/unblockable_<key>.wav. The menu lists them each time it opens
 -- (Scripts/choices/), so a file added while the game runs is offered the next time.
 
@@ -101,7 +101,7 @@ end
 -- Loaded sounds by path, kept for the Lua state's life.
 local loaded={}
 
--- Loads a sound when the Sound Cues attach rather than at its first play,
+-- Loads a sound when the Audio Cues attach rather than at its first play,
 -- mid-combat. Returns true, or false and why.
 function M.preload(path)
     if loaded[path] and not loaded[path].released then return true end

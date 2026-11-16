@@ -1,10 +1,9 @@
--- The omens' widgets: the arrows, centred where the Background template draws
--- its shield at their Position (preymonition.placement), and the unblockable
+-- The omens' widgets: the arrows, centred at their Position
+-- (preymonition.placement), and the unblockable
 -- indicator at the screen's centre. The game's
 -- combat state comes from preymonition.combat.
 local MC=require('mc')
 local Placement=require('preymonition.placement')
-local Drawn=require('preymonition.omens_drawn')
 local Fancy=require('preymonition.omens_fancy')
 local Images=require('preymonition.omens_images')
 
@@ -31,21 +30,12 @@ local SIZE={1,10}
 local SKULL_SIZE={1,1/UNIT}
 -- Where each arrow travels on the screen: 1 vertical (height), 2 horizontal (width).
 local AXIS={2,2,1,1}
--- The Perspective style lays the cue flat on a plane parallel to the ground,
--- through the character's waist, seen from a camera TILT degrees above it at
--- DISTANCE screen heights from the cue's centre. Up on the screen is away from
--- the camera; positions and shapes keep their flat sizes at the centre.
-local PERSPECTIVE={tilt=20,distance=0.5}
--- On the ground plane an arrow travelling away nears the horizon without ever
--- reaching it: its travel ends where it has shrunk to FARTHEST of its size, unless
--- the screen edge comes first.
-local FARTHEST=0.25
 -- What apply last wrote to each arrow, by these keys in ui.applied.
 local KEYS={}
 for index=1,#ARROWS do
     KEYS[index]={opacity='opacity'..index,scale='scale'..index,translation='translation'..index}
 end
-local arrowSize,skullScale,fit,tipDistance,reach,shareOf,projector,groundMap,paintParts
+local arrowSize,skullScale,fit,tipDistance,paintParts
 -- Widget names stay unique across Lua reloads: generation restarts with the
 -- Lua state, while a HUD that survives the reload still holds the old names.
 local generation=0
@@ -171,33 +161,38 @@ local function unblockablePicture(key)
     return 'unblockable_'..key:lower()..'.png'
 end
 local SHOWN,CLEAR={R=1,G=1,B=1,A=1},{R=1,G=1,B=1,A=0}
--- The arrows by Style: Off draws none, Solid and Chevron are drawn by the cue,
--- Perspective is a Chevron lying on the ground plane, and Fancy uses the mod's
--- pictures (a Chevron when they do not load). An unknown Style is Chevron, the default.
-local STYLES={
-    off={arrows=false,shape='chevron'},
-    solid={arrows=true,shape='solid'},
-    chevron={arrows=true,shape='chevron'},
-    perspective={arrows=true,shape='chevron',perspective=true},
-    fancy={arrows=true,shape='chevron',fancy=true},
-}
--- A held buildup arrow's opacity by Buildup visibility, and the share of its
--- growth and travel by Buildup animation (Partial: 30% of its size and way).
--- An unknown value of either is Normal, the default.
-local BUILDUP_OPACITY={hidden=0,faint=0.35,normal=1}
-local BUILDUP_TRAVEL={static=0,partial=0.3,normal=1}
+-- The arrows by Style: Off draws none, and any other Style names one of the mod's
+-- pictures, omen_<style>.png (Solid, Chevron and Fancy ship; none show when it does not
+-- load). A Style that is not a key is Chevron, the default.
+local function styleOf(key)
+    if key=='off' then return key,{arrows=false} end
+    if type(key)=='string' and key:match('^[%w_]+$') and not tonumber(key) then
+        return key,{arrows=true}
+    end
+    return 'chevron',{arrows=true}
+end
+-- The parry arrow's two phases, from Attack Incoming (the yellow arrow, before the
+-- Perfect Opportunity window) and Perfect Opportunity (how the red arrow takes over):
+--   opacity  the yellow arrow's opacity, by Attack Incoming: Normal, Faint, Off
+--   travel   the share of its growth and travel the yellow arrow makes, by Perfect
+--            Opportunity: End runs its course, Halfway 50%, Start none
+--   held     the yellow arrow is held back and the red carries its growth and travel
+--            on to the end: unless Attack Incoming is Normal and Perfect Opportunity
+--            End (then the yellow runs its course and the red jumps to its full size),
+--            or Perfect Opportunity is Off
+--   red      whether the Perfect Opportunity window turns the arrow red; Off keeps it
+--            yellow until the attack resolves
+-- An unknown value of either is the default: Normal, End.
+local OPACITY={normal=1,faint=0.35,off=0}
+local TRAVEL={['end']=1,halfway=0.5,start=0,off=1}
 
--- The buildup, the yellow arrow before the perfect opportunity window opens:
--- Buildup visibility and Buildup animation both Normal show and move it from
--- the first sighting; any other pair holds it back until that window opens.
--- Returns whether it is held, a held arrow's opacity, and its travel share.
-function M.buildup(settings)
-    local visibility=settings.ParryBuildupVisibility
-    if not BUILDUP_OPACITY[visibility] then visibility='normal' end
-    local animation=settings.ParryBuildupAnimation
-    if not BUILDUP_TRAVEL[animation] then animation='normal' end
-    local held=not (visibility=='normal' and animation=='normal')
-    return {held=held,opacity=held and BUILDUP_OPACITY[visibility] or 1,travel=BUILDUP_TRAVEL[animation]}
+-- The phases for the settings' Attack Incoming and Perfect Opportunity.
+function M.phases(settings)
+    local incoming=OPACITY[settings.ParryIncoming] and settings.ParryIncoming or 'normal'
+    local perfect=TRAVEL[settings.ParryPerfect] and settings.ParryPerfect or 'end'
+    local red=perfect~='off'
+    return {held=red and not (incoming=='normal' and perfect=='end'),opacity=OPACITY[incoming],
+        travel=TRAVEL[perfect],red=red}
 end
 
 -- A range setting as shares, 0 to 1: {low, high}. MCT gives it as {low, high} percent.
@@ -209,16 +204,17 @@ end
 
 -- The cue settings: percentages of the current look, and choices.
 local function config(settings)
-    local key=STYLES[settings.ParryStyle] and settings.ParryStyle or 'chevron'
-    local style=STYLES[key]
+    local key,style=styleOf(settings.ParryStyle)
+    local phases=M.phases(settings)
     return {
-        buildupOpacity=M.buildup(settings).opacity,
+        yellowOpacity=phases.opacity,
+        red=phases.red,
         position=Placement.position(settings.ParryPosition),
         -- Movement and Size are shares, 0 to 1: the movement is {appears,
         -- stops} of the way to the screen edge, the size {starting, grown}.
         move=share(settings.ParryMovement,40,60),
         size=share(settings.ParrySize,30,80),
-        style=key,arrows=style.arrows,shape=style.shape,perspective=style.perspective==true,fancy=style.fancy==true,
+        style=key,arrows=style.arrows,
         -- The unblockable indicator's Style and its {starting, grown} size as
         -- shares, 0 to 1.
         unblockable=unblockablePicture(settings.UnblockableStyle),
@@ -240,48 +236,37 @@ function M.build(hud,layer,screen,settings)
     local centre=construct('/Script/UMG.SizeBox',tree,'PreymonitionUnblockable'..suffix)
     local shield=construct('/Script/UMG.Image',tree,'PreymonitionCentre'..suffix)
     local arrows=construct('/Script/UMG.Overlay',tree,'PreymonitionArrows'..suffix)
-    -- Plain numbers: each arrow's turn, the flat shape's size, the units along
-    -- each axis, and the ground plane's projection for Perspective.
-    -- Fancy needs its pictures; without them the cue draws a Chevron.
-    local normal,critical
-    if visuals.fancy then
-        normal,critical=Fancy.load(hud)
-        if not normal then visuals.fancy=false end
+    -- Plain numbers: each arrow's turn, the shape's size and the units along
+    -- each axis.
+    -- The Style's picture; without it no arrows show (visuals.missing).
+    local picture
+    if visuals.arrows then
+        picture=Fancy.load(hud,visuals.style)
+        if not picture then visuals.arrows,visuals.missing=false,true end
     end
-    local flat=visuals.fancy and {width=Fancy.SIZE.X,height=Fancy.SIZE.Y} or Drawn.layout(visuals.shape)
+    local flat={width=Fancy.SIZE.X,height=Fancy.SIZE.Y}
     local angle={}
-    for index=1,#ARROWS do
-        angle[index]=visuals.fancy and Fancy.angle(OUTWARD[index]) or Drawn.angle(OUTWARD[index])
-    end
+    for index=1,#ARROWS do angle[index]=Fancy.angle(OUTWARD[index]) end
     local ui={angle=angle,shapeSize={X=flat.width,Y=flat.height},visuals=visuals,
         unit={screen.width*UNIT,screen.height*UNIT},applied={}}
-    -- The box shares the Background shield's centre at its default size, at
-    -- the arrows' Position vertically.
+    -- The box is centred where preymonition.placement puts a cue area of its
+    -- default size, at the arrows' Position vertically.
     local size,top=Placement.box(screen,visuals.position,Placement.SIZE)
     ui.box=size
-    -- How far each arrow's screen edge is from the cue's centre, matching ARROWS.
+    -- How far each arrow may travel from the cue's centre, matching ARROWS. Up and down
+    -- travel alike, as far as the nearer of the top and bottom screen edges, so an arrow
+    -- from behind moves as much as one from ahead at any Position.
     local middle=top+size/2
-    ui.edge={middle,screen.height-middle,screen.width/2,screen.width/2}
-    if visuals.perspective then
-        ui.camera=screen.height*PERSPECTIVE.distance
-        ui.project=projector(ui.camera)
-    end
+    local vertical=math.min(middle,screen.height-middle)
+    ui.edge={vertical,vertical,screen.width/2,screen.width/2}
     -- Each arrow is centred at its own size; apply places and sizes it.
     -- An arrow the cue draws, turned for its direction, with its coloured parts
-    -- kept per direction. On the ground plane its shape is drawn as it looks
-    -- where it appears, already turned; apply then moves and scales it.
-    local images,parts,growers={},{},{}
+    -- kept per direction; apply moves and scales it.
+    local images,parts={},{}
     local function makeArrow(index,name)
         local build=function(class,part) return construct(class,tree,part) end
-        local arrow,_,coloured
-        local map=ui.project and groundMap(ui,index)
-        if visuals.fancy then
-            arrow,coloured=Fancy.build(build,name,normal,critical)
-            growers[index]={}
-        else
-            arrow,_,coloured,growers[index]=Drawn.build(build,name,visuals.shape,map)
-        end
-        if not map then arrow:SetRenderTransformAngle(angle[index]) end
+        local arrow,coloured=Fancy.build(build,name,picture)
+        arrow:SetRenderTransformAngle(angle[index])
         for _,entry in ipairs(coloured) do
             parts[index][#parts[index]+1]=entry
         end
@@ -335,29 +320,22 @@ function M.build(hud,layer,screen,settings)
 
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
         stack=hold(stack,'stack'),centre=hold(centre,'centre'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
-        images={},parts={},growers={}}
+        images={},parts={}}
     for index,image in ipairs(images) do handles.images[index]=hold(image,ARROWS[index]) end
-    -- A drawn arrow's parts, resolved only to recolour them.
+    -- An arrow's layers, resolved only to recolour them.
     for index,list in ipairs(parts) do
         handles.parts[index]={}
         for at,entry in ipairs(list) do handles.parts[index][at]={hold(entry[1],'arrow part'),entry[2]} end
-    end
-    -- The widgets that grow, resolved only when their scale changes.
-    for index,list in ipairs(growers) do
-        handles.growers[index]={}
-        for at,entry in ipairs(list) do handles.growers[index][at]={hold(entry[1],'arrow part'),entry[2]} end
     end
     ui.handles=handles
     return ui
 end
 
--- Colours an arrow's parts, as {widget,role}: drawn parts take the colour,
--- Fancy shows its red picture for the critical colour and its yellow one otherwise.
+-- Colours an arrow's layers, as {widget,role}: the glow red for the critical colour and
+-- yellow otherwise, the core white.
 function paintParts(ui,list,color)
     for _,entry in ipairs(list) do
-        local value=ui.visuals.fancy and Fancy.color(entry[2],color==CRITICAL_COLOR)
-            or Drawn.color(entry[2],color)
-        entry[1]:SetColorAndOpacity(value)
+        entry[1]:SetColorAndOpacity(Fancy.color(entry[2],color==CRITICAL_COLOR))
     end
 end
 
@@ -423,7 +401,7 @@ function skullScale(ui,grow)
     local share=size[1]+(size[2]-size[1])*grow
     return ui.unit[2]*(SKULL_SIZE[1]+(SKULL_SIZE[2]-SKULL_SIZE[1])*share)/ui.box
 end
--- The render scale that gives the drawn shape the arrow's size along its larger
+-- The render scale that gives the picture the arrow's size along its larger
 -- side, and how far its tip then reaches from its centre: half its turned extent
 -- along the arrow's axis.
 function fit(ui,index,size)
@@ -437,98 +415,24 @@ end
 -- How far an arrow's tip is from the cue's centre at a share of its travel.
 -- Movement from Center is measured in the space the arrow has: at 0% the
 -- arrow, at its starting size, has its back edge on the centre; at 100% its
--- tip is at the screen edge (on the ground plane, the furthest it can show).
+-- tip is at the screen edge.
 -- It appears with its tip at the low share and travels to the high one.
 function tipDistance(ui,index,offset)
-    local move=ui.visuals.move
+    local move,edge=ui.visuals.move,ui.edge[index]
     local _,tip=fit(ui,index,arrowSize(ui,0))
     -- Where the tip is at 0%, as a share of the way to the edge.
-    local start=math.min(1,shareOf(ui,index,2*tip))
-    local function at(share) return reach(ui,index,start+(1-start)*share) end
+    local start=math.min(1,2*tip/edge)
+    local function at(share) return edge*(start+(1-start)*share) end
     local from,to=at(move[1]),at(move[2])
     return from+(to-from)*offset
 end
 
--- How far out a share of an arrow's travel is, in flat units from the cue's
--- centre. 100% is the furthest the arrow can show: the screen edge, or on the
--- ground plane the edge or where a receding arrow ends (see FARTHEST). Shares
--- are of that distance on the screen, so on the ground plane a nearing arrow
--- covers less ground than a receding one for the same share.
-function reach(ui,index,share)
-    local edge=ui.edge[index]
-    if not ui.project or OUTWARD[index].Y==0 then return share*edge end
-    local camera,tilt=ui.camera,math.rad(PERSPECTIVE.tilt)
-    local sin,cos=math.sin(tilt),math.cos(tilt)
-    local away=OUTWARD[index].Y<0
-    -- On the screen: the projection puts ground t out at t*sin*camera/(camera±t*cos).
-    local limit=away and math.min(edge,(1-FARTHEST)*camera*sin/cos) or edge
-    local screen=share*limit
-    return screen*camera/(camera*sin+(away and -1 or 1)*screen*cos)
-end
-
--- The share of the way out (as reach measures it) that a flat distance from
--- the cue's centre is: reach's inverse.
-function shareOf(ui,index,flat)
-    local edge=ui.edge[index]
-    if not ui.project or OUTWARD[index].Y==0 then return flat/edge end
-    local camera,tilt=ui.camera,math.rad(PERSPECTIVE.tilt)
-    local sin,cos=math.sin(tilt),math.cos(tilt)
-    local away=OUTWARD[index].Y<0
-    local limit=away and math.min(edge,(1-FARTHEST)*camera*sin/cos) or edge
-    local screen=flat*camera*sin/(camera+(away and 1 or -1)*flat*cos)
-    return screen/limit
-end
-
--- The ground plane's projection: a flat offset from the cue's centre (y down)
--- read as a point on the plane, up being away from the camera. Returns where it
--- shows and how much nearer things grow, 1 at the centre.
-function projector(distance)
-    local tilt=math.rad(PERSPECTIVE.tilt)
-    local sin,cos=math.sin(tilt),math.cos(tilt)
-    return function(x,y)
-        local depth=-y
-        local k=distance/math.max(distance*0.1,distance+depth*cos)
-        return x*k,-depth*sin*k,k
-    end
-end
--- Extends an arrow's lines so the shape is extra design units wider, writing
--- only the parts whose scale changed.
-local function grow(ui,index,extra)
-    for at,entry in ipairs(ui.handles.growers[index]) do
-        local x,y=Drawn.growScale(entry[2],extra)
-        local key='grow'..index..'_'..at
-        local last=ui.applied[key]
-        if not (last and math.abs(last.X-x)<1e-6 and math.abs(last.Y-y)<1e-6) then
-            local widget=assert(MC.get(entry[1]),'Preymonition cue is no longer valid')
-            ui.applied[key]={X=x,Y=y}
-            widget:SetRenderScale({X=x,Y=y})
-        end
-    end
-end
--- Where an arrow's flat centre sits at a share of its travel, and its scale.
--- A drawn arrow keeps its starting scale and grows by extending its lines from
--- the tip; a Fancy picture scales as a whole. Either way the tip stays where
--- the travel puts it.
-local function flatPlace(ui,index,offset,grow)
-    local scale,tip=fit(ui,index,arrowSize(ui,ui.visuals.fancy and grow or 0))
+-- Where an arrow's centre sits at a share of its travel, and its scale: the picture
+-- scales as a whole, its tip staying where the travel puts it.
+local function place(ui,index,offset,grow)
+    local scale,tip=fit(ui,index,arrowSize(ui,grow))
     return tipDistance(ui,index,offset)-tip,scale
 end
--- The map from the shape's design units to the arrow as it shows where it
--- appears, per unit of its scale there: turned, scaled and placed flat, then
--- projected, relative to the projected centre.
-function groundMap(ui,index)
-    local out,turn=OUTWARD[index],math.rad(ui.angle[index])
-    local centre,scale=flatPlace(ui,index,0)
-    local cx,cy=out.X*centre,out.Y*centre
-    local px,py,k=ui.project(cx,cy)
-    local cos,sin=math.cos(turn),math.sin(turn)
-    return function(point)
-        local x,y=point.X*cos-point.Y*sin,point.X*sin+point.Y*cos
-        local sx,sy=ui.project(cx+x*scale,cy+y*scale)
-        return {X=(sx-px)/(scale*k),Y=(sy-py)/(scale*k)}
-    end
-end
-
 function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
@@ -541,22 +445,12 @@ function M.apply(ui,state)
     end
     for index,arrow in ipairs(state.arrows) do
         local out=OUTWARD[index]
-        local centre,scale=flatPlace(ui,index,arrow.offset,arrow.grow)
-        -- How much wider than its starting shape it is, in design units; a
-        -- hidden arrow keeps its lines until it shows again.
-        if arrow.opacity>0 and not visuals.fancy then
-            grow(ui,index,arrowSize(ui,arrow.grow)/scale-ui.shapeSize.X)
-        end
+        local centre,scale=place(ui,index,arrow.offset,arrow.grow)
         local x,y=out.X*centre,out.Y*centre
-        -- On the ground plane the arrow shows where its flat place projects,
-        -- nearer ones larger.
-        if ui.project then
-            local k
-            x,y,k=ui.project(x,y)
-            scale=scale*k
-        end
-        -- A buildup arrow shows at Buildup visibility.
-        local opacity=visuals.arrows and arrow.opacity*(arrow.held and visuals.buildupOpacity or 1) or 0
+        -- A yellow arrow shows at Attack Incoming's opacity: a held one until
+        -- the Perfect Opportunity window opens, and every one without red.
+        local yellow=arrow.held or not visuals.red
+        local opacity=visuals.arrows and arrow.opacity*(yellow and visuals.yellowOpacity or 1) or 0
         local widget,keys=widgets.images[index],KEYS[index]
         set(ui,widget,keys.opacity,'SetRenderOpacity',opacity)
         setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)
@@ -599,7 +493,7 @@ function M.destroy(ui)
     for key,handle in pairs(handles) do
         if key=='images' then
             for _,image in ipairs(handle) do MC.release(image) end
-        elseif key=='parts' or key=='growers' then
+        elseif key=='parts' then
             for _,list in ipairs(handle) do
                 for _,entry in ipairs(list) do MC.release(entry[1]) end
             end

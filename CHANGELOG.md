@@ -1,43 +1,52 @@
 # Changelog
 
-## v1.5.0
+## v1.5.1
 
+- Solid and Chevron are pictures in `images/` like Fancy, and a Style whose picture does
+  not load shows no arrows.
+- Up and down arrows travel the same distance at any Position, as far as the nearer of
+  the top and bottom screen edges.
+- The Background template is removed.
+- Parry & Block Indicator → Style lists the styles found in the `images` folder
+  after Off: each `omen_<style>.png`, Chevron, Fancy and Solid among them. A
+  style is one picture with its glow and white core side by side; the mod tints the glow
+  yellow, or red in the Perfect Opportunity window.
+  A picture that is not a 1774 by 1774 PNG is left out of the list.
 - Requires ModCore Settings 1.9.0, ModCore Templates 1.9.0 and UE4SS Lua Event Bridge
   1.3.0 or newer.
-- The Omens' Style, Position, Buildup visibility and Buildup animation, the Edges' Edge
-  Style, the Countdown's Position and the Background's Position and Visibility save their
-  choice by name (`ParryStyle=chevron`, `Position=middle`) instead of a number. Choices
-  saved before for them reset to their defaults once.
-- New Sound Cues template: the sounds move out of the Omens into a template of their
-  own, with its own Enabled, so they can play with the arrows off or on their own.
-  Sound Notifications and all its settings are there, saved under
-  `MCT_Preymonition_Sounds_*`.
+- The Omens' Style and Position and the Countdown's Position save their choice by name
+  (`ParryStyle=chevron`, `Position=middle`) instead of a number. Choices saved before for
+  them reset to their defaults once.
+- The Omens' Perspective Style is removed. A saved Perspective shows Chevron.
+- New Audio Cues template: the sounds move out of the Omens into a template of their
+  own, with its own Enabled, so they can play with the arrows off or on their own. Its
+  Sounds group holds Attack incoming, Perfect Opportunity and Unblockable Attack; its
+  Options group holds Enable directional sound, Differentiate back/front by pitch and
+  Sound volume.
 - Attack incoming plays as soon as an attack is first seen, as its parry window opens,
-  whatever the Omens' Buildup visibility and Buildup animation, and whether or not the
-  Omens are on. Before, it followed the arrow and was skipped while the buildup was held
-  back. Perfect opportunity plays when its perfect opportunity window opens, and a
+  whatever the Omens' Attack Incoming and Perfect Opportunity, and whether or not the
+  Omens are on. Before, it followed the arrow and was skipped while the yellow arrow was
+  held back. Perfect Opportunity plays when its Perfect Opportunity window opens, and a
   repeated event for the same attack never plays a sound again.
 - An attack reported again in the same direction while its arrow still shows no longer
   flashes the arrow in again or replays its sound: it counts as the attack shown, and the
   arrow goes once all of them resolve.
-- Templates are named Omens, Sound Cues, Edges, Countdown (WIP) and Background, without
-  "Overlay". The Countdown is marked as a work in progress.
-- Descriptions name the red arrow's window the perfect opportunity window: the parry
+- Templates are named Omens Overlay, Audio Cues, Edges Flash and Countdown (WIP).
+  The Countdown is marked as a work in progress.
+- Descriptions name the red arrow's window the Perfect Opportunity window: the parry
   window opens with the yellow arrow, when the attack is first shown.
-- The preview's sound button: on Auto it sounds while a Sound Notifications setting is
+- The preview's sound button: on Auto it sounds while an Audio Cues setting is
   selected; On always; Off never.
-- Selecting a sound in Attack incoming, Perfect opportunity or Unblockable Attack plays it,
+- Selecting a sound in Attack incoming, Perfect Opportunity or Unblockable Attack plays it,
   centred, so you hear what you pick.
-- The Combat Preymonition page shows a live preview of the omens and the sound cues: four
-  attacks and an unblockable one, looping over a game scene, drawn and sounded with the
-  page's current settings before they are applied.
-- The sounds are loaded by their path in Preymonition's own folder. ModCore Templates runs
-  the templates in its own Lua state, where a bare `sounds/...` path pointed at ModCore Templates'
-  folder and no sound loaded. Needs UE4SS Lua Sound Bridge with any-path loading (1.1).
-- New Sound Notifications section replaces the Play sound rows: Attack incoming (when the
-  parry window opens, the yellow arrow), Perfect opportunity (when the perfect opportunity
+- The Combat Preymonition page shows a live preview of every template, the Omens
+  Overlay, Audio Cues, Edges Flash and Countdown: four attacks and an
+  unblockable one, looping over a game scene, drawn and sounded with the page's current
+  settings before they are applied.
+- New Sounds section replaces the Play sound rows: Attack incoming (when the
+  parry window opens, the yellow arrow), Perfect Opportunity (when the Perfect Opportunity
   window opens, the red arrow) and Unblockable Attack (default Growl).
-- Attack incoming and Perfect opportunity play the mod's own cue sounds (Bass, Bell, Clink,
+- Attack incoming and Perfect Opportunity play the mod's own cue sounds (Bass, Bell, Clink,
   Ding, Whisper and more) instead of the game's: the `cue_<name>.wav` files in its `sounds`
   folder, listed each time the menu opens, so a file dropped in while the game runs is
   offered the next time. Default Rumble and Ding. They are saved by name
@@ -54,8 +63,7 @@
   game's audio settings apply from the next fight.
 - The bundled sounds are mono 48 kHz, matched in loudness (unblockable sounds a little
   louder) and cut to start at once.
-- Requires UE4SS Lua Sound Bridge 1.0.0 or newer for the sounds, and ModCore
-  Templates and ModCore Settings with listed choices.
+- Requires UE4SS Lua Sound Bridge 1.1.0 or newer for the sounds.
 - Position moves into Parry & Block Indicator and places only the arrows; the unblockable
   indicator stays at the screen's centre.
 - New Unblockable Attack Indicator → Style: Off, Fiend (default), Gore, Cracked, Shattered,
@@ -63,20 +71,25 @@
   Only the chosen picture loads. The list follows the `unblockable_<name>.png` files in the
   `images` folder each time the menu opens, and the choice is saved by name
   (`UnblockableStyle=fiend`).
-- Prioritize Perfection over Buildup is removed. Buildup visibility and Buildup animation
-  always show and default to Normal, today's default look: the arrow shows from the start
-  and grows to full size when the perfect opportunity window opens. Any other pair holds the yellow
-  arrow back and lets the window carry it on, as Prioritize Perfection did.
+- Parry & Block Indicator → Attack Incoming (Normal, Faint, Off) and Perfect Opportunity
+  (End, Start, Halfway, Off) replace Prioritize Perfection over Buildup, Buildup visibility
+  and Buildup animation, and saved Buildup choices are ignored. Attack Incoming sets how
+  the Yellow arrow shows before the Perfect Opportunity window; Perfect Opportunity sets
+  how the red arrow takes over: at the end of the yellow arrow's course, from its start,
+  halfway, or not at all (Off shows only the yellow arrow).
+- New Edges Flash → Activate Edges group replaces Edge Style: Attack incoming lights the
+  edge on the attack's side yellow when its parry window opens, Perfect Opportunity red
+  when its Perfect Opportunity window opens, and Unblockable Attack every edge red while
+  an unblockable attack shows, over the attack's own edge. Each is an On/Off switch, On
+  by default. Edges always light the attacked side only; a saved Edge Style is ignored.
+- New Edges Flash → Visuals group: Style, Bands or a smooth gradient picture, Linear or
+  Soft (default). The list follows the `edge_<name>_v.png` and `edge_<name>_h.png`
+  pairs in the `images` folder each time the menu opens, and the choice is saved by name
+  (`VisualsStyle=soft`). A gradient whose pictures cannot load draws Bands. Thickness,
+  2% to 20% of the shorter screen side (default 8%), and Intensity, the glow's opacity at
+  the screen edge, 10% to 100% (default 50%), apply to Bands and gradients alike.
 - Settings saved under the old Position, Play sound and Prioritize Perfection keys are
   ignored.
-
-## v1.4.2
-
-- Requires ModCore Templates 1.8.0 or later. No change to indicators or settings.
-
-## v1.4.1
-
-- Requires ModCore Settings 1.7.0 or later. No change to indicators or settings.
 
 ## v1.4.0
 

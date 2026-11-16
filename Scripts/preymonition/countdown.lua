@@ -1,18 +1,24 @@
--- Counts down to an attack's perfect opportunity window: takes MCT's MC_NPCAttackIndicator
+-- Counts down to an attack's Perfect Opportunity window: takes MCT's MC_NPCAttackIndicator
 -- requests and times them; preymonition.countdown_render draws the result. Times
 -- are game time, which stops while the game is paused.
 --
 -- When MCT names the attacker (the event's stub), the game already knows the
--- attack's hit window as its arrow shows; the perfect opportunity window opened OPEN_BEFORE
+-- attack's hit window as its arrow shows; the Perfect Opportunity window opened OPEN_BEFORE
 -- seconds before the hit window started (measured 2026-11-12, five attacks, within
 -- 0.05 s). The count runs to that moment, and the red bar to the hit window's end.
 -- Without a hit window the count is an estimate: LEAD seconds times the game's
 -- parry window multiplier, read when combat starts (0.42 s at 1.4; single attacks
 -- ranged from 0.02 to 0.81 s), and the red bar runs over WINDOW seconds.
 --
--- Either way NOW comes only from the game's own perfect opportunity window, so it is never
+-- Either way NOW comes only from the game's own Perfect Opportunity window, so it is never
 -- early: a window opening sooner cuts the count short, and a count that runs out
 -- first holds at 0.0 until it opens. Everything goes as soon as the attack resolves.
+--
+-- In ModCore Templates' live preview (the mod menu) there is no attack to time and
+-- the game may be paused: a preview countdown runs on real time and counts
+-- PREVIEW_LEAD, the gap between an arrow and its critical in the npc.attacks
+-- preview script, so it reaches 0.0 as NOW comes, and its red bar runs over
+-- PREVIEW_WINDOW, the time from there to the attack's resolve.
 local Combat=require('preymonition.combat')
 local Render=require('preymonition.countdown_render')
 local Placement=require('preymonition.placement')
@@ -20,12 +26,13 @@ local Placement=require('preymonition.placement')
 local OPEN_BEFORE=0.18
 local LEAD,FALLBACK=0.3,1.4
 local WINDOW=1
+local PREVIEW_LEAD,PREVIEW_WINDOW=0.7,0.5
 local FRAME_MS=16
 
 local records={}
 -- Whether combat is on: requests arrive only while it is.
 local active=false
-local M={LEAD=LEAD,WINDOW=WINDOW,OPEN_BEFORE=OPEN_BEFORE}
+local M={LEAD=LEAD,WINDOW=WINDOW,OPEN_BEFORE=OPEN_BEFORE,PREVIEW_LEAD=PREVIEW_LEAD,PREVIEW_WINDOW=PREVIEW_WINDOW}
 
 local function silent() end
 local log={enabled=function() return false end}
@@ -41,7 +48,7 @@ local function fail(kind,why)
 end
 
 -- What a record shows at a time: nil when no attack is counted; else the text,
--- the remaining share of the bar, whether it is the perfect opportunity window, and whether it
+-- the remaining share of the bar, whether it is the Perfect Opportunity window, and whether it
 -- still changes.
 function M.view(record,now)
     if record.opened then
@@ -69,19 +76,33 @@ local function hitWindowOf(event)
 end
 
 -- Next frame when the engine tick is hooked; ExecuteWithDelay's timer is coarser.
-local function later(callback)
+-- The preview steps by frames too: the engine ticks with the mod menu open (checked
+-- live, 2026-11-16), and an ExecuteWithDelay every frame for minutes crashed the game.
+-- timer is ignored.
+local function later(callback,timer)
     if rawget(_G,'EngineTickAvailable')==true and type(rawget(_G,'ExecuteInGameThreadAfterFrames'))=='function' then
         ExecuteInGameThreadAfterFrames(1,callback)
     else
-        ExecuteWithDelay(FRAME_MS,function() ExecuteInGameThread(callback) end)
+        -- On the game thread: ExecuteWithDelay runs its callback on UE4SS's async thread,
+        -- in this mod's Lua state while the game thread may use it.
+        if type(rawget(_G,'ExecuteInGameThreadWithDelay'))=='function' then
+            ExecuteInGameThreadWithDelay(math.max(1,math.floor(FRAME_MS)),callback)
+        else
+            ExecuteWithDelay(FRAME_MS,function() ExecuteInGameThread(callback) end)
+        end
     end
+end
+
+-- A record's clock: game time, or real time for a preview.
+local function clock(record)
+    return Render.now(record.ui,record.preview)
 end
 
 local pump
 -- Draws a record now; asks for the next frame while its view still changes.
 local function render(record)
     if not Render.valid(record.ui) then return end
-    local view,moving=M.view(record,Render.now(record.ui))
+    local view,moving=M.view(record,clock(record))
     Render.show(record.ui,view)
     if moving then pump(record) end
 end
@@ -89,14 +110,18 @@ end
 function pump(record)
     if record.scheduled then return end
     record.scheduled=true
-    local ok,why=pcall(later,record.onFrame)
+    local ok,why=pcall(later,record.onFrame,record.preview)
     if not ok then record.scheduled=false; fail('schedule',why) end
 end
 
--- The records in the indicator's world.
-local function each(indicator,callback)
+-- The records an event reaches. A preview event (ModCore Templates' live preview
+-- in the mod menu, the menu's widget as its indicator) reaches only the preview
+-- records, a game event only the others in the indicator's world.
+local function each(event,callback)
+    local preview=event.preview==true
     for _,record in ipairs(records) do
-        if Render.valid(record.ui) and Render.sameWorld(record.ui,indicator) then
+        if record.preview==preview and Render.valid(record.ui)
+            and (preview or Render.sameWorld(record.ui,event.indicator)) then
             callback(record)
         end
     end
@@ -107,15 +132,17 @@ local handlers={}
 -- An attack shows: its count starts. The game's arrow sometimes shows twice for
 -- one attack; the count already running for it carries on.
 function handlers.arrow(event)
-    each(event.indicator,function(record)
+    each(event,function(record)
         if record.source==event.path and record.direction==event.direction then return end
         record.source,record.direction,record.opened=event.path,event.direction,nil
-        local now=Render.now(record.ui)
+        local now=clock(record)
         record.started=now
         local from,to=hitWindowOf(event)
-        if from and to>now then
+        if record.preview then
+            record.count,record.hitEnd=PREVIEW_LEAD,nil
+        elseif from and to>now then
             record.count,record.hitEnd=math.max(0,from-OPEN_BEFORE-now),to
-            log.debug('counting ',string.format('%.2f',record.count),' s to the perfect opportunity window from the hit window')
+            log.debug('counting ',string.format('%.2f',record.count),' s to the Perfect Opportunity window from the hit window')
         else
             record.count,record.hitEnd=record.lead,nil
             log.debug('counting ',string.format('%.2f',record.count),' s, estimated: ',
@@ -125,32 +152,34 @@ function handlers.arrow(event)
     end)
 end
 
--- Its perfect opportunity window opened: NOW, once per attack.
+-- Its Perfect Opportunity window opened: NOW, once per attack.
 function handlers.critical(event)
-    each(event.indicator,function(record)
+    each(event,function(record)
         if record.opened and record.source==event.path and record.direction==event.direction then return end
         if record.source~=event.path or record.direction~=event.direction then
             local _,to=hitWindowOf(event)
             record.hitEnd=to
         end
         record.source,record.direction=event.path,event.direction
-        local now=Render.now(record.ui)
+        local now=clock(record)
         record.opened=now
-        -- The red bar runs to the hit window's end, or over WINDOW without one.
-        record.window=record.hitEnd and record.hitEnd>now and record.hitEnd-now or WINDOW
+        -- The red bar runs to the hit window's end, or over WINDOW without one
+        -- (PREVIEW_WINDOW in a preview).
+        record.window=record.hitEnd and record.hitEnd>now and record.hitEnd-now
+            or (record.preview and PREVIEW_WINDOW or WINDOW)
         render(record)
     end)
 end
 
 function handlers.resolve(event)
-    each(event.indicator,function(record)
+    each(event,function(record)
         if record.source==event.path then clear(record); render(record) end
     end)
 end
 
 -- One MC_NPCAttackIndicator request.
 function M.update(event)
-    if not (active and next(records)) then return end
+    if not next(records) or not (active or event.preview) then return end
     local handler=handlers[event.kind]
     if not handler then return end
     local ok,why=pcall(handler,event)
@@ -158,11 +187,12 @@ function M.update(event)
 end
 
 -- Combat started: the count takes the current difficulty's parry window multiplier.
+-- A preview's keeps its own timing.
 function M.wake()
     if active then return end
     active=true
     for _,record in ipairs(records) do
-        if Render.valid(record.ui) then
+        if not record.preview and Render.valid(record.ui) then
             local read,multiplier=pcall(Combat.parryWindow,Render.context(record.ui))
             if not (read and multiplier) then
                 log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
@@ -174,12 +204,12 @@ function M.wake()
     end
 end
 
--- Combat ended: the countdown goes.
+-- Combat ended: the countdown goes, but the preview's.
 function M.sleep()
     if not active then return end
     active=false
     for _,record in ipairs(records) do
-        if Render.valid(record.ui) then
+        if not record.preview and Render.valid(record.ui) then
             clear(record)
             local ok,why=pcall(render,record)
             if not ok then fail('combat end',why) end
@@ -193,7 +223,7 @@ end
 
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
-    local record={lead=LEAD*FALLBACK,count=LEAD*FALLBACK,window=WINDOW}
+    local record={lead=LEAD*FALLBACK,count=LEAD*FALLBACK,window=WINDOW,preview=params.preview==true}
     record.onFrame=function()
         record.scheduled=false
         if record.detached then return end
@@ -212,7 +242,7 @@ function M.attach(hud,layer,params,onCleanup)
     local position=Placement.position(settings.Position)
     record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),position)
     records[#records+1]=record
-    log.info('countdown attached, position ',position)
+    log.info(record.preview and 'preview countdown attached, position ' or 'countdown attached, position ',position)
 end
 
 return M

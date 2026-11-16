@@ -1,7 +1,7 @@
--- The Sound Cues: takes MCT's MC_NPCAttackIndicator events and plays a sound for
+-- The Audio Cues: takes MCT's MC_NPCAttackIndicator events and plays a sound for
 -- each attack, whatever the other templates show. Attack incoming plays when an
 -- attack is first seen (its parry window opens, the yellow arrow), Perfect
--- opportunity when its perfect opportunity window opens (the red arrow), and
+-- opportunity when its Perfect Opportunity window opens (the red arrow), and
 -- Unblockable Attack when an unblockable attack comes. preymonition.sound loads
 -- and plays the files through UE4SSLuaSoundBridge.
 local Sound=require('preymonition.sound')
@@ -21,7 +21,7 @@ local failures={}
 local function fail(kind,why)
     local count=failures[kind]
     failures[kind]=(count or 0)+1
-    if not count then log.error('sound cues ',kind,' failed: ',why) end
+    if not count then log.error('audio cues ',kind,' failed: ',why) end
 end
 
 -- Plays one of a record's sounds, when one is chosen, for an arrow direction
@@ -78,8 +78,8 @@ function handlers.arrow(event)
     end)
 end
 
--- Its perfect opportunity window opens, once per attack. An attack first seen
--- here plays only Perfect opportunity.
+-- Its Perfect Opportunity window opens, once per attack. An attack first seen
+-- here plays only Perfect Opportunity.
 function handlers.critical(event)
     each(event,function(record)
         if same(record,event) then
@@ -152,18 +152,18 @@ function M.sleep()
         end
     end
     for kind,count in pairs(failures) do
-        if count>1 then log.warn('sound cues ',kind,' failed ',count-1,' more times') end
+        if count>1 then log.warn('audio cues ',kind,' failed ',count-1,' more times') end
     end
     failures={}
 end
 
--- How the sounds play, from the Sound Notifications settings: Sound volume (1 as
+-- How the sounds play, from the Options settings: Sound volume (1 as
 -- recorded); Enable directional sound (pan by side, ahead and behind set apart,
 -- behind muffled); Differentiate back/front by pitch, the back and front
 -- percentages from as recorded as playback rates.
 local function options(settings)
-    local pitch=type(settings.SoundPitch)=='table' and settings.SoundPitch or {}
-    return {volume=(settings.SoundVolume or 100)/100,directional=settings.SoundDirectional~=0,
+    local pitch=type(settings.OptionsPitch)=='table' and settings.OptionsPitch or {}
+    return {volume=(settings.OptionsVolume or 100)/100,directional=settings.OptionsDirectional~=0,
         back=1+(pitch[1] or -20)/100,front=1+(pitch[2] or 20)/100}
 end
 
@@ -186,11 +186,11 @@ function M.attach(_,params,onCleanup)
         for index,current in ipairs(records) do
             if current==record then table.remove(records,index); break end
         end
-        log.debug('sound cues detached; ',#records,' attached')
+        log.debug('audio cues detached; ',#records,' attached')
         return true
     end)
     records[#records+1]=record
-    log.info(record.preview and 'preview sound cues attached' or 'sound cues attached')
+    log.info(record.preview and 'preview audio cues attached' or 'audio cues attached')
 end
 
 return M
