@@ -1,13 +1,13 @@
 -- Follows MCT's MC_NPCAttackIndicator events with the cue animation of attached HUDs.
 local Animation=require('preymonition.omens_animation')
 local Combat=require('preymonition.combat')
+local Controller=require('preymonition.controller')
 local Cue=require('preymonition.omens_render')
 
 -- MCT watches the game's combat target indicator and delivers each change as an
 -- MC_NPCAttackIndicator update event on the next engine tick, about a frame
 -- after the game shows it. MCT wakes the template when combat starts and puts
 -- it to sleep when combat ends.
-local FRAME_MS=16
 -- Direction names for the log, from the indicator's arrow names.
 local DIRECTIONS={}
 for index,key in ipairs(Cue.ARROWS) do DIRECTIONS[index]=key:match('^(%u%l+)Arrow$'):lower() end
@@ -18,52 +18,14 @@ local active=false
 local M={}
 
 -- Replaced by the template's leveled logger; silent until then.
-local function silent() end
-local log={enabled=function() return false end}
-for _,name in ipairs({'trace','debug','info','warn','error','critical'}) do log[name]=silent end
+local log=Controller.silentLog()
 
 function M.setLog(logger)
     log=logger
 end
 
--- Next frame when the engine tick is hooked; ExecuteWithDelay's timer is coarser.
-local function frames()
-    return rawget(_G,'EngineTickAvailable')==true and type(rawget(_G,'ExecuteInGameThreadAfterFrames'))=='function'
-end
-
--- The next animation frame. Deferred work guards itself: an animation step stops
--- once its cue is detached. The preview steps by frames too: the engine ticks with
--- the mod menu open (checked live, 2026-11-16), and an ExecuteWithDelay every frame
--- for minutes left UE4SS with dead callbacks and crashed the game.
-local function later(callback)
-    if frames() then
-        ExecuteInGameThreadAfterFrames(1,callback)
-    else
-        -- On the game thread: ExecuteWithDelay runs its callback on UE4SS's async thread,
-        -- in this mod's Lua state while the game thread may use it.
-        if type(rawget(_G,'ExecuteInGameThreadWithDelay'))=='function' then
-            ExecuteInGameThreadWithDelay(FRAME_MS,callback)
-        else
-            ExecuteWithDelay(FRAME_MS,function() ExecuteInGameThread(callback) end)
-        end
-    end
-end
-
--- Failures handling events are logged once per kind; repeats are
--- counted and reported when combat ends, so a lasting fault never writes the
--- log on every call.
-local failures={}
-local function fail(kind,why)
-    local count=failures[kind]
-    failures[kind]=(count or 0)+1
-    if not count then log.error(kind,' failed: ',why) end
-end
-local function reportFailures()
-    for kind,count in pairs(failures) do
-        if count>1 then log.warn(kind,' failed ',count-1,' more times') end
-    end
-    failures={}
-end
+-- Failures handling events are logged once per kind and counted until combat ends.
+local fail,reportFailures=Controller.failures('',function() return log end)
 
 local pump
 
@@ -88,7 +50,9 @@ function pump(record)
     if record.scheduled or record.detached or not record.model:has_jobs() then return end
     record.scheduled=true
     if not record.steps then record.steps,record.since=0,log.enabled('TRACE') and os.clock() or 0 end
-    local ok,why=pcall(later,record.onFrame)
+    -- The next animation frame. Deferred work guards itself: an animation step
+    -- stops once its cue is detached.
+    local ok,why=pcall(Controller.later,record.onFrame)
     if not ok then record.scheduled=false; record.model:cancel(); fail('animation schedule',why) end
 end
 
@@ -232,15 +196,11 @@ end
 
 -- Each attack's animation lasts PER_MULTIPLIER seconds times the game's parry
 -- window multiplier, read when combat starts: 280 ms at 1.4, the second
--- difficulty. FALLBACK stands in for the multiplier when it cannot be read.
-local PER_MULTIPLIER,FALLBACK=0.2,1.4
+-- difficulty, which stands in for the multiplier when it cannot be read.
+local PER_MULTIPLIER=0.2
 -- A cue takes the parry window's pace and shows its idle cue.
 local function engage(record)
-    local read,multiplier=pcall(Combat.parryWindow,Cue.context(record.ui))
-    if not (read and multiplier) then
-        log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
-        multiplier=FALLBACK
-    end
+    local multiplier=Controller.pace(Cue.context(record.ui),log)
     record.model:setDuration(PER_MULTIPLIER*multiplier)
     log.debug('parry window ',multiplier,'; animations take ',
         string.format('%.0f',PER_MULTIPLIER*multiplier*1000),' ms')
@@ -280,7 +240,7 @@ end
 function M.wake()
     if active then return end
     active=true
-    log.debug('combat started; animation steps ',frames() and 'every frame' or 'by ExecuteWithDelay')
+    log.debug('combat started; animation steps ',Controller.frames() and 'every frame' or 'by ExecuteWithDelay')
     local ok,why=Cue.pass(startCombat)
     if not ok then error(why,0) end
 end

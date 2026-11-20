@@ -6,6 +6,7 @@
 -- it shows (→ Unblockable Attack), over any directional attack.
 local Render=require('preymonition.edges_render')
 local Widgets=require('preymonition.widgets')
+local Controller=require('preymonition.controller')
 
 local ALL={}
 for index=1,Render.EDGES do ALL[index]=true end
@@ -16,18 +17,11 @@ local records={}
 local active=false
 local M={}
 
-local function silent() end
-local log={enabled=function() return false end}
-for _,name in ipairs({'trace','debug','info','warn','error','critical'}) do log[name]=silent end
+local log=Controller.silentLog()
 function M.setLog(logger) log=logger end
 
 -- Failures are logged once per kind; repeats are counted when combat ends.
-local failures={}
-local function fail(kind,why)
-    local count=failures[kind]
-    failures[kind]=(count or 0)+1
-    if not count then log.error('edges ',kind,' failed: ',why) end
-end
+local fail,reportFailures=Controller.failures('edges ',function() return log end)
 
 -- Renders a record: every edge red while an unblockable attack shows, else its
 -- attack's side, red once critical with Perfect Opportunity on, yellow with
@@ -125,10 +119,7 @@ function M.sleep()
             if not ok then fail('combat end',why) end
         end
     end
-    for kind,count in pairs(failures) do
-        if count>1 then log.warn('edges ',kind,' failed ',count-1,' more times') end
-    end
-    failures={}
+    reportFailures()
 end
 
 -- A slider's saved percentage within its range, or its default.

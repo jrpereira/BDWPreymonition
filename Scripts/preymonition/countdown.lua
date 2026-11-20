@@ -20,15 +20,15 @@
 -- preview script, so it reaches 0.0 as NOW comes, and its red bar runs over
 -- PREVIEW_WINDOW, the time from there to the attack's resolve.
 local Combat=require('preymonition.combat')
+local Controller=require('preymonition.controller')
 local Render=require('preymonition.countdown_render')
 local Widgets=require('preymonition.widgets')
 local Placement=require('preymonition.placement')
 
 local OPEN_BEFORE=0.18
-local LEAD,FALLBACK=0.3,1.4
+local LEAD,FALLBACK=0.3,Controller.FALLBACK
 local WINDOW=1
 local PREVIEW_LEAD,PREVIEW_WINDOW=0.7,0.5
-local FRAME_MS=16
 -- While the game is paused its clock stands still and nothing on screen changes:
 -- the count looks again every PAUSED_FRAMES frames rather than every frame.
 local PAUSED_FRAMES=5
@@ -38,18 +38,11 @@ local records={}
 local active=false
 local M={}
 
-local function silent() end
-local log={enabled=function() return false end}
-for _,name in ipairs({'trace','debug','info','warn','error','critical'}) do log[name]=silent end
+local log=Controller.silentLog()
 function M.setLog(logger) log=logger end
 
 -- Failures are logged once per kind; repeats are counted when combat ends.
-local failures={}
-local function fail(kind,why)
-    local count=failures[kind]
-    failures[kind]=(count or 0)+1
-    if not count then log.error('countdown ',kind,' failed: ',why) end
-end
+local fail,reportFailures=Controller.failures('countdown ',function() return log end)
 
 -- What a record shows at a time: nil when no attack is counted; else the text,
 -- the remaining share of the bar, whether it is the Perfect Opportunity window, and whether it
@@ -83,24 +76,6 @@ local function hitWindowOf(event)
     return from,to
 end
 
--- After frames frames when the engine tick is hooked; ExecuteWithDelay's timer is
--- coarser. The preview steps by frames too: the engine ticks with the mod menu open
--- (checked live, 2026-11-16), and an ExecuteWithDelay every frame for minutes crashed
--- the game.
-local function later(callback,frames)
-    if rawget(_G,'EngineTickAvailable')==true and type(rawget(_G,'ExecuteInGameThreadAfterFrames'))=='function' then
-        ExecuteInGameThreadAfterFrames(frames,callback)
-    else
-        -- On the game thread: ExecuteWithDelay runs its callback on UE4SS's async thread,
-        -- in this mod's Lua state while the game thread may use it.
-        if type(rawget(_G,'ExecuteInGameThreadWithDelay'))=='function' then
-            ExecuteInGameThreadWithDelay(FRAME_MS*frames,callback)
-        else
-            ExecuteWithDelay(FRAME_MS*frames,function() ExecuteInGameThread(callback) end)
-        end
-    end
-end
-
 local pump
 -- Draws a record now, hud being its live HUD (looked up when not given); asks for
 -- the next frame while its view still changes. A request always draws.
@@ -130,7 +105,7 @@ end
 function pump(record,frames)
     if record.scheduled then return end
     record.scheduled=true
-    local ok,why=pcall(later,record.onFrame,frames)
+    local ok,why=pcall(Controller.later,record.onFrame,frames)
     if not ok then record.scheduled=false; fail('schedule',why) end
 end
 
@@ -209,11 +184,7 @@ end
 
 -- A record takes the current difficulty's parry window multiplier for its count.
 local function pace(record)
-    local read,multiplier=pcall(Combat.parryWindow,Render.context(record.ui))
-    if not (read and multiplier) then
-        log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
-        multiplier=FALLBACK
-    end
+    local multiplier=Controller.pace(Render.context(record.ui),log)
     record.lead=LEAD*multiplier
     log.debug('parry window ',multiplier,'; counting ',string.format('%.2f',record.lead),' s')
 end
@@ -241,10 +212,7 @@ function M.sleep()
             if not ok then fail('combat end',why) end
         end
     end
-    for kind,count in pairs(failures) do
-        if count>1 then log.warn('countdown ',kind,' failed ',count-1,' more times') end
-    end
-    failures={}
+    reportFailures()
 end
 
 -- A font size that could not be set is warned about once.

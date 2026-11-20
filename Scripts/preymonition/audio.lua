@@ -5,24 +5,18 @@
 -- Unblockable Attack when an unblockable attack comes. preymonition.sound loads
 -- and plays the files through UE4SSLuaSoundBridge.
 local Sound=require('preymonition.sound')
+local Controller=require('preymonition.controller')
 
 local records={}
 -- Whether combat is on: game events arrive only while it is.
 local active=false
 local M={}
 
-local function silent() end
-local log={enabled=function() return false end}
-for _,name in ipairs({'trace','debug','info','warn','error','critical'}) do log[name]=silent end
+local log=Controller.silentLog()
 function M.setLog(logger) log=logger end
 
 -- Failures are logged once per kind; repeats are counted when combat ends.
-local failures={}
-local function fail(kind,why)
-    local count=failures[kind]
-    failures[kind]=(count or 0)+1
-    if not count then log.error('audio cues ',kind,' failed: ',why) end
-end
+local fail,reportFailures=Controller.failures('audio cues ',function() return log end)
 
 -- Plays one of a record's sounds, when one is chosen, for an arrow direction
 -- (nil: centred). A failure is reported once per sound and never stops the rest.
@@ -151,10 +145,7 @@ function M.sleep()
             record.skull=nil
         end
     end
-    for kind,count in pairs(failures) do
-        if count>1 then log.warn('audio cues ',kind,' failed ',count-1,' more times') end
-    end
-    failures={}
+    reportFailures()
 end
 
 -- How the sounds play, from the Options settings: Sound volume (1 as

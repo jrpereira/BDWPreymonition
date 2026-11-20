@@ -13,6 +13,7 @@
     "Scripts/mc_omens.lua": "Scripts/mc_omens.lua",
     "Scripts/preymonition/audio.lua": "Scripts/preymonition/audio.lua",
     "Scripts/preymonition/combat.lua": "Scripts/preymonition/combat.lua",
+    "Scripts/preymonition/controller.lua": "Scripts/preymonition/controller.lua",
     "Scripts/preymonition/countdown.lua": "Scripts/preymonition/countdown.lua",
     "Scripts/preymonition/countdown_render.lua": "Scripts/preymonition/countdown_render.lua",
     "Scripts/preymonition/edges.lua": "Scripts/preymonition/edges.lua",
