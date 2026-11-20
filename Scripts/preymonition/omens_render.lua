@@ -1,9 +1,8 @@
 -- The omens' widgets: the arrows, centred at their Position
 -- (preymonition.placement), and the unblockable
--- indicator at the screen's centre. The game's
--- combat state comes from preymonition.combat.
+-- indicator at the screen's centre.
 local MC=require('mc')
-local Combat=require('preymonition.combat')
+local Widgets=require('preymonition.widgets')
 local Placement=require('preymonition.placement')
 local Fancy=require('preymonition.omens_fancy')
 local Images=require('preymonition.omens_images')
@@ -40,10 +39,8 @@ for index=1,#ARROWS do
     KEYS[index]={opacity='opacity'..index,scale='scale'..index,translation='translation'..index}
 end
 local arrowSize,skullScale,fit,tipDistance,paintParts
--- Widget names stay unique across Lua reloads: generation restarts with the
--- Lua state, while a HUD that survives the reload still holds the old names.
-local generation=0
-local nonce=string.format('%06x',math.random(0,0xffffff))
+local construct=Widgets.construct
+local function hold(object,name) return Widgets.hold(object,'cue',name) end
 local M={ARROWS=ARROWS}
 
 -- A pass is one entry from the game: an attack event or an animation frame. Within it each cue's widgets resolve once; the wrappers are
@@ -57,37 +54,10 @@ function M.pass(callback,...)
     return close(pcall(callback,...))
 end
 
-local function world(object)
-    local value=MC.call(object,'GetWorld')
-    return MC.valid(value) and value or nil
-end
-
-local function construct(classPath,outer,name)
-    -- A widget class is found once: the engine never frees it.
-    local class=assert(Combat.default(classPath),'missing widget class: '..classPath)
-    local object=StaticConstructObject(class,outer,FName(name),0x40)
-    assert(MC.valid(object),'widget construction failed: '..name)
-    object:SetVisibility(3)
-    return object
-end
-
 function M.path(object)
     local name=MC.valid(object) and MC.call(object,'GetFullName')
     if type(name)~='string' then return nil end
     return name:match('^%S+ (.+)$') or name
-end
-
-function M.resolve(path)
-    local object=StaticFindObject(path)
-    return MC.valid(object) and object or nil
-end
-
--- An asset, loading it when the game has not yet.
-function M.find(path)
-    local object=M.resolve(path)
-    if object then return object end
-    if type(rawget(_G,'LoadAsset'))=='function' then pcall(LoadAsset,path) end
-    return M.resolve(path)
 end
 
 -- Visibility, opacity and colour of a widget, for the log.
@@ -126,29 +96,21 @@ local function live(ui)
     return widgets
 end
 
-local function worldName(object)
-    local value=world(object)
-    local name=value and MC.call(value,'GetFullName')
-    return type(name)=='string' and name~='' and name or nil
-end
-
+-- Whether object is in the cue's world. The cue's own world name is read once
+-- per pass.
 function M.sameWorld(object,ui)
     local widgets=live(ui)
     if not widgets then return false end
     local own=depth>0 and ui.pass==current and ui.world
     if not own then
-        own=worldName(widgets.hud)
+        own=Widgets.worldName(widgets.hud)
         if depth>0 then ui.world=own end
     end
-    return own~=nil and own==worldName(object)
+    return own~=nil and own==Widgets.worldName(object)
 end
 
 function M.valid(ui)
     return live(ui)~=nil
-end
-
-local function hold(object,name)
-    return assert(MC.hold(object),'cue cannot keep '..name)
 end
 
 -- The unblockable indicator at the screen's centre, by Style: the mod's picture
@@ -231,8 +193,7 @@ function M.build(hud,layer,screen,settings)
     local visuals=config(settings)
     -- A settings update reattaches the same layer; replace its previous content.
     layer:ClearChildren()
-    generation=generation+1
-    local suffix=nonce..'_'..generation
+    local suffix=Widgets.suffix()
     -- SizeBox > Overlay with the arrows overlay, at the arrows' Position, and a
     -- SizeBox of the same size at the screen's centre with the unblockable image.
     local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionCue'..suffix)

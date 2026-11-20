@@ -30,6 +30,7 @@
     "Scripts/preymonition/omens_render.lua": "Scripts/preymonition/omens_render.lua",
     "Scripts/preymonition/placement.lua": "Scripts/preymonition/placement.lua",
     "Scripts/preymonition/sound.lua": "Scripts/preymonition/sound.lua",
+    "Scripts/preymonition/widgets.lua": "Scripts/preymonition/widgets.lua",
     "Scripts/vendor/mc_log.lua": "Scripts/vendor/mc_log.lua",
     "images/omen_chevron.png": "images/omen_chevron.png",
     "images/omen_fancy.png": "images/omen_fancy.png",

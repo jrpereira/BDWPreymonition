@@ -21,6 +21,7 @@
 -- PREVIEW_WINDOW, the time from there to the attack's resolve.
 local Combat=require('preymonition.combat')
 local Render=require('preymonition.countdown_render')
+local Widgets=require('preymonition.widgets')
 local Placement=require('preymonition.placement')
 
 local OPEN_BEFORE=0.18
@@ -142,7 +143,7 @@ local function each(event,callback)
     for _,record in ipairs(records) do
         if record.preview==preview then
             local hud=Render.root(record.ui)
-            if hud and (preview or Render.sameWorld(hud,event.indicator)) then callback(record,hud) end
+            if hud and (preview or Widgets.sameWorld(hud,event.indicator)) then callback(record,hud) end
         end
     end
 end

@@ -5,6 +5,7 @@
 -- out as soon as it resolves. An unblockable attack lights every edge red while
 -- it shows (→ Unblockable Attack), over any directional attack.
 local Render=require('preymonition.edges_render')
+local Widgets=require('preymonition.widgets')
 
 local ALL={}
 for index=1,Render.EDGES do ALL[index]=true end
@@ -56,7 +57,7 @@ local function each(event,callback)
     for _,record in ipairs(records) do
         if record.preview==preview then
             local hud=Render.root(record.ui)
-            if hud and (preview or Render.sameWorld(hud,event.indicator)) then callback(record) end
+            if hud and (preview or Widgets.sameWorld(hud,event.indicator)) then callback(record) end
         end
     end
 end

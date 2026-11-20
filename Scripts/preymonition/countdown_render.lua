@@ -3,6 +3,7 @@
 -- they show.
 local MC=require('mc')
 local Combat=require('preymonition.combat')
+local Widgets=require('preymonition.widgets')
 
 -- Sizes as shares of the screen height: the bar's width and height, its outline,
 -- the text's line above it and the text's font size.
@@ -20,23 +21,9 @@ local COLORS={
     now={text={R=1,G=0.2,B=0,A=1},bar={R=1,G=0.2,B=0,A=0.5},outline={R=1,G=0.2,B=0,A=0.5}},
 }
 local TEXT_LIBRARY='/Script/Engine.Default__KismetTextLibrary'
--- Widget names stay unique across Lua reloads, like the omens'.
-local generation=0
-local nonce=string.format('%06x',math.random(0,0xffffff))
+local construct=Widgets.construct
+local function hold(object,name) return Widgets.hold(object,'countdown',name) end
 local M={}
-
-local function construct(classPath,outer,name)
-    -- A widget class is found once: the engine never frees it.
-    local class=assert(Combat.default(classPath),'missing widget class: '..classPath)
-    local object=StaticConstructObject(class,outer,FName(name),0x40)
-    assert(MC.valid(object),'widget construction failed: '..name)
-    object:SetVisibility(3)
-    return object
-end
-
-local function hold(object,name)
-    return assert(MC.hold(object),'countdown cannot keep '..name)
-end
 
 -- Where the countdown sits for a Position: the top of its box, in screen units.
 function M.top(position,height)
@@ -49,8 +36,7 @@ function M.build(hud,layer,screen,position)
     local tree=assert(hud.WidgetTree,'HUD has no widget tree')
     -- A settings update reattaches the same layer; replace its previous content.
     layer:ClearChildren()
-    generation=generation+1
-    local suffix=nonce..'_'..generation
+    local suffix=Widgets.suffix()
     local height=screen.height
     local width,bar,line=height*WIDTH,height*HEIGHT,height*LINE
     local outline=math.max(1,height*OUTLINE)
@@ -123,19 +109,6 @@ end
 
 function M.valid(ui)
     return M.root(ui)~=nil
-end
-
-local function worldName(object)
-    local world=MC.call(object,'GetWorld')
-    local name=MC.valid(world) and MC.call(world,'GetFullName')
-    return type(name)=='string' and name~='' and name or nil
-end
-
--- Whether an object is in the same world as hud, the countdown's live HUD.
-function M.sameWorld(hud,object)
-    if not (hud and MC.valid(object)) then return false end
-    local own=worldName(hud)
-    return own~=nil and own==worldName(object)
 end
 
 -- A live object in the countdown's world, for calls that need a world context.

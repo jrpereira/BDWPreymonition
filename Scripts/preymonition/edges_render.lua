@@ -1,7 +1,7 @@
 -- Screen edge glows: builds them in a cue layer, lights and tints them. It
 -- reads nothing from the game; preymonition.edges decides what they show.
 local MC=require('mc')
-local Combat=require('preymonition.combat')
+local Widgets=require('preymonition.widgets')
 local Images=require('preymonition.omens_images')
 
 -- Edge indices follow MCT's attack directions: top, bottom, left, right. The
@@ -14,9 +14,6 @@ local BANDS=6
 -- The glow's colours; its opacity comes from Intensity.
 -- Critical is a deep red, as the arrows' glow.
 local COLOR,CRITICAL={R=1,G=0.67,B=0.19},{R=0.72,G=0.06,B=0.02}
--- Widget names stay unique across Lua reloads, like the omens'.
-local generation=0
-local nonce=string.format('%06x',math.random(0,0xffffff))
 local M={EDGES=EDGES,BANDS=BANDS}
 
 -- Gradient pictures, images/edge_<key>_v.png and _h.png, loaded once per file
@@ -25,18 +22,8 @@ local function gradient(context,key)
     return Images.load(context,{v='edge_'..key..'_v.png',h='edge_'..key..'_h.png'})
 end
 
-local function construct(classPath,outer,name)
-    -- A widget class is found once: the engine never frees it.
-    local class=assert(Combat.default(classPath),'missing widget class: '..classPath)
-    local object=StaticConstructObject(class,outer,FName(name),0x40)
-    assert(MC.valid(object),'widget construction failed: '..name)
-    object:SetVisibility(3)
-    return object
-end
-
-local function hold(object,name)
-    return assert(MC.hold(object),'edges cannot keep '..name)
-end
+local construct=Widgets.construct
+local function hold(object,name) return Widgets.hold(object,'edges',name) end
 
 local function tinted(color,alpha) return {R=color.R,G=color.G,B=color.B,A=alpha} end
 
@@ -97,8 +84,7 @@ function M.build(hud,layer,screen,options)
     local tree=assert(hud.WidgetTree,'HUD has no widget tree')
     -- A settings update reattaches the same layer; replace its previous content.
     layer:ClearChildren()
-    generation=generation+1
-    local suffix=nonce..'_'..generation
+    local suffix=Widgets.suffix()
     local intensity=options.intensity or 0.5
     local look={depth=math.min(screen.width,screen.height)*(options.thickness or 0.08)}
     local fallback
@@ -131,19 +117,6 @@ end
 
 function M.valid(ui)
     return M.root(ui)~=nil
-end
-
-local function worldName(object)
-    local world=MC.call(object,'GetWorld')
-    local name=MC.valid(world) and MC.call(world,'GetFullName')
-    return type(name)=='string' and name~='' and name or nil
-end
-
--- Whether an object is in the same world as hud, the edges' live HUD.
-function M.sameWorld(hud,object)
-    if not (hud and MC.valid(object)) then return false end
-    local own=worldName(hud)
-    return own~=nil and own==worldName(object)
 end
 
 -- Lights the edges in lit (index -> true) and puts the others out; critical
