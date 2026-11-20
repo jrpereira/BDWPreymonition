@@ -252,6 +252,44 @@ do
     frames={}
 end
 
+-- The estimate takes the difficulty's parry window multiplier, read from the game's
+-- combat subsystem when combat starts, or when the countdown attaches in combat (the
+-- template enabled or its settings applied mid-fight): 0.3 s times it.
+do
+    local multiplier
+    local function entries(list)
+        return {ForEach=function(_,visit)
+            for _,pair in ipairs(list) do visit({get=function() return pair[1] end},{get=function() return pair[2] end}) end
+        end}
+    end
+    local subsystem=object('CombatSubsystem',{ActionDifficultyLevel=1,DifficultyConfig={ActionDifficulties={ForEach=function(_,visit)
+        visit({get=function() return 1 end},{get=function() return {ParryWindowMultipliers=entries({
+            {{ToString=function() return 'PS5' end},99},{{ToString=function() return 'Windows' end},multiplier}})} end})
+    end}}})
+    statics['/Script/DogwoodCombat.CombatSubsystem']=object('CombatSubsystemClass')
+    statics['/Script/Engine.Default__SubsystemBlueprintLibrary']=object('SubsystemBlueprintLibrary',
+        {GetWorldSubsystem=function() return multiplier and subsystem or nil end})
+    local function count(counted)
+        update({kind='arrow',direction=1,path=PATH,indicator=indicator})
+        local shownText=counted.content.children[1].Text.text
+        update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
+        return shownText
+    end
+    for _,case in ipairs({{1,'0.3s'},{2.5,'0.8s'}}) do
+        multiplier=case[1]
+        local counted=attach(nil).children[1]
+        template.events.wake({},{name='wake'})
+        assert(count(counted)==case[2],'at '..case[1]..' the estimate is '..case[2])
+        template.events.sleep({},{name='sleep'})
+    end
+    template.events.wake({},{name='wake'})
+    local late=attach(nil).children[1]
+    assert(count(late)=='0.8s','a countdown attached in combat takes the difficulty\'s pace')
+    template.events.sleep({},{name='sleep'})
+    multiplier=nil
+    run(0.1)
+end
+
 -- Below and Above follow the omens' cue area at its default size.
 assert(equal(attach('below').children[1].slot.Padding.Top+box.HeightOverride,1080*0.85),'Below: 85% down')
 assert(equal(attach('above').children[1].slot.Padding.Top+box.HeightOverride,1080*0.55),'Above: 55% down')

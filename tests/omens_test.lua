@@ -417,7 +417,11 @@ assert(#layer.children==0,'cleanup removes the cue from the layer')
 attach()
 assert(#layer.children==2 and layer.children[1].WidthOverride==432
     and layer.children[1].content.children[1].slot.Padding.Left==18,'reattach rebuilds once')
-assert(#delayed==0 and layer.children[1].RenderOpacity==0,'a reattached cue waits for the next arrow')
+-- Combat is on: the reattached cue takes the combat's pace and fades its idle cue in
+-- at once, as combat start would have.
+assert(#delayed>0 and layer.children[1].RenderOpacity==0,'a cue reattached in combat starts fading in')
+settle(0.05)
+assert(math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,'to the idle cue')
 
 -- An indicator in view shows its attack; a hidden one's changes are not attacks.
 local other=newIndicator('WBP_CombatTargetIndicator_C_2','BottomArrow')
@@ -1056,6 +1060,21 @@ for _,multiplier in ipairs({1.4,false}) do
     assert(equal(arrow.RenderTranslation.Y,bottomEnd),'and done at its duration')
     resolveAttack()
 end
+-- A cue attached in combat (the template enabled or its settings applied
+-- mid-fight) takes the difficulty's pace too, without a new combat start.
+parryMultiplier=1.4
+detachAll()
+cleanups={}
+attach()
+local late=layer.children[1]
+settle(0.05)
+assert(math.abs(late.RenderOpacity-0.5)<1e-6,'a cue attached in combat shows the idle cue')
+icon(other,BOTTOM)
+clock=clock+0.14
+run()
+assert(equal(arrowOf(late,2).RenderTranslation.Y,select(2,arrowAtDefault(false,0.5,0.5))),
+    'and its attacks take the difficulty\'s pace')
+resolveAttack()
 parryMultiplier=1
 
 -- A lasting fault handling events is logged once per kind; the repeats are
@@ -1088,8 +1107,8 @@ detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
--- twenty-five cues.
-assert(cueReleased==(11+4*2)*25,'each detached cue releases its handles')
+-- twenty-six cues.
+assert(cueReleased==(11+4*2)*26,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()

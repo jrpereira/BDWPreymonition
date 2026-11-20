@@ -324,10 +324,12 @@ function M.attach(hud,layer,params,onCleanup)
     })
     record.model:step()
     cues[#cues+1]=record
-    -- A preview cue shows at once: there is no combat to wake it.
-    if record.preview then
+    -- A preview cue shows at once: there is no combat to wake it. A cue attached
+    -- in combat (the template enabled or its settings applied mid-fight, or MCT
+    -- waking it before it attaches) takes the combat's pace as wake would give it.
+    if record.preview or active then
         local ok,why=Cue.pass(engage,record)
-        if not ok then fail('preview',why) end
+        if not ok then fail(record.preview and 'preview' or 'engage',why) end
     end
     log.info(record.preview and 'preview cue attached, position ' or 'cue attached, position ',ui.visuals.position,', screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale)

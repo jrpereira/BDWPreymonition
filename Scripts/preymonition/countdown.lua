@@ -186,21 +186,24 @@ function M.update(event)
     if not ok then fail(event.kind,why) end
 end
 
--- Combat started: the count takes the current difficulty's parry window multiplier.
--- A preview's keeps its own timing.
+-- A record takes the current difficulty's parry window multiplier for its count.
+local function pace(record)
+    local read,multiplier=pcall(Combat.parryWindow,Render.context(record.ui))
+    if not (read and multiplier) then
+        log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
+        multiplier=FALLBACK
+    end
+    record.lead=LEAD*multiplier
+    log.debug('parry window ',multiplier,'; counting ',string.format('%.2f',record.lead),' s')
+end
+
+-- Combat started: every count takes the current difficulty's pace. A preview's
+-- keeps its own timing.
 function M.wake()
     if active then return end
     active=true
     for _,record in ipairs(records) do
-        if not record.preview and Render.valid(record.ui) then
-            local read,multiplier=pcall(Combat.parryWindow,Render.context(record.ui))
-            if not (read and multiplier) then
-                log.debug('parry window unreadable',read and '' or ': '..tostring(multiplier),'; assuming ',FALLBACK)
-                multiplier=FALLBACK
-            end
-            record.lead=LEAD*multiplier
-            log.debug('parry window ',multiplier,'; counting ',string.format('%.2f',record.lead),' s')
-        end
+        if not record.preview and Render.valid(record.ui) then pace(record) end
     end
 end
 
@@ -242,6 +245,12 @@ function M.attach(hud,layer,params,onCleanup)
     local position=Placement.position(settings.Position)
     record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),position)
     records[#records+1]=record
+    -- Attached in combat (enabled or applied mid-fight, or woken before it attached):
+    -- it takes the combat's pace as wake would give it.
+    if active and not record.preview then
+        local ok,why=pcall(pace,record)
+        if not ok then fail('pace',why) end
+    end
     log.info(record.preview and 'preview countdown attached, position ' or 'countdown attached, position ',position)
 end
 
