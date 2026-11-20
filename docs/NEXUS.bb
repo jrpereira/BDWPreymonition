@@ -6,7 +6,7 @@ Keep incoming attack directions in sight with animated cues near the center of y
 
 [b]What it does[/b]
 
-Preymonition adds an arrow cue near the center of the screen, below it, at its middle or above it. When an attack comes, an arrow flashes in from its direction and turns red when the attack becomes critical. It vanishes once the attack lands or is deflected, so an empty cue means nothing is incoming. Unblockable attacks show a picture at the screen's centre, a horned skull by default. The cue fades when combat ends. Sound cues can play as the attack comes, with or without the arrows, and a countdown can show the time left to the attack's Perfect Opportunity window.
+Preymonition adds an arrow cue near the center of the screen, below it, at its middle or above it. When an attack comes, an arrow flashes in from its direction and turns red when the attack becomes critical. It vanishes once the attack lands or is deflected, so an empty cue means nothing is incoming. Unblockable attacks show a picture at the screen's centre, a horned skull by default. The cue clears when combat ends. Sound cues can play as the attack comes, with or without the arrows, and a countdown can show the time left to the attack's Perfect Opportunity window.
 
 Position, arrow style, size and movement, screen edge glows, the countdown and sounds are all adjustable. The original warning stays in place. Blocking, dodging, and taking the credit remain your responsibility.
 

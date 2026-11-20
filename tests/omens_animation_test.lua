@@ -43,22 +43,21 @@ assert(model:hide(false))
 near(arrow(2).opacity, 0); near(arrow(2).grow, 0); near(arrow(2).offset, 0); near(model.opacity, 0.5)
 assert(not model:has_jobs())
 
--- Combat end puts arrows out at once and fades the cue over one second.
+-- Combat end puts arrows and the cue out at once: nothing shows in it to fade.
 time = 1.3
 assert(model:show(3, 'attack-3'))
 assert(model:critical(3))
 assert(model:hide(true))
-near(arrow(3).opacity, 0); near(arrow(3).grow, 0)
-time = 1.8; model:step(); near(model.opacity, 0.25)
-time = 2.3; model:step(); near(model.opacity, 0)
+near(arrow(3).opacity, 0); near(arrow(3).grow, 0); near(model.opacity, 0)
 assert(not model:hide(false), 'ordinary hide must not reverse combat-end intent')
-assert(not model:has_jobs())
+assert(not model:has_jobs(), 'combat end needs no frames')
 
--- Combat start fades the idle cue in over 0.2s, once, without an arrow.
+-- Combat start shows the idle cue at half opacity at once, without an arrow.
+time = 2.3
 assert(model:engage())
-time = 2.4; model:step(); near(model.opacity, 0.25)
-time = 2.55; model:step(); near(model.opacity, 0.5); near(arrow(3).opacity, 0)
-assert(not model:engage(), 'an idle cue needs no second fade-in')
+near(model.opacity, 0.5); near(arrow(3).opacity, 0)
+assert(not model:has_jobs(), 'combat start needs no frames')
+assert(not model:engage(), 'an idle cue is already showing')
 assert(model:show(4, 'attack-4'), 'a later valid attack may show after combat end')
 time = 2.8; model:step()
 near(arrow(4).opacity, 1); near(arrow(4).grow, 1); near(arrow(4).offset, 1)

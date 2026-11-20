@@ -209,11 +209,11 @@ local function resolve(event)
     end
 end
 
--- Combat ended: the cue fades out and resets.
+-- Combat ended: the cue goes and resets.
 local function endCombat()
     for _,record in ipairs(cues) do
         if Cue.valid(record.ui) and not record.preview then
-            log.debug('combat ended; fading out')
+            log.debug('combat ended; cue out')
             record.source,record.direction,record.critical,record.paths=nil,nil,nil,nil
             if record.skull then
                 record.skull=nil
@@ -230,7 +230,7 @@ end
 -- window multiplier, read when combat starts: 280 ms at 1.4, the second
 -- difficulty. FALLBACK stands in for the multiplier when it cannot be read.
 local PER_MULTIPLIER,FALLBACK=0.2,1.4
--- A cue takes the parry window's pace and fades in.
+-- A cue takes the parry window's pace and shows its idle cue.
 local function engage(record)
     local read,multiplier=pcall(Combat.parryWindow,Cue.context(record.ui))
     if not (read and multiplier) then
@@ -240,12 +240,8 @@ local function engage(record)
     record.model:setDuration(PER_MULTIPLIER*multiplier)
     log.debug('parry window ',multiplier,'; animations take ',
         string.format('%.0f',PER_MULTIPLIER*multiplier*1000),' ms')
-    if record.model:engage() then
-        log.debug('cue fading in')
-        pump(record)
-    else
-        log.debug('cue already showing')
-    end
+    log.debug(record.model:engage() and 'idle cue shown' or 'idle cue already showing')
+    pump(record)
 end
 local function startCombat()
     for _,record in ipairs(cues) do
@@ -283,7 +279,7 @@ function M.wake()
     if not ok then error(why,0) end
 end
 
--- Combat ended, the template was deselected or MCT stopped: fade out.
+-- Combat ended, the template was deselected or MCT stopped: the cue goes.
 function M.sleep()
     if not active then return end
     -- Takes no more events; animations already running finish.

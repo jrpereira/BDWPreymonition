@@ -178,18 +178,17 @@ function M.new(env)
         return true
     end
 
-    -- Combat started: fade the idle cue in without lighting an arrow.
+    -- Combat started: the idle cue takes its half opacity at once, without
+    -- lighting an arrow. Nothing in it shows until an attack, so a fade would
+    -- change nothing on screen. False when it already had it.
     function state:engage()
         self:step(true)
         self.ended = false
-        local container = self.tracks.container
-        if self.opacity >= 0.5 and not (container and container.phases[#container.phases].target < 0.5) then
-            env.apply(self)
-            return false
-        end
-        track('container', self, 'opacity', { phase(self.opacity, 0.5, self.time, 0.2) })
+        self.tracks.container = nil
+        local changed = self.opacity ~= 0.5
+        self.opacity = 0.5
         env.apply(self)
-        return true
+        return changed
     end
 
     -- An unblockable attack: the skull grows from its starting to its grown size;
@@ -206,7 +205,8 @@ function M.new(env)
     end
 
     -- The attack resolved: every arrow goes at once and the idle cue stays. At
-    -- combat end the cue itself also fades out over a second.
+    -- combat end the cue itself also goes at once: with its arrows out and the
+    -- skull cleared, a fade would change nothing on screen.
     function state:hide(combat_end)
         if not combat_end and self.ended then return false end
         self:step(true)
@@ -214,7 +214,8 @@ function M.new(env)
         for index = 1, #self.arrows do vanish(index) end
         if combat_end then
             self.ended = true
-            track('container', self, 'opacity', { phase(self.opacity, 0, self.time, 1) })
+            self.tracks.container = nil
+            self.opacity = 0
         end
         env.apply(self)
         return true

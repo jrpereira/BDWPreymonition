@@ -323,7 +323,8 @@ assert(box.WidthOverride==432 and box.HeightOverride==432,'the box is 40% of the
 -- Middle by default: the box is centred on the screen's middle.
 assert(box.slot.VerticalAlignment==1 and math.abs(box.slot.Padding.Top-(1080-432)/2)<1e-6,
     'the cue is centred')
-assert(box.RenderOpacity==0,'the cue starts hidden')
+-- Combat is already on: the cue shows its idle state, nothing lit, at half opacity.
+assert(math.abs(box.RenderOpacity-0.5)<1e-6 and arrowOf(box,3).RenderOpacity==0,'a cue attached in combat shows the idle cue')
 assert(shieldOf(box).BrushFromTexture.name=='Texture unblockable_fiend' and shieldOf(box).ColorAndOpacity.A==0,
     'the centre holds the default Fiend picture, clear until an unblockable attack')
 assert(#imported==2 and imported[1]=='Preymonition/images/omen_chevron.png' and imported[2]=='Preymonition/images/unblockable_fiend.png',
@@ -426,11 +427,9 @@ attach()
 assert(#layer.children==2 and layer.children[1].WidthOverride==432
     and layer.children[1].content.children[1].slot.Padding.Left==18,'reattach rebuilds once')
 assert(classFinds==4,'a reattach looks up no widget class again')
--- Combat is on: the reattached cue takes the combat's pace and fades its idle cue in
+-- Combat is on: the reattached cue takes the combat's pace and shows its idle cue
 -- at once, as combat start would have.
-assert(#delayed>0 and layer.children[1].RenderOpacity==0,'a cue reattached in combat starts fading in')
-settle(0.05)
-assert(math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,'to the idle cue')
+assert(#delayed==0 and math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,'a cue reattached in combat shows the idle cue')
 
 -- An indicator in view shows its attack; a hidden one's changes are not attacks.
 local other=newIndicator('WBP_CombatTargetIndicator_C_2','BottomArrow')

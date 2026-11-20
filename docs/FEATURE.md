@@ -140,8 +140,10 @@ not moved animates all the way. Without red the Perfect Opportunity window
 changes nothing: the arrow stays yellow, at Attack Incoming's opacity, and an
 attack first seen in that window shows yellow too. Unknown saved values are
 Normal. These settings affect only the arrow; the unblockable indicator shows
-as always, and the Audio Cues follow the attack from its yellow arrow. Combat start fades the
-idle cue in to half opacity; combat end fades it out over a second.
+as always, and the Audio Cues follow the attack from its yellow arrow. Combat start, or
+the cue attaching during combat, sets the idle cue to half opacity at once; combat end
+takes it out at once. Nothing shows in the idle cue, so a fade would change nothing on
+screen.
 
 Animation uses real elapsed time and absolute phase deadlines, steps once per
 frame when the engine tick is hooked, and stops once nothing moves. Each event
@@ -264,8 +266,7 @@ by priority as on the HUD.
 
 Each template keeps the preview's events to its preview attachment and the
 game's away from it; the preview plays without combat, and combat start and end
-leave it alone. A preview attachment shows its idle state at once: the omens'
-cue fades in. Its animation steps on ExecuteWithDelay rather than
+leave it alone. A preview attachment shows its idle state at once. Its animation steps on ExecuteWithDelay rather than
 engine frames, which the mod menu may hold. The Edges light and turn red as in
 combat. The Countdown has no attack to time there and the game may be paused,
 so in the preview it counts 0.7 s, the script's gap from arrow to critical, on
