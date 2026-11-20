@@ -72,8 +72,8 @@ game's change:
   then holds until the attack's skull goes. 0% is 5% of the screen height and 100% the
   full screen height.
 
-A frame's delay is small next to the Perfect Opportunity window, which MCT
-measured opening 0.19–0.41 s after the arrow shows. The game also updates hidden twin
+A frame's delay is small next to the Perfect Opportunity window, which opens
+0.02–0.81 s after the arrow shows (see the Countdown). The game also updates hidden twin
 indicators: MCT counts only an indicator that is itself visible, and a hidden
 twin never takes away the skull. A critical arrow from an indicator other than
 the one the cue shows is shown as that indicator's attack.
@@ -262,8 +262,8 @@ by priority as on the HUD.
 
 Each template keeps the preview's events to its preview attachment and the
 game's away from it; the preview plays without combat, and combat start and end
-leave it alone. A preview attachment shows its idle state at once. Its animation steps on ExecuteWithDelay rather than
-engine frames, which the mod menu may hold. The Edges light and turn red as in
+leave it alone. A preview attachment shows its idle state at once. Its animation steps
+by engine frames, which tick with the mod menu open (checked in game 2026-11-16). The Edges light and turn red as in
 combat. The Countdown has no attack to time there and the game may be paused,
 so in the preview it counts 0.7 s, the script's gap from arrow to critical, on
 real time, says NOW as the script's critical comes and runs its red bar over
@@ -275,8 +275,19 @@ Offline tests cover registration of the four templates, menu generation against
 MCT's category, the animation timeline, the omens driven through MCT's
 attack indicator source, the audio cues' sounds against a fake sound bridge, and the edges' and countdown's requests, against fake UE objects, each in combat and in the live preview.
 
-Checked in game on 2026-10-11, when Preymonition still hooked the game itself:
-hook delivery, placement, arrow and unblockable sounds, the skull, and combat
-start and end, including a loading screen. Not yet checked in game: delivery
-through MCT's `MC_NPCAttackIndicator`, the Solid and Chevron pictures, Scale and Position,
-the cue sounds, the Audio Cues template, the Edges template on its own layer, its Activate Edges switches and unblockable lighting, and its gradient pictures, Thickness and Intensity, the Countdown, the live preview of the Edges and the Countdown, and most non-default settings.
+Checked in game:
+
+- 2026-10-11, when Preymonition still hooked the game itself: hook delivery,
+  placement, the skull, and combat start and end, including a loading screen.
+- 2026-10-18: the game's left and right arrows show on the opposite sides of the
+  screen.
+- 2026-11-12: attacks delivered through MCT's `MC_NPCAttackIndicator` with their
+  attackers' stubs, and the Countdown's timing from the hit window (the Perfect
+  Opportunity window opened 0.18 s before it in five attacks, within 0.05 s).
+- 2026-11-16: the engine ticks with the mod menu open, so the live preview steps by
+  frames.
+
+Not yet checked in game: the Solid, Chevron and Fancy pictures, Position, the Audio
+Cues, the Edges template and its switches, gradients, Thickness and Intensity, the
+Countdown's display, the live preview of each template, and most non-default
+settings.
