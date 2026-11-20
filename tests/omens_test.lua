@@ -67,30 +67,14 @@ local function object(name,fields)
     end})
 end
 
--- Native arrows: lit orange at strength, dim when inactive.
-local function color(strength) return {R=strength,G=strength*0.67,B=strength*0.19,A=1} end
-local ARROWS={'TopArrow','BottomArrow','LeftArrow','RightArrow'}
 local objects={}
--- Native arrow artwork: 40 wide and 30 high, resting 5 below the indicator centre.
-local ARROW_BRUSH={ImageSize={X=40,Y=30}}
--- An indicator whose WidgetTree holds four named arrow images and its centre
--- icon, the Reticle; lit is lit brightly.
-local function newIndicator(name,lit)
+-- A combat target indicator: a named visible object, found by its path.
+local function newIndicator(name)
     local value=object(name)
-    local tree=object(name..'.WidgetTree',{outer=value})
-    value.Reticle=object(name..'.Reticle',{fname='Reticle',outer=tree})
-    objects[value.Reticle.name]=value.Reticle
-    for _,key in ipairs(ARROWS) do
-        local arrow=object(name..'.'..key,{fname=key,outer=tree,Brush=ARROW_BRUSH,
-            RenderTransform={Translation={X=0,Y=5},Scale={X=1,Y=1}},
-            ColorAndOpacity=color(key==lit and 0.9 or 0.2)})
-        value[key]=arrow
-        objects[arrow.name]=arrow
-    end
     objects[name]=value
     return value
 end
-local indicator=newIndicator('WBP_CombatTargetIndicator_C_1','LeftArrow')
+local indicator=newIndicator('WBP_CombatTargetIndicator_C_1')
 local clock=0
 local statics=object('GameplayStatics')
 function statics:GetRealTimeSeconds() return clock end
@@ -278,7 +262,7 @@ local function detachAll()
     for index=#cleanups,1,-1 do cleanups[index]() end
     detaching=false
 end
-local function attach(size,visuals)
+local function attach(visuals)
     local original={}
     -- The cue box is 40% of the short side, 432 high; the omens line up on a
     -- cue area half the screen height. The
@@ -447,7 +431,7 @@ assert(classFinds==4,'a reattach looks up no widget class again')
 assert(#delayed==0 and math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,'a cue reattached in combat shows the idle cue')
 
 -- An indicator in view shows its attack; a hidden one's changes are not attacks.
-local other=newIndicator('WBP_CombatTargetIndicator_C_2','BottomArrow')
+local other=newIndicator('WBP_CombatTargetIndicator_C_2')
 local bottom=arrowOf(layer.children[1],2)
 icon(other,BOTTOM)
 local _,bottomStart=arrowAtDefault(false,0,0)
@@ -457,7 +441,7 @@ run()
 settle(0.05)
 assert(math.abs(bottom.RenderOpacity-1)<1e-6,'an indicator attack shows its direction')
 assert(equal(bottom.RenderTranslation.Y,bottomEnd) and bottom.RenderTranslation.X==0,'and travels as far as Movement takes it')
-local hidden=newIndicator('WBP_CombatTargetIndicator_C_3','RightArrow')
+local hidden=newIndicator('WBP_CombatTargetIndicator_C_3')
 hidden.visible=false
 icon(hidden,RIGHT)
 run()
@@ -465,7 +449,7 @@ settle(0.05)
 assert(arrowOf(layer.children[1],4).RenderOpacity==0
     and math.abs(bottom.RenderOpacity-1)<1e-6,'an attack on a hidden indicator is not shown')
 
--- The Perfect Opportunity window opens: the arrow turns red at once, 2.5 times its size,
+-- The Perfect Opportunity window opens: the arrow turns red at once, at its grown size,
 -- where it travelled, held until resolved.
 icon(other,BOTTOM+PARRY)
 run()
@@ -559,7 +543,7 @@ detaching=true
 cleanups[#cleanups]()
 detaching=false
 cleanups[#cleanups]=nil
-local abroad=newIndicator('WBP_CombatTargetIndicator_C_9','TopArrow')
+local abroad=newIndicator('WBP_CombatTargetIndicator_C_9')
 abroad.world=elsewhere
 icon(abroad,TOP)
 icon(abroad,SKULL_ICON)
@@ -603,7 +587,7 @@ run()
 settle(0.05)
 
 -- The game gives a hidden indicator the same updates; only the visible one counts.
-local twin=newIndicator('WBP_CombatTargetIndicator_C_4','BottomArrow')
+local twin=newIndicator('WBP_CombatTargetIndicator_C_4')
 twin.visible=false
 icon(other,BOTTOM)
 icon(twin,BOTTOM)
@@ -661,7 +645,7 @@ hud.invalid=nil
 -- larger skull.
 detachAll()
 cleanups={}
-attach(nil,{ParryMovement={10,50},ParrySize={25,100},UnblockableSize={0,50}})
+attach({ParryMovement={10,50},ParrySize={25,100},UnblockableSize={0,50}})
 local tuned=layer.children[1]
 endCombat()
 startCombat()
@@ -702,7 +686,7 @@ settle(0.05)
 -- With the style off, an attack shows no arrow.
 detachAll()
 cleanups={}
-attach(nil,{ParryStyle='off'})
+attach({ParryStyle='off'})
 local hiddenArrows=layer.children[1]
 endCombat()
 startCombat()
@@ -723,7 +707,7 @@ do
     endCombat()
     -- A preview steps by frames like the HUD's; any waits are not counted against the HUD's.
     local waitsBefore=delays
-    attach(nil,{})
+    attach({})
     local previewLayer=object('Preview layer')
     template.attach({hud=hud,cue=previewLayer},{settings={ParrySize={10,50},ParryMovement={5,60}},
         screen={width=1920,height=1080,scale=1},preview=true,
@@ -773,7 +757,7 @@ end
 for _,style in ipairs({'chevron','solid'}) do
     detachAll()
     cleanups={}
-    attach(nil,{ParryStyle=style})
+    attach({ParryStyle=style})
     local looks=layer.children[1]
     assert(#layer.children==2,'the omens build no screen edges: the arrows\' box and the centre box')
     assert(importsOf('omen_'..style..'.png')==1,style..' loads its picture once a session')
@@ -808,19 +792,19 @@ end
 -- as a whole as it grows.
 detachAll()
 cleanups={}
-attach(nil,{ParryStyle='fancy'})
+attach({ParryStyle='fancy'})
 local fancy=layer.children[1]
 assert(importsOf('omen_fancy.png')==1,'the one picture loads from the images folder')
 -- A later attach reuses the picture while the engine keeps it; one it collected loads again.
 detachAll()
 cleanups={}
-attach(nil,{ParryStyle='fancy'})
+attach({ParryStyle='fancy'})
 assert(importsOf('omen_fancy.png')==1,'a reattach reuses the loaded picture')
 local kept=arrowOf(layer.children[1],1).content.children[1].children[1].BrushFromTexture
 kept.invalid=true
 detachAll()
 cleanups={}
-attach(nil,{ParryStyle='fancy'})
+attach({ParryStyle='fancy'})
 kept.invalid=nil
 assert(importsOf('omen_fancy.png')==2,'a collected picture loads again')
 fancy=layer.children[1]
@@ -898,7 +882,7 @@ cleanups={}
 picturesMissing=true
 -- The pictures loaded so far are gone too, so the attach imports them again.
 collectTextures(true)
-attach(nil,{ParryStyle='fancy'})
+attach({ParryStyle='fancy'})
 local missing=layer.children[1]
 assert(bare(missing),'a picture that does not load leaves the arrows without one')
 assert(#warnings==1 and warnings[1]:match('^arrow picture for Style fancy did not load; no arrows show: images not loaded from '),
@@ -930,7 +914,7 @@ collectTextures(false)
 -- Normal, the defaults, show it from the first sighting, as the checks above do.)
 detachAll()
 cleanups={}
-attach(nil,{ParryIncoming='off',ParryPerfect='start'})
+attach({ParryIncoming='off',ParryPerfect='start'})
 endCombat()
 startCombat()
 run()
@@ -968,7 +952,7 @@ for _,case in ipairs({
     local name=case.incoming..' and '..case.perfect..': '
     detachAll()
     cleanups={}
-    attach(nil,{ParryIncoming=case.incoming,ParryPerfect=case.perfect})
+    attach({ParryIncoming=case.incoming,ParryPerfect=case.perfect})
     endCombat()
     startCombat()
     run()
@@ -996,7 +980,7 @@ end
 -- show red and opaque, from rest.
 detachAll()
 cleanups={}
-attach(nil,{ParryIncoming='faint',ParryPerfect='end'})
+attach({ParryIncoming='faint',ParryPerfect='end'})
 endCombat()
 startCombat()
 run()
@@ -1024,7 +1008,7 @@ for _,case in ipairs({{incoming='normal',opacity=1},{incoming='faint',opacity=0.
     local name=case.incoming..' and off: '
     detachAll()
     cleanups={}
-    attach(nil,{ParryIncoming=case.incoming,ParryPerfect='off'})
+    attach({ParryIncoming=case.incoming,ParryPerfect='off'})
     local cue=layer.children[1]
     endCombat()
     startCombat()
@@ -1072,7 +1056,7 @@ settle(0.05)
 local function criticalAttack(settings)
     detachAll()
     cleanups={}
-    attach(nil,settings)
+    attach(settings)
     local cue=layer.children[1]
     endCombat()
     startCombat()
@@ -1181,7 +1165,7 @@ assert(removed==1,'a second sleep has nothing left to remove')
 -- below the top edge. The unblockable indicator stays at the screen's centre.
 for position,top in pairs({below=1080*0.9-270-216,above=1080*0.1+270-216}) do
     cleanups={}
-    attach(nil,{ParryPosition=position})
+    attach({ParryPosition=position})
     assert(math.abs(layer.children[1].slot.Padding.Top-top)<1e-6,'cue position '..position)
     local centre=layer.children[2]
     assert(centre.slot.HorizontalAlignment==2 and centre.slot.VerticalAlignment==2 and centre.slot.Padding==nil,
@@ -1197,7 +1181,7 @@ local STYLES={'off','fiend','gore','cracked','shattered','ember','splatter'}
 for _,style in ipairs(STYLES) do
     cleanups={}
     local before=#imported
-    attach(nil,{UnblockableStyle=style})
+    attach({UnblockableStyle=style})
     local file=style~='off' and 'unblockable_'..style or nil
     -- Besides the arrows' Chevron picture, already loaded: its own, unless already loaded.
     assert(#imported<=before+1,'style '..style..' loads at most one picture')
@@ -1230,7 +1214,7 @@ end
 -- so 100% takes a bottom arrow's tip 378 down from there, as far as a top arrow's goes up.
 local function travel(movement,direction,index)
     cleanups={}
-    attach(nil,{ParryPosition='above',ParryMovement=movement})
+    attach({ParryPosition='above',ParryMovement=movement})
     local cue=layer.children[1]
     endCombat()
     startCombat()
@@ -1310,7 +1294,7 @@ assert(Placement.position(2)=='middle' and Placement.position('above')=='above',
 for _,number in ipairs({4,3}) do
     detachAll()
     cleanups={}
-    attach(nil,{ParryStyle=number,ParryPosition=0})
+    attach({ParryStyle=number,ParryPosition=0})
     assert(layer.children[1].slot.Padding.Top==(1080-432)/2,'an old numeric Position centres the arrows')
     endCombat()
     startCombat()
@@ -1330,7 +1314,7 @@ detachAll()
 cleanups={}
 warnings={}
 capture()
-attach(nil,{ParryStyle='perspective'})
+attach({ParryStyle='perspective'})
 endCombat()
 startCombat()
 run()
