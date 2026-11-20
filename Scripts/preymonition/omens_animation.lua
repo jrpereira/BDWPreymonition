@@ -20,24 +20,22 @@ function M.new(env)
     assert(type(env) == 'table' and type(env.now) == 'function' and type(env.apply) == 'function',
         'Animation requires now and apply callbacks')
     local state = {
-        opacity = 0, arrows = {}, tracks = {}, last = nil, ended = false,
+        opacity = 0, arrows = {}, tracks = {}, ended = false,
         -- Seconds each attack's animation takes; setDuration changes it.
         duration = TRAVEL,
         -- The unblockable skull's growth while it shows, 0 to 1.
         skull = { grow = 0 },
-        finished_keys = {}, finished_jobs = {},
     }
     -- offset is the share of the arrow's outward travel, 0 at rest to 1.
     for index = 1, 4 do
         state.arrows[index] = { opacity = 0, grow = 0, offset = 0 }
     end
 
-    local function track(key, object, field, phases, after)
-        state.tracks[key] = { object = object, field = field, phases = phases, after = after }
-    end
-
-    local function phase(from, target, start, duration)
-        return { from = from, target = target, start = start, duration = duration }
+    -- A track takes object[field] from from to target over duration seconds from
+    -- start, then ends.
+    local function track(key, object, field, from, target, start, duration)
+        state.tracks[key] = { object = object, field = field, from = from, target = target,
+            start = start, duration = duration }
     end
 
     -- Puts an arrow out at once, back at rest.
@@ -67,34 +65,14 @@ function M.new(env)
         local timestamp = env.now()
         -- Verbs time their new tracks from the step they just took.
         self.time = timestamp
-        local completed = 0
         for key, job in pairs(self.tracks) do
-            local last = job.phases[#job.phases]
-            local value = job.object[job.field]
-            local done = timestamp >= last.start + last.duration - 1e-9
-            for _, current in ipairs(job.phases) do
-                if timestamp < current.start then break end
-                if current.duration <= 0 or timestamp >= current.start + current.duration then
-                    value = current.target
-                else
-                    local alpha = clamp((timestamp - current.start) / current.duration)
-                    value = current.from + (current.target - current.from) * alpha
-                    break
-                end
-            end
-            job.object[job.field] = value
-            if done then
-                completed = completed + 1
-                self.finished_keys[completed] = key
-                self.finished_jobs[completed] = job
-            end
-        end
-        for index = 1, completed do
-            local key, job = self.finished_keys[index], self.finished_jobs[index]
-            self.finished_keys[index], self.finished_jobs[index] = nil, nil
-            if self.tracks[key] == job then
+            if timestamp >= job.start + job.duration - 1e-9 then
+                job.object[job.field] = job.target
+                -- Clearing a field during pairs is allowed.
                 self.tracks[key] = nil
-                if job.after then job.after() end
+            else
+                local alpha = clamp((timestamp - job.start) / job.duration)
+                job.object[job.field] = job.from + (job.target - job.from) * alpha
             end
         end
         if not quiet then env.apply(self) end
@@ -105,8 +83,8 @@ function M.new(env)
     local function travel(self, index)
         local selected = self.arrows[index]
         selected.grow, selected.offset = 0, 0
-        track('grow' .. index, selected, 'grow', { phase(0, 1, self.time, self.duration) })
-        track('offset' .. index, selected, 'offset', { phase(0, 1, self.time, self.duration) })
+        track('grow' .. index, selected, 'grow', 0, 1, self.time, self.duration)
+        track('offset' .. index, selected, 'offset', 0, 1, self.time, self.duration)
     end
 
     -- Carries an arrow's growth and travel on from where they are to target,
@@ -118,7 +96,7 @@ function M.new(env)
             local from = selected[field]
             self.tracks[field .. index] = nil
             if from < target then
-                track(field .. index, selected, field, { phase(from, target, self.time, self.duration * (target - from)) })
+                track(field .. index, selected, field, from, target, self.time, self.duration * (target - from))
             end
         end
     end
@@ -128,17 +106,14 @@ function M.new(env)
     -- attack's yellow arrow back until reveal: it grows and travels share of
     -- its way (both size and movement), or stays at rest without it; 'critical' shows an attack first seen critical, its arrow
     -- travelling from rest.
-    function state:show(index, identity, mode, share)
+    function state:show(index, mode, share)
         assert(self.arrows[index], 'Invalid arrow index')
-        if self.last == identity then return false end
         self:step(true)
-        local timestamp = self.time
-        self.last = identity
         self.ended = false
 
         local container = self.tracks.container
-        if self.opacity < 0.5 or (container and container.phases[#container.phases].target < 0.5) then
-            track('container', self, 'opacity', { phase(self.opacity, 0.5, timestamp, 0.1) })
+        if self.opacity < 0.5 or (container and container.target < 0.5) then
+            track('container', self, 'opacity', self.opacity, 0.5, self.time, 0.1)
         end
         for current = 1, #self.arrows do vanish(current) end
         local selected = self.arrows[index]
@@ -198,7 +173,7 @@ function M.new(env)
         self.tracks.skullGrow = nil
         self.skull.grow = 0
         if shown then
-            track('skullGrow', self.skull, 'grow', { phase(0, 1, self.time, self.duration) })
+            track('skullGrow', self.skull, 'grow', 0, 1, self.time, self.duration)
         end
         env.apply(self)
         return true
@@ -210,7 +185,6 @@ function M.new(env)
     function state:hide(combat_end)
         if not combat_end and self.ended then return false end
         self:step(true)
-        self.last = nil
         for index = 1, #self.arrows do vanish(index) end
         if combat_end then
             self.ended = true

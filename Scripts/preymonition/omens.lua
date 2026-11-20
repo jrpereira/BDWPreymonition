@@ -170,7 +170,7 @@ local function present(record,event)
     if critical then Cue.critical(record.ui,direction) else Cue.arm(record.ui,direction) end
     record.source,record.direction,record.critical=path,direction,critical or nil
     record.paths={[path]=true}
-    if record.model:show(direction,event.path..':'..event.sequence,mode,record.travel) then
+    if record.model:show(direction,mode,record.travel) then
         if critical and not held then record.model:critical(direction) end
         log.debug('show ',DIRECTIONS[direction],mode and ' '..mode or '',' from ',path)
         pump(record)
