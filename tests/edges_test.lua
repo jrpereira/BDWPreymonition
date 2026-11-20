@@ -46,8 +46,15 @@ function rendering:ImportFileAsTexture2D(_,path)
     local name=path:match('^Preymonition/images/(edge_[%w_]+)%.png$')
     return name and object('Texture '..name) or nil
 end
+-- Widget classes, by path, and how often one is looked up.
+local classes,classFinds={},0
 StaticFindObject=function(path)
     if path=='/Script/Engine.Default__KismetRenderingLibrary' then return rendering end
+    if path:match('^/Script/UMG%.') then
+        classFinds=classFinds+1
+        classes[path]=classes[path] or object(path,{path=path})
+        return classes[path]
+    end
     return {path=path}
 end
 -- The engine refuses a second object under one name in an outer (a crash in game): every
@@ -354,4 +361,5 @@ do
     for index=#cleanups,1,-1 do cleanups[index]() end
     cleanups={}
 end
+assert(classFinds==3,'each widget class is looked up once across attaches: Overlay, SizeBox and Image')
 print('PASS: Edges light the attacked side yellow and red, every edge for an unblockable attack, each behind its switch, in preview too')

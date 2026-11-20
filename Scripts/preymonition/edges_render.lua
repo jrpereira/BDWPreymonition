@@ -1,6 +1,7 @@
 -- Screen edge glows: builds them in a cue layer, lights and tints them. It
 -- reads nothing from the game; preymonition.edges decides what they show.
 local MC=require('mc')
+local Combat=require('preymonition.combat')
 local Images=require('preymonition.omens_images')
 
 -- Edge indices follow MCT's attack directions: top, bottom, left, right. The
@@ -35,7 +36,8 @@ local function gradient(context,key)
 end
 
 local function construct(classPath,outer,name)
-    local class=assert(StaticFindObject(classPath),'missing widget class: '..classPath)
+    -- A widget class is found once: the engine never frees it.
+    local class=assert(Combat.default(classPath),'missing widget class: '..classPath)
     local object=StaticConstructObject(class,outer,FName(name),0x40)
     assert(MC.valid(object),'widget construction failed: '..name)
     object:SetVisibility(3)

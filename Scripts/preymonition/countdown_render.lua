@@ -26,7 +26,8 @@ local nonce=string.format('%06x',math.random(0,0xffffff))
 local M={}
 
 local function construct(classPath,outer,name)
-    local class=assert(StaticFindObject(classPath),'missing widget class: '..classPath)
+    -- A widget class is found once: the engine never frees it.
+    local class=assert(Combat.default(classPath),'missing widget class: '..classPath)
     local object=StaticConstructObject(class,outer,FName(name),0x40)
     assert(MC.valid(object),'widget construction failed: '..name)
     object:SetVisibility(3)

@@ -141,9 +141,16 @@ function subsystems:GetWorldSubsystem(_,class)
 end
 objects['/Script/Engine.Default__SubsystemBlueprintLibrary']=subsystems
 objects['/Script/DogwoodCombat.CombatSubsystem']=object('CombatSubsystemClass')
+-- Widget classes, by path, and how often one is looked up.
+local classes,classFinds={},0
 StaticFindObject=function(path)
     calls.finds=calls.finds+1
-    return objects[path] or (path:match('^/Script/UMG%.') and {path=path})
+    if path:match('^/Script/UMG%.') then
+        classFinds=classFinds+1
+        classes[path]=classes[path] or object(path,{path=path})
+        return classes[path]
+    end
+    return objects[path]
 end
 -- An FName's comparison index stands for its text, as the engine's does.
 FName=function(value)
@@ -310,6 +317,7 @@ local function arrowOf(cue,index) return cue.content.children[1].children[index]
 attach()
 -- Five widgets, then per arrow a box, a canvas and its two layers, each a clip holding the picture.
 assert(constructed==5+4*6 and #layer.children==2,'the arrows\' box with its stack, overlay and four arrows, and the centre box with its image')
+assert(classFinds==4,'each widget class is looked up once: SizeBox, Overlay, Image and CanvasPanel')
 local box=layer.children[1]
 assert(box.WidthOverride==432 and box.HeightOverride==432,'the box is 40% of the short side')
 -- Middle by default: the box is centred on the screen's middle.
@@ -417,6 +425,7 @@ assert(#layer.children==0,'cleanup removes the cue from the layer')
 attach()
 assert(#layer.children==2 and layer.children[1].WidthOverride==432
     and layer.children[1].content.children[1].slot.Padding.Left==18,'reattach rebuilds once')
+assert(classFinds==4,'a reattach looks up no widget class again')
 -- Combat is on: the reattached cue takes the combat's pace and fades its idle cue in
 -- at once, as combat start would have.
 assert(#delayed>0 and layer.children[1].RenderOpacity==0,'a cue reattached in combat starts fading in')

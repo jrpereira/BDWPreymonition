@@ -44,7 +44,16 @@ local statics={
     ['/Script/Engine.Default__KismetTextLibrary']=object('KismetTextLibrary',
         {Conv_StringToText=function(_,text) return {text=text} end}),
 }
-StaticFindObject=function(path) return statics[path] or {path=path} end
+-- Widget classes, by path, and how often one is looked up.
+local classes,classFinds={},0
+StaticFindObject=function(path)
+    if path:match('^/Script/UMG%.') then
+        classFinds=classFinds+1
+        classes[path]=classes[path] or object(path,{path=path})
+        return classes[path]
+    end
+    return statics[path] or {path=path}
+end
 -- The engine refuses a second object under one name in an outer (a crash in game): every
 -- name built must be new.
 local builtNames={}
@@ -289,6 +298,8 @@ do
     multiplier=nil
     run(0.1)
 end
+
+assert(classFinds==4,'each widget class is looked up once across attaches: SizeBox, Overlay, TextBlock and Image')
 
 -- Below and Above follow the omens' cue area at its default size.
 assert(equal(attach('below').children[1].slot.Padding.Top+box.HeightOverride,1080*0.85),'Below: 85% down')

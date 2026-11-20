@@ -3,6 +3,7 @@
 -- indicator at the screen's centre. The game's
 -- combat state comes from preymonition.combat.
 local MC=require('mc')
+local Combat=require('preymonition.combat')
 local Placement=require('preymonition.placement')
 local Fancy=require('preymonition.omens_fancy')
 local Images=require('preymonition.omens_images')
@@ -59,7 +60,8 @@ local function world(object)
 end
 
 local function construct(classPath,outer,name)
-    local class=assert(StaticFindObject(classPath),'missing widget class: '..classPath)
+    -- A widget class is found once: the engine never frees it.
+    local class=assert(Combat.default(classPath),'missing widget class: '..classPath)
     local object=StaticConstructObject(class,outer,FName(name),0x40)
     assert(MC.valid(object),'widget construction failed: '..name)
     object:SetVisibility(3)
