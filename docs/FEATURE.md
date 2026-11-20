@@ -48,13 +48,6 @@ screen height tall (`preymonition/placement.lua`, shared with the Countdown): Be
 area's bottom 10% of the screen height above the bottom edge, Above keeps its
 top 10% below the top edge, and Middle centres it.
 
-The arrows take their artwork, rest position and rotation from the indicator
-blueprint's designed arrows (`WBP_CombatTargetIndicator_C:WidgetTree.<Direction>Arrow`)
-when the cue attaches, or when combat starts if the blueprint had not loaded
-yet. Nothing is copied from a live indicator during an attack, and an attack
-that arrives before the artwork is found is not shown. A critical arrow keeps
-that artwork, tinted red.
-
 The cue keeps every widget only as a weak handle, so nothing reads a collected
 widget after the HUD is rebuilt. MCT releases the layer on detach; the template
 clears its own content.
