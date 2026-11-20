@@ -3,8 +3,10 @@
 -- window, each behind an Activate Edges switch; a resolve puts it out. An
 -- unblockable attack lights every edge red while it shows.
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
+-- Handle lookups, for the request budget.
+local gets=0
 require('mc.objects').useLifetimes({weak=function(object)
-    return {get=function() return setmetatable({},{__index=object,__newindex=object}) end,release=function() end}
+    return {get=function() gets=gets+1; return setmetatable({},{__index=object,__newindex=object}) end,release=function() end}
 end})
 
 local world={name='World'}
@@ -135,6 +137,13 @@ critical(1)
 assert(lit(layer)=='on off off off' and red(layer),'an attack first seen critical shows red')
 resolve(PATH,'hidden')
 assert(lit(layer)=='off off off off','a hidden indicator ends it')
+-- A request looks up the HUD once, whatever it lights or tints; the edges and their
+-- bands are kept while it lives.
+local before=gets
+arrow(1)
+critical(1)
+resolve()
+assert(gets-before==3 and lit(layer)=='off off off off','one HUD lookup per request')
 -- An indicator in another world is not this HUD's.
 update({kind='arrow',direction=1,path='/Game/Other',indicator=object('Other',{world=elsewhere})})
 assert(lit(layer)=='off off off off','another world\'s attack is ignored')

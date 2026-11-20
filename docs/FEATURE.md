@@ -229,7 +229,9 @@ The Countdown template, a work in progress, builds a time above a thin bar in it
 screen height wide, under where the omens' cue area (50% of the height)
 sits for its Position. Its requests (`preymonition/countdown.lua`) time the
 attack and its renderer (`preymonition/countdown_render.lua`) draws it, stepping
-every frame only while something moves.
+every frame only while something moves. Each frame looks up the HUD once and reuses
+the widgets built in it while it lives; while the game is paused its clock stands
+still, so nothing is drawn and the next look waits five frames.
 
 The Perfect Opportunity window opens when the attacker's animation says, 0.02–0.81 s after
 the arrow (median 0.42 s, second difficulty). The countdown runs on game time,

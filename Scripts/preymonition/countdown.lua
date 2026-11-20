@@ -28,6 +28,9 @@ local LEAD,FALLBACK=0.3,1.4
 local WINDOW=1
 local PREVIEW_LEAD,PREVIEW_WINDOW=0.7,0.5
 local FRAME_MS=16
+-- While the game is paused its clock stands still and nothing on screen changes:
+-- the count looks again every PAUSED_FRAMES frames rather than every frame.
+local PAUSED_FRAMES=5
 
 local records={}
 -- Whether combat is on: requests arrive only while it is.
@@ -57,10 +60,14 @@ function M.view(record,now)
     end
     if not record.started then return nil,false end
     local remaining=math.max(0,record.count-(now-record.started))
-    -- Tenths, rounded up: 0.0 shows only once the count has run out.
+    -- Tenths, rounded up: 0.0 shows only once the count has run out. The text is
+    -- formatted again only when they change.
     local tenths=math.ceil(remaining*10-1e-9)
+    if record.tenths~=tenths then
+        record.tenths,record.text=tenths,string.format('%d.%ds',tenths//10,tenths%10)
+    end
     local fraction=record.count>0 and remaining/record.count or 0
-    return {text=string.format('%d.%ds',tenths//10,tenths%10),fraction=fraction},remaining>0
+    return {text=record.text,fraction=fraction},remaining>0
 end
 
 local function clear(record)
@@ -75,54 +82,67 @@ local function hitWindowOf(event)
     return from,to
 end
 
--- Next frame when the engine tick is hooked; ExecuteWithDelay's timer is coarser.
--- The preview steps by frames too: the engine ticks with the mod menu open (checked
--- live, 2026-11-16), and an ExecuteWithDelay every frame for minutes crashed the game.
--- timer is ignored.
-local function later(callback,timer)
+-- After frames frames when the engine tick is hooked; ExecuteWithDelay's timer is
+-- coarser. The preview steps by frames too: the engine ticks with the mod menu open
+-- (checked live, 2026-11-16), and an ExecuteWithDelay every frame for minutes crashed
+-- the game.
+local function later(callback,frames)
     if rawget(_G,'EngineTickAvailable')==true and type(rawget(_G,'ExecuteInGameThreadAfterFrames'))=='function' then
-        ExecuteInGameThreadAfterFrames(1,callback)
+        ExecuteInGameThreadAfterFrames(frames,callback)
     else
         -- On the game thread: ExecuteWithDelay runs its callback on UE4SS's async thread,
         -- in this mod's Lua state while the game thread may use it.
         if type(rawget(_G,'ExecuteInGameThreadWithDelay'))=='function' then
-            ExecuteInGameThreadWithDelay(math.max(1,math.floor(FRAME_MS)),callback)
+            ExecuteInGameThreadWithDelay(FRAME_MS*frames,callback)
         else
-            ExecuteWithDelay(FRAME_MS,function() ExecuteInGameThread(callback) end)
+            ExecuteWithDelay(FRAME_MS*frames,function() ExecuteInGameThread(callback) end)
         end
     end
 end
 
--- A record's clock: game time, or real time for a preview.
-local function clock(record)
-    return Render.now(record.ui,record.preview)
-end
-
 local pump
--- Draws a record now; asks for the next frame while its view still changes.
-local function render(record)
-    if not Render.valid(record.ui) then return end
-    local view,moving=M.view(record,clock(record))
+-- Draws a record now, hud being its live HUD (looked up when not given); asks for
+-- the next frame while its view still changes. A request always draws.
+local function render(record,hud)
+    hud=hud or Render.root(record.ui)
+    if not hud then return end
+    -- Game time, or real time for a preview.
+    local now=Render.now(hud,record.preview)
+    local view,moving=M.view(record,now)
     Render.show(record.ui,view)
-    if moving then pump(record) end
+    record.drawn=now
+    if moving then pump(record,1) end
 end
 
-function pump(record)
+-- One frame: one lookup of the HUD and the clock. While the clock stands still
+-- (paused) nothing is drawn and the next look waits PAUSED_FRAMES frames.
+local function step(record)
+    local hud=Render.root(record.ui)
+    if not hud then return end
+    if Render.now(hud,record.preview)==record.drawn then
+        pump(record,PAUSED_FRAMES)
+        return
+    end
+    render(record,hud)
+end
+
+function pump(record,frames)
     if record.scheduled then return end
     record.scheduled=true
-    local ok,why=pcall(later,record.onFrame,record.preview)
+    local ok,why=pcall(later,record.onFrame,frames)
     if not ok then record.scheduled=false; fail('schedule',why) end
 end
 
--- The records an event reaches. A preview event (ModCore Templates' live preview
--- in the mod menu, the menu's widget as its indicator) reaches only the preview
--- records, a game event only the others in the indicator's world.
+-- The records an event reaches, each with its live HUD. A preview event (ModCore
+-- Templates' live preview in the mod menu, the menu's widget as its indicator)
+-- reaches only the preview records, a game event only the others in the
+-- indicator's world.
 local function each(event,callback)
     local preview=event.preview==true
     for _,record in ipairs(records) do
-        if record.preview==preview and Render.valid(record.ui)
-            and (preview or Render.sameWorld(record.ui,event.indicator)) then
-            callback(record)
+        if record.preview==preview then
+            local hud=Render.root(record.ui)
+            if hud and (preview or Render.sameWorld(hud,event.indicator)) then callback(record,hud) end
         end
     end
 end
@@ -132,10 +152,10 @@ local handlers={}
 -- An attack shows: its count starts. The game's arrow sometimes shows twice for
 -- one attack; the count already running for it carries on.
 function handlers.arrow(event)
-    each(event,function(record)
+    each(event,function(record,hud)
         if record.source==event.path and record.direction==event.direction then return end
         record.source,record.direction,record.opened=event.path,event.direction,nil
-        local now=clock(record)
+        local now=Render.now(hud,record.preview)
         record.started=now
         local from,to=hitWindowOf(event)
         if record.preview then
@@ -148,32 +168,32 @@ function handlers.arrow(event)
             log.debug('counting ',string.format('%.2f',record.count),' s, estimated: ',
                 event.stub and 'no hit window' or 'no attacker')
         end
-        render(record)
+        render(record,hud)
     end)
 end
 
 -- Its Perfect Opportunity window opened: NOW, once per attack.
 function handlers.critical(event)
-    each(event,function(record)
+    each(event,function(record,hud)
         if record.opened and record.source==event.path and record.direction==event.direction then return end
         if record.source~=event.path or record.direction~=event.direction then
             local _,to=hitWindowOf(event)
             record.hitEnd=to
         end
         record.source,record.direction=event.path,event.direction
-        local now=clock(record)
+        local now=Render.now(hud,record.preview)
         record.opened=now
         -- The red bar runs to the hit window's end, or over WINDOW without one
         -- (PREVIEW_WINDOW in a preview).
         record.window=record.hitEnd and record.hitEnd>now and record.hitEnd-now
             or (record.preview and PREVIEW_WINDOW or WINDOW)
-        render(record)
+        render(record,hud)
     end)
 end
 
 function handlers.resolve(event)
-    each(event,function(record)
-        if record.source==event.path then clear(record); render(record) end
+    each(event,function(record,hud)
+        if record.source==event.path then clear(record); render(record,hud) end
     end)
 end
 
@@ -213,9 +233,10 @@ function M.sleep()
     active=false
     Combat.forgetStubs()
     for _,record in ipairs(records) do
-        if not record.preview and Render.valid(record.ui) then
+        local hud=not record.preview and Render.root(record.ui)
+        if hud then
             clear(record)
-            local ok,why=pcall(render,record)
+            local ok,why=pcall(render,record,hud)
             if not ok then fail('combat end',why) end
         end
     end
@@ -231,7 +252,7 @@ function M.attach(hud,layer,params,onCleanup)
     record.onFrame=function()
         record.scheduled=false
         if record.detached then return end
-        local ok,why=pcall(render,record)
+        local ok,why=pcall(step,record)
         if not ok then fail('frame',why) end
     end
     onCleanup(function()

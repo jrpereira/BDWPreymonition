@@ -2,8 +2,10 @@
 -- Perfect Opportunity window; the game's own Perfect Opportunity window turns it
 -- red and says NOW while the bar runs down; a resolve or combat end clears it.
 package.path='Preymonition/Scripts/?.lua;ModCoreTemplates/Scripts/?.lua;'..package.path
+-- Handle lookups, for the frame budget.
+local gets=0
 require('mc.objects').useLifetimes({weak=function(object)
-    return {get=function() return setmetatable({},{__index=object,__newindex=object}) end,release=function() end}
+    return {get=function() gets=gets+1; return setmetatable({},{__index=object,__newindex=object}) end,release=function() end}
 end})
 
 local world={name='World'}
@@ -309,6 +311,37 @@ do
     assert(count(late)=='0.8s','a countdown attached in combat takes the difficulty\'s pace')
     template.events.sleep({},{name='sleep'})
     multiplier=nil
+    run(0.1)
+end
+
+-- A frame looks up the HUD once and reads the clock. While the game is paused (its
+-- clock standing still) nothing is drawn and the next look waits five frames; once
+-- the clock moves the count runs every frame again. A HUD that is gone stops it.
+do
+    local asked
+    local afterFrames=ExecuteInGameThreadAfterFrames
+    ExecuteInGameThreadAfterFrames=function(count,callback) asked=count; frames[#frames+1]=callback end
+    template.events.wake({},{name='wake'})
+    local counted=attach(nil).children[1]
+    local countText=counted.content.children[1]
+    update({kind='arrow',direction=1,path=PATH,indicator=indicator})
+    assert(asked==1,'a count asks for the next frame')
+    local before=gets
+    run(0.05)
+    assert(gets-before==1 and asked==1,'a frame looks up the HUD once')
+    local paused=countText.Text.text
+    run(0)
+    assert(asked==5 and countText.Text.text==paused,'paused: nothing drawn, the next look five frames on')
+    run(0)
+    assert(asked==5,'still paused')
+    run(0.1)
+    assert(asked==1 and countText.Text.text~=paused,'the clock moving runs the count every frame again')
+    hud.invalid=true
+    run(0.05)
+    assert(#frames==0,'a HUD that is gone stops the count')
+    hud.invalid=nil
+    template.events.sleep({},{name='sleep'})
+    ExecuteInGameThreadAfterFrames=afterFrames
     run(0.1)
 end
 

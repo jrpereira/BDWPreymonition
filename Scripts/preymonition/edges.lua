@@ -54,9 +54,9 @@ end
 local function each(event,callback)
     local preview=event.preview==true
     for _,record in ipairs(records) do
-        if record.preview==preview and Render.valid(record.ui)
-            and (preview or Render.sameWorld(record.ui,event.indicator)) then
-            callback(record)
+        if record.preview==preview then
+            local hud=Render.root(record.ui)
+            if hud and (preview or Render.sameWorld(hud,event.indicator)) then callback(record) end
         end
     end
 end
@@ -119,7 +119,7 @@ function M.sleep()
     if not active then return end
     active=false
     for _,record in ipairs(records) do
-        if not record.preview and Render.valid(record.ui) then
+        if not record.preview and Render.root(record.ui) then
             local ok,why=pcall(clear,record)
             if not ok then fail('combat end',why) end
         end

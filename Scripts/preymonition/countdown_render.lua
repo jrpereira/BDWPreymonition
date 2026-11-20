@@ -103,28 +103,24 @@ function M.build(hud,layer,screen,position)
     slot:SetHorizontalAlignment(2)
     slot:SetVerticalAlignment(1)
     slot:SetPadding({Left=0,Top=M.top(position,height),Right=0,Bottom=0})
-    local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
-        text=hold(text,'text'),fill=hold(fill,'bar'),lines={}}
-    for index,image in ipairs(lines) do handles.lines[index]=hold(image,'outline') end
-    return {handles=handles,applied={}}
+    local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box')}
+    -- The widgets drawn in, kept as built: they belong to the HUD's widget tree, and
+    -- every frame and request checks the HUD first (M.root). MCT detaches the
+    -- countdown before it clears the layer or the HUD is replaced.
+    local widgets={box=box,text=text,fill=fill,lines=lines}
+    return {handles=handles,widgets=widgets,applied={}}
 end
 
--- The countdown's widgets as live wrappers for this call, or nil once any is gone.
-local function live(ui)
-    local widgets={lines={}}
-    for _,key in ipairs({'hud','box','text','fill'}) do
-        widgets[key]=MC.get(ui.handles[key])
-        if not widgets[key] then return nil end
-    end
-    for index,handle in ipairs(ui.handles.lines) do
-        widgets.lines[index]=MC.get(handle)
-        if not widgets.lines[index] then return nil end
-    end
-    return widgets
+-- The countdown's HUD, live for this call, or nil once it is gone: then its widgets
+-- are never touched again. One lookup per frame or request.
+function M.root(ui)
+    local hud=ui and ui.widgets and MC.get(ui.handles.hud)
+    if not hud and ui then ui.widgets=nil end
+    return hud
 end
 
 function M.valid(ui)
-    return ui~=nil and live(ui)~=nil
+    return M.root(ui)~=nil
 end
 
 local function worldName(object)
@@ -133,9 +129,8 @@ local function worldName(object)
     return type(name)=='string' and name~='' and name or nil
 end
 
--- Whether an object is in the same world as the countdown's HUD.
-function M.sameWorld(ui,object)
-    local hud=MC.get(ui.handles.hud)
+-- Whether an object is in the same world as hud, the countdown's live HUD.
+function M.sameWorld(hud,object)
     if not (hud and MC.valid(object)) then return false end
     local own=worldName(hud)
     return own~=nil and own==worldName(object)
@@ -143,20 +138,21 @@ end
 
 -- A live object in the countdown's world, for calls that need a world context.
 function M.context(ui)
-    return assert(MC.get(ui.handles.hud),'countdown is no longer valid')
+    return assert(M.root(ui),'countdown is no longer valid')
 end
 
--- Game time in seconds, the clock an attack's hit window is in; real: real time,
--- running while the game is paused.
-function M.now(ui,real)
-    if real then return Combat.now(M.context(ui)) end
-    return Combat.gameTime(M.context(ui))
+-- Game time in seconds from hud, the countdown's live HUD: the clock an attack's
+-- hit window is in; real: real time, running while the game is paused.
+function M.now(hud,real)
+    if real then return Combat.now(hud) end
+    return Combat.gameTime(hud)
 end
 
 -- Shows a view: nil hides the countdown; otherwise {text, fraction 0 to 1,
--- now true for the Perfect Opportunity window}. Writes only what changed.
+-- now true for the Perfect Opportunity window}. Writes only what changed. Its HUD
+-- was found live in this call (M.root).
 function M.show(ui,view)
-    local widgets=assert(live(ui),'countdown is no longer valid')
+    local widgets=assert(ui.widgets,'countdown is no longer valid')
     local applied=ui.applied
     local opacity=view and 1 or 0
     if applied.opacity~=opacity then
@@ -188,13 +184,8 @@ function M.destroy(ui)
     local box,layer=MC.get(ui.handles.box),MC.get(ui.handles.layer)
     if box then MC.call(box,'SetRenderOpacity',0) end
     if layer then MC.call(layer,'ClearChildren') end
-    for key,handle in pairs(ui.handles) do
-        if key=='lines' then
-            for _,item in ipairs(handle) do MC.release(item) end
-        else
-            MC.release(handle)
-        end
-    end
+    ui.widgets=nil
+    for _,handle in pairs(ui.handles) do MC.release(handle) end
 end
 
 return M

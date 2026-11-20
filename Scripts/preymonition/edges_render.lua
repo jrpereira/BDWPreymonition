@@ -123,28 +123,24 @@ function M.build(hud,layer,screen,options)
     look.color=colors.normal
     local edges,images={},{}
     for index=1,EDGES do edges[index]=buildEdge(tree,layer,index,look,suffix,images) end
-    local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),edges={},images={}}
-    for index,edge in ipairs(edges) do handles.edges[index]=hold(edge,'edge') end
-    for index,image in ipairs(images) do handles.images[index]=hold(image,'edge image') end
-    return {handles=handles,lit={},critical=false,colors=colors,
+    local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer')}
+    -- The edges and their images, kept as built: they belong to the HUD's widget
+    -- tree, and every request checks the HUD first (M.root). MCT detaches the edges
+    -- before it clears the layer or the HUD is replaced.
+    return {handles=handles,widgets={edges=edges,images=images},lit={},critical=false,colors=colors,
         gradient=look.textures and options.gradient or 'bands',fallback=fallback}
 end
 
--- The edges as live wrappers for this call, or nil once any is gone.
-local function live(ui)
-    local widgets={hud=MC.get(ui.handles.hud),edges={},images={}}
-    if not widgets.hud then return nil end
-    for _,list in ipairs({'edges','images'}) do
-        for index,handle in ipairs(ui.handles[list]) do
-            widgets[list][index]=MC.get(handle)
-            if not widgets[list][index] then return nil end
-        end
-    end
-    return widgets
+-- The edges' HUD, live for this call, or nil once it is gone: then their widgets
+-- are never touched again. One lookup per request.
+function M.root(ui)
+    local hud=ui and ui.widgets and MC.get(ui.handles.hud)
+    if not hud and ui then ui.widgets=nil end
+    return hud
 end
 
 function M.valid(ui)
-    return ui~=nil and live(ui)~=nil
+    return M.root(ui)~=nil
 end
 
 local function worldName(object)
@@ -153,18 +149,18 @@ local function worldName(object)
     return type(name)=='string' and name~='' and name or nil
 end
 
--- Whether an object is in the same world as the edges' HUD.
-function M.sameWorld(ui,object)
-    local hud=MC.get(ui.handles.hud)
+-- Whether an object is in the same world as hud, the edges' live HUD.
+function M.sameWorld(hud,object)
     if not (hud and MC.valid(object)) then return false end
     local own=worldName(hud)
     return own~=nil and own==worldName(object)
 end
 
 -- Lights the edges in lit (index -> true) and puts the others out; critical
--- tints every image red. Writes only what changed.
+-- tints every image red. Writes only what changed; the images are touched only
+-- when the tint changes. Their HUD was found live in this call (M.root).
 function M.show(ui,lit,critical)
-    local widgets=assert(live(ui),'edges are no longer valid')
+    local widgets=assert(ui.widgets,'edges are no longer valid')
     for index,edge in ipairs(widgets.edges) do
         local on=lit[index]==true
         if (ui.lit[index]==true)~=on then
@@ -184,13 +180,8 @@ end
 function M.destroy(ui)
     local layer=MC.get(ui.handles.layer)
     if layer then MC.call(layer,'ClearChildren') end
-    for key,handle in pairs(ui.handles) do
-        if key=='edges' or key=='images' then
-            for _,item in ipairs(handle) do MC.release(item) end
-        else
-            MC.release(handle)
-        end
-    end
+    ui.widgets=nil
+    for _,handle in pairs(ui.handles) do MC.release(handle) end
 end
 
 return M
