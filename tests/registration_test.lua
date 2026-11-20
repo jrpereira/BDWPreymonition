@@ -88,7 +88,7 @@ assert(pitchRow.visible.field=='MCT_Preymonition_Audio_OptionsDirectional'
 for key in pairs(omensDefinition.settings) do
     assert(not key:match('^Sound'),'the omens have no sound settings: '..key)
 end
-defaults(omensDefinition,{ParryStyle='chevron',ParrySize='30|80',ParryMovement='40|60',
+defaults(omensDefinition,{ParryStyle='chevron',ParrySize='30|80',ParryMovement='40|60',ParryOpacity='50|70',
     UnblockableSize='60|100',UnblockableStyle='fiend',ParryPosition='middle',
     ParryIncoming='normal',ParryPerfect='end'})
 assert(omensDefinition.settings.ParryEdges==nil,'the omens have no edge setting')
@@ -195,8 +195,10 @@ for _,key in ipairs({'ParrySize','UnblockableSize'}) do
 end
 assert(rows[omensDefinition.settings.ParryMovement].description=='Where the arrow appears and how far it travels: '
     ..'0% from the center, 100% to the screen edge.','ParryMovement description')
+assert(rows[omensDefinition.settings.ParryOpacity].description
+    =='The opacity when it appears, and the opacity it reaches as it travels.','ParryOpacity description')
 -- Every setting explains itself.
-for definition,keys in pairs({[omensDefinition]={'ParryPosition','UnblockableStyle','ParryStyle','ParrySize','ParryMovement','ParryIncoming','ParryPerfect',
+for definition,keys in pairs({[omensDefinition]={'ParryPosition','UnblockableStyle','ParryStyle','ParrySize','ParryMovement','ParryOpacity','ParryIncoming','ParryPerfect',
     'UnblockableSize'},[audioDefinition]={'SoundIncoming','SoundPerfect','SoundUnblockable','OptionsDirectional','OptionsPitch','OptionsVolume'},
     [edgesDefinition]={'ActivateIncoming','ActivatePerfect','ActivateUnblockable','VisualsStyle','VisualsThickness','VisualsIntensity'},
     [countdownDefinition]={'Position'}}) do

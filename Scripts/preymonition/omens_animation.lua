@@ -1,10 +1,14 @@
 -- Pure animation timeline for the Preymonition cue.
 local M = {}
 
--- An attack's arrow: shown at full opacity, its grow goes from 0 (its starting
--- size) to 1 (its grown size) while it travels outward over the animation's
--- duration: TRAVEL seconds unless the cue sets its own. The cue turns grow into a
--- size. It ends at the size a critical arrow has, so turning critical only turns it red.
+-- An attack's arrow: shown (opacity 1), its grow goes from 0 (its starting size)
+-- to 1 (its grown size) while it travels outward over the animation's duration:
+-- TRAVEL seconds unless the cue sets its own. The cue turns grow into a size and
+-- the travel into the arrow's own opacity (its Opacity range). It ends at the size
+-- a critical arrow has, so turning critical only turns it red.
+--
+-- opacity is the cue's: 0 out of combat, 1 in combat (the idle cue). The cue's
+-- arrows take it as it is, so an arrow shows at its own opacity alone.
 local TRAVEL = 0.2
 -- A critical arrow takes its grown size at once, if its travel has not reached
 -- it, and holds it until the attack resolves.
@@ -101,8 +105,8 @@ function M.new(env)
         end
     end
 
-    -- An attack: its arrow shows at once at full opacity and size, then grows
-    -- and travels outward. Any other arrow goes at once. mode 'held' holds the
+    -- An attack: its arrow shows at once at its starting size, then grows and
+    -- travels outward. Any other arrow goes at once. mode 'held' holds the
     -- attack's yellow arrow back until reveal: it grows and travels share of
     -- its way (both size and movement), or stays at rest without it; 'critical' shows an attack first seen critical, its arrow
     -- travelling from rest.
@@ -112,8 +116,8 @@ function M.new(env)
         self.ended = false
 
         local container = self.tracks.container
-        if self.opacity < 0.5 or (container and container.target < 0.5) then
-            track('container', self, 'opacity', self.opacity, 0.5, self.time, 0.1)
+        if self.opacity < 1 or (container and container.target < 1) then
+            track('container', self, 'opacity', self.opacity, 1, self.time, 0.1)
         end
         for current = 1, #self.arrows do vanish(current) end
         local selected = self.arrows[index]
@@ -153,15 +157,15 @@ function M.new(env)
         return true
     end
 
-    -- Combat started: the idle cue takes its half opacity at once, without
-    -- lighting an arrow. Nothing in it shows until an attack, so a fade would
-    -- change nothing on screen. False when it already had it.
+    -- Combat started: the idle cue shows at once, without lighting an arrow.
+    -- Nothing in it shows until an attack, so a fade would change nothing on
+    -- screen. False when it already showed.
     function state:engage()
         self:step(true)
         self.ended = false
         self.tracks.container = nil
-        local changed = self.opacity ~= 0.5
-        self.opacity = 0.5
+        local changed = self.opacity ~= 1
+        self.opacity = 1
         env.apply(self)
         return changed
     end

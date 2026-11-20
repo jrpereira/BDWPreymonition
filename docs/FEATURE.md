@@ -92,8 +92,8 @@ for the current difficulty, read from its combat subsystem when combat starts:
 500 ms on the easiest (2.5), 280 ms on the second (1.4), 240 ms on the third
 (1.2) and 200 ms on the hardest (1.0). 1.4 is assumed when it cannot be read.
 
-An arrow shows at full opacity, then over the animation time grows while its
-tip travels outward. Movement from Center is a range on the space the arrow
+An arrow shows at once, then over the animation time grows while its tip travels
+outward and its opacity runs from Opacity's low end to its high end. Movement from Center is a range on the space the arrow
 has: at 0% the arrow, at its starting size, has its back edge on the cue's
 centre; at 100% its tip is at the screen edge it travels towards. Up and down
 arrows travel alike, as far as the nearer of the top and bottom edges, so at Below or
@@ -106,19 +106,29 @@ as it grows, its tip where the travel puts it. Solid and Chevron have a 135
 degree tip (`tools/make_omen_shapes.py`). The game's left and right arrows show on the opposite sides of the
 screen, so the cue shows them there too.
 
+Opacity (Parry & Block Indicator → Opacity, a range, 50%–70% by default) is the
+arrow's own opacity over its travel: the low end as it appears, the high end once its
+travel ends, in step with its growth and movement (a held arrow's opacity follows its
+share of the travel, and carries on with it once revealed). The cue's box adds none of
+its own, at 100% in combat and 0% outside it, so that is what shows on screen. A yellow
+arrow also takes Attack Incoming's opacity: with the defaults a Normal arrow appears
+at 50% and reaches 70%, a Faint one 17.5% to 24.5%, and a red arrow shows at the
+range's value where its travel is, 70% once it stops. The unblockable picture shows
+at half the cue's opacity, 50% in combat.
+
 Critical turns the arrow red, and its grown size if its travel has not got
 there, until the attack resolves, as the game turns its shield red (unless
 Perfect Opportunity is Off). A resolved
 arrow goes at once.
 
 The arrow has two phases: the Yellow arrow before the Perfect Opportunity window, set
-by Attack Incoming (Normal; Faint, at 35% opacity; Off, not shown), and the red arrow
+by Attack Incoming (Normal; Faint, at 35% of Opacity; Off, not shown), and the red arrow
 taking over, set by Perfect Opportunity (End, Start, Halfway, Off). Attack Incoming sets
 the yellow arrow's opacity and Perfect Opportunity the share of its growth and travel;
 the yellow arrow is held back unless Attack Incoming is Normal and Perfect Opportunity
 End, and Off never turns it red:
 
-| Attack Incoming | Perfect Opportunity | Held | Yellow opacity | Yellow travel | Red |
+| Attack Incoming | Perfect Opportunity | Held | Yellow opacity (of Opacity) | Yellow travel | Red |
 |---|---|---|---|---|---|
 | Normal | End | no | 100% | all | yes |
 | Faint or Off | End | yes | 35% or 0% | all | yes |
@@ -135,7 +145,7 @@ changes nothing: the arrow stays yellow, at Attack Incoming's opacity, and an
 attack first seen in that window shows yellow too. Unknown saved values are
 Normal. These settings affect only the arrow; the unblockable indicator shows
 as always, and the Audio Cues follow the attack from its yellow arrow. Combat start, or
-the cue attaching during combat, sets the idle cue to half opacity at once; combat end
+the cue attaching during combat, shows the idle cue at once; combat end
 takes it out at once. Nothing shows in the idle cue, so a fade would change nothing on
 screen.
 

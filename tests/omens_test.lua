@@ -267,7 +267,9 @@ local function attach(visuals)
     -- The cue box is 40% of the short side, 432 high; the omens line up on a
     -- cue area half the screen height. The
     -- hand-worked arrows below use Size 10% to 50% and Movement 5% to 60%.
-    local settings={ParrySize={10,50},ParryMovement={5,60}}
+    -- Opacity 100%-100% keeps each arrow at its full own opacity for the checks
+    -- below; the default 50%-70% has its own check.
+    local settings={ParrySize={10,50},ParryMovement={5,60},ParryOpacity={100,100}}
     for key,value in pairs(visuals or {}) do settings[key]=value end
     local result=template.attach({hud=hud,cue=layer},
         {settings=settings,screen={width=1920,height=1080,scale=1},
@@ -323,7 +325,7 @@ assert(box.WidthOverride==432 and box.HeightOverride==432,'the box is 40% of the
 assert(box.slot.VerticalAlignment==1 and math.abs(box.slot.Padding.Top-(1080-432)/2)<1e-6,
     'the cue is centred')
 -- Combat is already on: the cue shows its idle state, nothing lit, at half opacity.
-assert(math.abs(box.RenderOpacity-0.5)<1e-6 and arrowOf(box,3).RenderOpacity==0,'a cue attached in combat shows the idle cue')
+assert(math.abs(box.RenderOpacity-1)<1e-6 and arrowOf(box,3).RenderOpacity==0,'a cue attached in combat shows the idle cue')
 assert(skullOf(box).BrushFromTexture.name=='Texture unblockable_fiend' and skullOf(box).ColorAndOpacity.A==0,
     'the centre holds the default Fiend picture, clear until an unblockable attack')
 assert(#imported==2 and imported[1]=='Preymonition/images/omen_chevron.png' and imported[2]=='Preymonition/images/unblockable_fiend.png',
@@ -355,7 +357,7 @@ assert(left.RenderOpacity==1 and equal(left.RenderScale.X,startScale) and equal(
     and left.RenderTranslation.Y==0,'a detected arrow shows at once at full opacity, at its starting size and place')
 budget.frame={cost(function() clock=clock+0.05; run() end)}
 settle(0.05)
-assert(math.abs(box.RenderOpacity-0.5)<1e-6,'active cue rests at half opacity')
+assert(math.abs(box.RenderOpacity-1)<1e-6,'the active cue shows at full opacity: the arrows\' own opacity is what shows')
 local endScale,endCentre=arrowAtDefault(true,1,1)
 -- Grown to 5.5 units (297) across as a whole, its tip 60% of the space it has on
 -- towards the screen edge, its centre half its grown length back.
@@ -381,7 +383,7 @@ within('onset',60,14,1)
 within('frame',25,8,0)
 within('resolve',42,6,1)
 run()
-assert(math.abs(box.RenderOpacity-0.5)<1e-6,'a resolved attack keeps the idle cue')
+assert(math.abs(box.RenderOpacity-1)<1e-6,'a resolved attack keeps the idle cue')
 assert(left.RenderOpacity==0 and equal(left.RenderScale.X,startScale),'a resolved attack puts the arrow out at once')
 
 endCombat()
@@ -394,11 +396,11 @@ assert(bridgeHooks[ICON]==nil and #delayed==0,'combat end unhooks the indicator'
 startCombat()
 run()
 settle(0.05)
-assert(math.abs(box.RenderOpacity-0.5)<1e-6 and left.RenderOpacity==0,'combat start shows the idle cue')
+assert(math.abs(box.RenderOpacity-1)<1e-6 and left.RenderOpacity==0,'combat start shows the idle cue')
 icon(indicator,LEFT)
 run()
 settle(0.05)
-assert(math.abs(box.RenderOpacity-0.5)<1e-6 and left.RenderOpacity==1,'combat start re-enables the cue')
+assert(math.abs(box.RenderOpacity-1)<1e-6 and left.RenderOpacity==1,'combat start re-enables the cue')
 local hooked=bridgeHooks[ICON]
 startCombat()
 run()
@@ -416,7 +418,7 @@ startCombat()
 endCombat()
 startCombat()
 settle(0.05)
-assert(math.abs(box.RenderOpacity-0.5)<1e-6,'quick combat changes settle on the idle cue')
+assert(math.abs(box.RenderOpacity-1)<1e-6,'quick combat changes settle on the idle cue')
 
 -- A settings commit reattaches the same MCT layer after its cleanup.
 detachAll()
@@ -428,7 +430,7 @@ assert(#layer.children==2 and layer.children[1].WidthOverride==432
 assert(classFinds==4,'a reattach looks up no widget class again')
 -- Combat is on: the reattached cue takes the combat's pace and shows its idle cue
 -- at once, as combat start would have.
-assert(#delayed==0 and math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,'a cue reattached in combat shows the idle cue')
+assert(#delayed==0 and math.abs(layer.children[1].RenderOpacity-1)<1e-6,'a cue reattached in combat shows the idle cue')
 
 -- An indicator in view shows its attack; a hidden one's changes are not attacks.
 local other=newIndicator('WBP_CombatTargetIndicator_C_2')
@@ -464,7 +466,7 @@ assert(red(front(bottom)),'the critical arrow holds')
 -- The sword means no attack is pending: resolved.
 icon(other,SWORD_ICON)
 run()
-assert(bottom.RenderOpacity==0 and equal(bottom.RenderScale.X,startScale) and math.abs(layer.children[1].RenderOpacity-0.5)<1e-6,
+assert(bottom.RenderOpacity==0 and equal(bottom.RenderScale.X,startScale) and math.abs(layer.children[1].RenderOpacity-1)<1e-6,
     'a resolved attack puts its arrow out at once and keeps the idle cue')
 settle(0.05)
 icon(other,BOTTOM)
@@ -529,7 +531,7 @@ settle(0.05)
 -- Every cue in the indicator's world shows its attack, as when a replaced HUD is not
 -- yet detached; a cue never shows another world's.
 local secondLayer=object('Second cue layer')
-template.attach({hud=hud,cue=secondLayer},{settings={ParrySize={10,50},ParryMovement={5,60}},
+template.attach({hud=hud,cue=secondLayer},{settings={ParrySize={10,50},ParryMovement={5,60},ParryOpacity={100,100}},
     screen={width=1920,height=1080,scale=1},onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
 icon(other,BOTTOM)
 assert(arrowOf(layer.children[1],2).RenderOpacity==1 and arrowOf(secondLayer.children[1],2).RenderOpacity==1,
@@ -709,7 +711,7 @@ do
     local waitsBefore=delays
     attach({})
     local previewLayer=object('Preview layer')
-    template.attach({hud=hud,cue=previewLayer},{settings={ParrySize={10,50},ParryMovement={5,60}},
+    template.attach({hud=hud,cue=previewLayer},{settings={ParrySize={10,50},ParryMovement={5,60},ParryOpacity={100,100}},
         screen={width=1920,height=1080,scale=1},preview=true,
         onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
     settle(0.6)
@@ -1111,7 +1113,7 @@ cleanups={}
 attach()
 local late=layer.children[1]
 settle(0.05)
-assert(math.abs(late.RenderOpacity-0.5)<1e-6,'a cue attached in combat shows the idle cue')
+assert(math.abs(late.RenderOpacity-1)<1e-6,'a cue attached in combat shows the idle cue')
 icon(other,BOTTOM)
 clock=clock+0.14
 run()
@@ -1198,8 +1200,8 @@ for _,style in ipairs(STYLES) do
     if file then
         local color=image.ColorAndOpacity
         assert(image.BrushFromTexture.name=='Texture '..file and color.R==1 and color.G==1 and color.A==1
-            and layer.children[2].RenderOpacity==layer.children[1].RenderOpacity,
-            'style '..style..' shows its picture in its own colours, fading with the cue')
+            and layer.children[2].RenderOpacity==layer.children[1].RenderOpacity*0.5,
+            'style '..style..' shows its picture in its own colours, at half the cue\'s opacity')
     else
         assert(image.ColorAndOpacity.A==0 and image.BrushFromTexture==nil,'Off shows nothing')
     end
@@ -1241,7 +1243,8 @@ start,stop=travel({50,50},BOTTOM,2)
 assert(equal(start,2*half+0.5*(378-2*half)-half) and equal(stop+grown,start+half),
     '50% is halfway through the space the arrow has; equal ends keep it still')
 
--- With no settings the cue takes the defaults: Size 30% to 80%, Movement 40% to 60%.
+-- With no settings the cue takes the defaults: Size 30% to 80%, Movement 40% to 60%,
+-- Opacity 50% to 70%.
 cleanups={}
 template.attach({hud=hud,cue=layer},{settings={},screen={width=1920,height=1080,scale=1},
     onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
@@ -1254,6 +1257,37 @@ icon(other,BOTTOM)
 local defaultScale,defaultStart=arrowAt(false,{0.3,0.8},{0.4,0.6},0,0)
 assert(equal(arrowOf(defaultCue,2).RenderScale.X,defaultScale) and equal(arrowOf(defaultCue,2).RenderTranslation.Y,defaultStart),
     'the default arrow starts 3.7 units wide, its tip 40% of the space it has out')
+-- Opacity runs over the travel: 50% as the arrow appears, 60% halfway, 70% once it
+-- stops. The cue adds none of its own, so that is what shows.
+local defaultArrow=arrowOf(defaultCue,2)
+assert(defaultCue.RenderOpacity==1 and equal(defaultArrow.RenderOpacity,0.5),'the arrow appears at 50% opacity')
+clock=clock+0.1
+run()
+assert(equal(defaultArrow.RenderOpacity,0.6),'60% halfway through its travel')
+settle(0.05)
+assert(equal(defaultArrow.RenderOpacity,0.7),'and 70% once it stops')
+icon(other,BOTTOM+PARRY)
+run()
+assert(equal(defaultArrow.RenderOpacity,0.7) and red(front(defaultArrow)),'red at the opacity it reached')
+icon(other,SWORD_ICON)
+settle(0.05)
+assert(defaultArrow.RenderOpacity==0,'and out when it resolves')
+detachAll()
+-- A range of its own, and Attack Incoming Faint on a held yellow arrow: 35% of it.
+cleanups={}
+attach({ParryOpacity={20,90},ParryIncoming='faint'})
+local ranged=layer.children[1]
+endCombat()
+startCombat()
+run()
+settle(0.05)
+icon(other,BOTTOM)
+assert(equal(arrowOf(ranged,2).RenderOpacity,0.2*0.35),'a faint arrow appears at 35% of the low end')
+settle(0.05)
+assert(equal(arrowOf(ranged,2).RenderOpacity,0.9*0.35),'and travels to 35% of the high end')
+icon(other,BOTTOM+PARRY)
+settle(0.05)
+assert(equal(arrowOf(ranged,2).RenderOpacity,0.9),'its Perfect Opportunity window shows it at the high end')
 icon(other,SWORD_ICON)
 settle(0.05)
 detachAll()

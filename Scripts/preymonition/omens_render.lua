@@ -29,6 +29,8 @@ local SIZE={1,10}
 -- The unblockable skull's size on the same units: 0% is 1 unit, 100% the full
 -- screen height.
 local SKULL_SIZE={1,1/UNIT}
+-- The unblockable indicator shows at half the cue's opacity.
+local SKULL_OPACITY=0.5
 -- Where each arrow travels on the screen: 1 vertical (height), 2 horizontal (width).
 local AXIS={2,2,1,1}
 -- What apply last wrote to each arrow, by these keys in ui.applied.
@@ -212,6 +214,9 @@ local function config(settings)
         -- stops} of the way to the screen edge, the size {starting, grown}.
         move=share(settings.ParryMovement,40,60),
         size=share(settings.ParrySize,30,80),
+        -- Opacity is a share too: {appears, travelled}, the arrow's own opacity
+        -- as it appears and once its travel ends.
+        opacity=share(settings.ParryOpacity,50,70),
         style=key,arrows=style.arrows,
         -- The unblockable indicator's Style and its {starting, grown} size as
         -- shares, 0 to 1.
@@ -436,20 +441,24 @@ function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
     set(ui,widgets.box,'box','SetRenderOpacity',state.opacity)
-    -- The centre box fades with the cue, written only while it shows something.
-    -- Resolved only then, keeping the per-frame cost of the arrows alone.
+    -- The centre box fades with the cue, at half its opacity, written only while it
+    -- shows something. Resolved only then, keeping the per-frame cost of the arrows
+    -- alone.
     if ui.skull then
         local centre=assert(MC.get(ui.handles.centre),'Preymonition cue is no longer valid')
-        set(ui,centre,'centre','SetRenderOpacity',state.opacity)
+        set(ui,centre,'centre','SetRenderOpacity',state.opacity*SKULL_OPACITY)
     end
     for index,arrow in ipairs(state.arrows) do
         local out=OUTWARD[index]
         local centre,scale=place(ui,index,arrow.offset,arrow.grow)
         local x,y=out.X*centre,out.Y*centre
-        -- A yellow arrow shows at Attack Incoming's opacity: a held one until
-        -- the Perfect Opportunity window opens, and every one without red.
+        -- An arrow's opacity runs over its travel from Opacity's low end, as it
+        -- appears, to its high end, where it stops. A yellow arrow also takes Attack
+        -- Incoming's opacity: a held one until the Perfect Opportunity window opens,
+        -- and every one without red.
         local yellow=arrow.held or not visuals.red
-        local opacity=visuals.arrows and arrow.opacity*(yellow and visuals.yellowOpacity or 1) or 0
+        local fade=visuals.opacity[1]+(visuals.opacity[2]-visuals.opacity[1])*arrow.offset
+        local opacity=visuals.arrows and arrow.opacity*fade*(yellow and visuals.yellowOpacity or 1) or 0
         local widget,keys=widgets.images[index],KEYS[index]
         set(ui,widget,keys.opacity,'SetRenderOpacity',opacity)
         setPair(ui,widget,keys.scale,'SetRenderScale',scale,scale)

@@ -24,6 +24,7 @@ Show the incoming attack as symbols: an arrow for its direction, or a picture wh
 | Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `MCT_Preymonition_Omens_ParryPosition` |
 | Size | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 30% to 80% | `MCT_Preymonition_Omens_ParrySize` |
 | Movement from Center | A low and a high value from 0% to 100%, in steps of 5 | 40% to 60% | `MCT_Preymonition_Omens_ParryMovement` |
+| Opacity | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 50% to 70% | `MCT_Preymonition_Omens_ParryOpacity` |
 | Attack Incoming | Normal (`normal`), Faint (`faint`), Off (`off`) | Normal | `MCT_Preymonition_Omens_ParryIncoming` |
 | Perfect Opportunity | End (`end`), Start (`start`), Halfway (`halfway`), Off (`off`) | End | `MCT_Preymonition_Omens_ParryPerfect` |
 
