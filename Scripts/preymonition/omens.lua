@@ -119,8 +119,8 @@ end
 
 -- Shows an attack from an indicator in the cue of the same world. MCT reports
 -- an attack as arrow when it shows up (its parry window opens) and as critical
--- when its Perfect Opportunity window opens; for the cue's own attack either
--- escalates it.
+-- when its Perfect Opportunity window opens, which escalates the cue's own
+-- attack or shows another attack red from the start.
 --
 -- Attack Incoming and Perfect Opportunity affect the arrow alone: its attack
 -- is still shown from the first arrow (preymonition.omens_render's phases).
@@ -141,8 +141,9 @@ local function present(indicator,path,direction,event)
     local critical=record.red and event.kind=='critical'
     if record.source and record.direction==direction then
         record.paths[path]=true
-        if record.critical or not record.red then return end
-        if held and not critical then return end
+        -- Only the attack's Perfect Opportunity window changes its arrow; a
+        -- repeated arrow event leaves it as it is.
+        if record.critical or not critical then return end
         if held then
             record.critical=true
             Cue.critical(record.ui,direction)
@@ -155,12 +156,16 @@ local function present(indicator,path,direction,event)
         escalate(record,path,direction)
         return
     end
-    -- First seen critical with a held arrow: its show starts red now.
-    local mode=held and (critical and 'critical' or 'held') or nil
-    if mode=='critical' then Cue.critical(record.ui,direction) else Cue.arm(record.ui,direction) end
-    record.source,record.direction,record.critical=path,direction,mode=='critical' or nil
+    -- First seen critical, as MCT reports an attack whose arrow it sent while
+    -- the cue showed another: its show starts red now. A held arrow travels from
+    -- rest; one not held also takes its critical size at once, as it would
+    -- have when that window opened.
+    local mode=critical and 'critical' or (held and 'held') or nil
+    if critical then Cue.critical(record.ui,direction) else Cue.arm(record.ui,direction) end
+    record.source,record.direction,record.critical=path,direction,critical or nil
     record.paths={[path]=true}
     if record.model:show(direction,event.path..':'..event.sequence,mode,record.travel) then
+        if critical and not held then record.model:critical(direction) end
         log.debug('show ',DIRECTIONS[direction],mode and ' '..mode or '',' from ',path)
         pump(record)
     end

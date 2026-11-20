@@ -486,6 +486,35 @@ assert(otherTop.RenderOpacity==1 and red(front(otherTop)),'arrow and window toge
 icon(other,SWORD_ICON)
 settle(0.05)
 
+-- The Perfect Opportunity window of an attack the cue no longer shows: A shows, B
+-- replaces it, then A's window opens. MCT already sent A's arrow, so it sends
+-- the critical alone, and the cue shows A red at its grown size at once.
+icon(indicator,SWORD_ICON)
+settle(0.05)
+icon(indicator,LEFT)
+icon(other,BOTTOM)
+local replaced=layer.children[1]
+assert(arrowOf(replaced,2).RenderOpacity==1 and arrowOf(replaced,3).RenderOpacity==0,'the later attack replaces the earlier')
+icon(indicator,LEFT+PARRY)
+assert(arrowOf(replaced,3).RenderOpacity==1 and red(front(arrowOf(replaced,3))) and arrowOf(replaced,2).RenderOpacity==0,
+    'a critical alone for an attack not shown shows it red')
+assert(equal(arrowOf(replaced,3).RenderScale.X,endScale),'at its critical size at once')
+settle(0.05)
+assert(red(front(arrowOf(replaced,3))),'and it stays red')
+icon(indicator,SWORD_ICON)
+icon(other,SWORD_ICON)
+settle(0.05)
+-- A repeated plain arrow event for the shown attack changes nothing: it stays yellow.
+local function direct(kind,sequence)
+    template.events.update({},{kind=kind,direction=2,path='repeated',reason='sword',sequence=sequence,indicator=other})
+end
+direct('arrow',1001)
+direct('arrow',1002)
+settle(0.05)
+assert(lit(front(bottom)) and equal(bottom.RenderScale.X,bottomScale),'a repeated arrow keeps it yellow')
+direct('resolve')
+settle(0.05)
+
 -- An unblockable attack: the centre turns to a skull in place, growing over
 -- 0.2s from its starting size to its grown size, then holding. Size runs from 1
 -- unit (54) at 0% to the screen height (1080) at 100%; the default 60%-100% takes
@@ -900,6 +929,29 @@ for _,case in ipairs({
     icon(other,SWORD_ICON)
     settle(0.05)
 end
+-- Held, the same: a critical alone for an attack the cue does not show starts its
+-- show red and opaque, from rest.
+detachAll()
+cleanups={}
+attach(nil,{ParryIncoming='faint',ParryPerfect='end'})
+endCombat()
+startCombat()
+run()
+settle(0.05)
+local heldCue=layer.children[1]
+icon(indicator,LEFT)
+icon(other,BOTTOM)
+icon(indicator,LEFT+PARRY)
+local heldLeft=arrowOf(heldCue,3)
+assert(math.abs(heldLeft.RenderOpacity-1)<1e-6 and red(front(heldLeft)) and arrowOf(heldCue,2).RenderOpacity==0,
+    'held: a critical alone for an attack not shown shows it red and opaque')
+assert(equal(heldLeft.RenderTranslation.X,startCentre),'held: from where an arrow starts')
+run()
+settle(0.05)
+assert(equal(heldLeft.RenderTranslation.X,endCentre) and red(front(heldLeft)),'held: and carries on to the end, red')
+icon(indicator,SWORD_ICON)
+icon(other,SWORD_ICON)
+settle(0.05)
 -- Perfect Opportunity Off: only yellow shows. The arrow shows at Attack
 -- Incoming's opacity and moves as usual; the Perfect Opportunity window turns
 -- it neither red nor to its critical size, and an attack first seen in that
@@ -1036,8 +1088,8 @@ detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
--- twenty-four cues.
-assert(cueReleased==(11+4*2)*24,'each detached cue releases its handles')
+-- twenty-five cues.
+assert(cueReleased==(11+4*2)*25,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
