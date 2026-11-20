@@ -92,13 +92,20 @@ function pump(record)
     if not ok then record.scheduled=false; record.model:cancel(); fail('animation schedule',why) end
 end
 
--- sameWorld already fails for a cue that is gone. A preview event (ModCore
--- Templates' live preview in the mod menu) reaches only the preview cue, a game
--- event only the HUD's.
-local function cueFor(indicator,preview)
+-- Runs callback for every cue in the indicator's world, as the other templates
+-- do: a HUD replaced but not yet detached shows the attack as well as its
+-- successor. sameWorld already fails for a cue that is gone. A preview event
+-- (ModCore Templates' live preview in the mod menu) reaches only the preview cue,
+-- a game event only the HUD's. False when no cue took it.
+local function eachCue(event,callback)
+    local preview,found=event.preview==true,false
     for _,record in ipairs(cues) do
-        if record.preview==(preview==true) and Cue.sameWorld(indicator,record.ui) then return record end
+        if record.preview==preview and Cue.sameWorld(event.indicator,record.ui) then
+            found=true
+            callback(record,event)
+        end
     end
+    return found
 end
 
 -- The attack resolved: its arrow goes at once, the idle cue stays.
@@ -134,9 +141,8 @@ end
 -- An attack in the direction of the arrow still shown counts as that arrow's,
 -- whatever its indicator: the game sometimes reports one attack twice, and a new
 -- arrow would flash in again. The arrow stays until all of them resolve.
-local function present(indicator,path,direction,event)
-    local record=cueFor(indicator,event.preview)
-    if not record then log.trace('arrow #',event.sequence,': no cue in the indicator world'); return end
+local function present(record,event)
+    local path,direction=event.path,event.direction
     local held=record.held
     local critical=record.red and event.kind=='critical'
     if record.source and record.direction==direction then
@@ -173,10 +179,7 @@ end
 
 -- The unblockable skull showed on an indicator, or went: shown at the cue's
 -- centre until it goes.
-local function unblockable(event)
-    local record=cueFor(event.indicator,event.preview)
-    if not record then return end
-    local path=event.path
+local function showUnblockable(record,event)
     if event.active then
         if record.skull then return end
         record.skull=true
@@ -194,6 +197,7 @@ local function unblockable(event)
         log.debug('unblockable passed')
     end
 end
+local function unblockable(event) eachCue(event,showUnblockable) end
 
 -- An indicator's attack ended: the indicator went back to the sword, or was
 -- hidden.
@@ -253,7 +257,9 @@ end
 -- presented alike: the Perfect Opportunity window of a cue's own attack
 -- escalates it, and a critical arrow from another indicator shows as that
 -- indicator's attack.
-local function arrow(event) present(event.indicator,event.path,event.direction,event) end
+local function arrow(event)
+    if not eachCue(event,present) then log.trace('arrow #',event.sequence,': no cue in the indicator world') end
+end
 local handlers={
     arrow=arrow,
     critical=arrow,

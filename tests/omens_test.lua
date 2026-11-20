@@ -14,6 +14,9 @@ end})
 local world={name='World'}
 function world:IsValid() return true end
 function world:GetFullName() return 'World /Game/Map.Map' end
+local elsewhere={name='Elsewhere'}
+function elsewhere:IsValid() return true end
+function elsewhere:GetFullName() return 'World /Game/Other.Other' end
 
 -- Native work the fakes see, for the call budget: UObject method calls, of
 -- which setters, and object lookups.
@@ -28,7 +31,7 @@ local function object(name,fields)
     local methods={}
     function methods:IsValid() return self.invalid~=true end
     function methods:GetFullName() return 'Object '..self.name end
-    function methods:GetWorld() return world end
+    function methods:GetWorld() return self.world or world end
     function methods:IsVisible() return self.visible end
     function methods:GetRenderOpacity() return self.RenderOpacity end
     function methods:GetParent() return self.parent end
@@ -539,6 +542,32 @@ assert(lit(front(bottom)) and equal(bottom.RenderScale.X,bottomScale),'a repeate
 direct('resolve')
 settle(0.05)
 
+-- Every cue in the indicator's world shows its attack, as when a replaced HUD is not
+-- yet detached; a cue never shows another world's.
+local secondLayer=object('Second cue layer')
+template.attach({hud=hud,cue=secondLayer},{settings={ParrySize={10,50},ParryMovement={5,60}},
+    screen={width=1920,height=1080,scale=1},onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
+icon(other,BOTTOM)
+assert(arrowOf(layer.children[1],2).RenderOpacity==1 and arrowOf(secondLayer.children[1],2).RenderOpacity==1,
+    'both cues in the world show the attack')
+icon(other,SKULL_ICON)
+assert(shieldOf(layer.children[1]).ColorAndOpacity.A==1 and shieldOf(secondLayer.children[1]).ColorAndOpacity.A==1,
+    'and the unblockable picture')
+icon(other,SWORD_ICON)
+settle(0.05)
+detaching=true
+cleanups[#cleanups]()
+detaching=false
+cleanups[#cleanups]=nil
+local abroad=newIndicator('WBP_CombatTargetIndicator_C_9','TopArrow')
+abroad.world=elsewhere
+icon(abroad,TOP)
+icon(abroad,SKULL_ICON)
+assert(arrowOf(layer.children[1],1).RenderOpacity==0 and shieldOf(layer.children[1]).ColorAndOpacity.A==0,
+    'another world\'s attack and unblockable picture are not shown')
+icon(abroad,SWORD_ICON)
+settle(0.05)
+
 -- An unblockable attack: the centre turns to a skull in place, growing over
 -- 0.2s from its starting size to its grown size, then holding. Size runs from 1
 -- unit (54) at 0% to the screen height (1080) at 100%; the default 60%-100% takes
@@ -888,6 +917,8 @@ icon(other,SKULL_ICON)
 settle(0.05)
 assert(layer.children[2].content.ColorAndOpacity.A==0 and layer.children[2].content.BrushFromTexture==nil,
     'a missing unblockable picture leaves the centre clear')
+assert(warnings[#warnings]:match('^unblockable picture unavailable: images not loaded from '),
+    'and the cue says why it shows none')
 icon(other,SWORD_ICON)
 settle(0.05)
 picturesMissing=false
@@ -1135,8 +1166,8 @@ detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
--- twenty-eight cues.
-assert(cueReleased==(11+4*2)*28,'each detached cue releases its handles')
+-- twenty-nine cues.
+assert(cueReleased==(11+4*2)*29,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
