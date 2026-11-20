@@ -31,20 +31,20 @@ local function frames()
     return rawget(_G,'EngineTickAvailable')==true and type(rawget(_G,'ExecuteInGameThreadAfterFrames'))=='function'
 end
 
--- Deferred work guards itself: an animation step stops once its cue is
--- detached. The preview steps by frames too: the engine ticks with the mod menu open
--- (checked live, 2026-11-16), and an ExecuteWithDelay every frame for minutes left
--- UE4SS with dead callbacks and crashed the game. timer is ignored.
-local function later(milliseconds,callback,timer)
-    if milliseconds<=FRAME_MS and frames() then
+-- The next animation frame. Deferred work guards itself: an animation step stops
+-- once its cue is detached. The preview steps by frames too: the engine ticks with
+-- the mod menu open (checked live, 2026-11-16), and an ExecuteWithDelay every frame
+-- for minutes left UE4SS with dead callbacks and crashed the game.
+local function later(callback)
+    if frames() then
         ExecuteInGameThreadAfterFrames(1,callback)
     else
         -- On the game thread: ExecuteWithDelay runs its callback on UE4SS's async thread,
         -- in this mod's Lua state while the game thread may use it.
         if type(rawget(_G,'ExecuteInGameThreadWithDelay'))=='function' then
-            ExecuteInGameThreadWithDelay(math.max(1,math.floor(milliseconds)),callback)
+            ExecuteInGameThreadWithDelay(FRAME_MS,callback)
         else
-            ExecuteWithDelay(milliseconds,function() ExecuteInGameThread(callback) end)
+            ExecuteWithDelay(FRAME_MS,function() ExecuteInGameThread(callback) end)
         end
     end
 end
@@ -88,7 +88,7 @@ function pump(record)
     if record.scheduled or record.detached or not record.model:has_jobs() then return end
     record.scheduled=true
     if not record.steps then record.steps,record.since=0,log.enabled('TRACE') and os.clock() or 0 end
-    local ok,why=pcall(later,FRAME_MS,record.onFrame,record.preview)
+    local ok,why=pcall(later,record.onFrame)
     if not ok then record.scheduled=false; record.model:cancel(); fail('animation schedule',why) end
 end
 

@@ -326,7 +326,7 @@ local function equal(a,b) return math.abs(a-b)<1e-6 end
 -- arrows; beside it in the layer, the unblockable SizeBox at the screen's
 -- centre holds the unblockable image.
 local function centreOf(cue) return cue.parent.children[2] end
-local function shieldOf(cue) return centreOf(cue).content end
+local function skullOf(cue) return centreOf(cue).content end
 local function arrowOf(cue,index) return cue.content.children[1].children[index] end
 
 attach()
@@ -340,7 +340,7 @@ assert(box.slot.VerticalAlignment==1 and math.abs(box.slot.Padding.Top-(1080-432
     'the cue is centred')
 -- Combat is already on: the cue shows its idle state, nothing lit, at half opacity.
 assert(math.abs(box.RenderOpacity-0.5)<1e-6 and arrowOf(box,3).RenderOpacity==0,'a cue attached in combat shows the idle cue')
-assert(shieldOf(box).BrushFromTexture.name=='Texture unblockable_fiend' and shieldOf(box).ColorAndOpacity.A==0,
+assert(skullOf(box).BrushFromTexture.name=='Texture unblockable_fiend' and skullOf(box).ColorAndOpacity.A==0,
     'the centre holds the default Fiend picture, clear until an unblockable attack')
 assert(#imported==2 and imported[1]=='Preymonition/images/omen_chevron.png' and imported[2]=='Preymonition/images/unblockable_fiend.png',
     'only the chosen pictures load: the default Chevron arrow and the Fiend')
@@ -364,7 +364,7 @@ local startScale,startCentre=arrowAtDefault(true,0,0)
 -- 5% of the rest of the way to the edge on, its centre half its length back.
 local length=102.6*RATIO
 assert(equal(startScale,102.6/LONG) and equal(startCentre,length+0.05*(960-length)-length/2),'the spec, by hand')
-assert(shieldOf(box).ColorAndOpacity.A==0 and left.class=='/Script/UMG.SizeBox',
+assert(skullOf(box).ColorAndOpacity.A==0 and left.class=='/Script/UMG.SizeBox',
     'the centre stays clear; the arrows show')
 assert(lit(front(left)),'the shown arrow is in the lit colour')
 assert(left.RenderOpacity==1 and equal(left.RenderScale.X,startScale) and equal(left.RenderTranslation.X,startCentre)
@@ -551,7 +551,7 @@ icon(other,BOTTOM)
 assert(arrowOf(layer.children[1],2).RenderOpacity==1 and arrowOf(secondLayer.children[1],2).RenderOpacity==1,
     'both cues in the world show the attack')
 icon(other,SKULL_ICON)
-assert(shieldOf(layer.children[1]).ColorAndOpacity.A==1 and shieldOf(secondLayer.children[1]).ColorAndOpacity.A==1,
+assert(skullOf(layer.children[1]).ColorAndOpacity.A==1 and skullOf(secondLayer.children[1]).ColorAndOpacity.A==1,
     'and the unblockable picture')
 icon(other,SWORD_ICON)
 settle(0.05)
@@ -563,7 +563,7 @@ local abroad=newIndicator('WBP_CombatTargetIndicator_C_9','TopArrow')
 abroad.world=elsewhere
 icon(abroad,TOP)
 icon(abroad,SKULL_ICON)
-assert(arrowOf(layer.children[1],1).RenderOpacity==0 and shieldOf(layer.children[1]).ColorAndOpacity.A==0,
+assert(arrowOf(layer.children[1],1).RenderOpacity==0 and skullOf(layer.children[1]).ColorAndOpacity.A==0,
     'another world\'s attack and unblockable picture are not shown')
 icon(abroad,SWORD_ICON)
 settle(0.05)
@@ -573,7 +573,7 @@ settle(0.05)
 -- unit (54) at 0% to the screen height (1080) at 100%; the default 60%-100% takes
 -- it from 1+19*0.6 units (669.6) to 1080. The centre image fills the 432 box.
 local function skullAt(share) return 54*(1+19*share)/432 end
-local cueShield=shieldOf(layer.children[1])
+local cueSkull=skullOf(layer.children[1])
 -- Whether the centre shows the skull; it is clear otherwise.
 local function skullShown(image)
     local color=image.ColorAndOpacity
@@ -581,22 +581,22 @@ local function skullShown(image)
 end
 local function clear(image) return image.ColorAndOpacity.A==0 end
 icon(other,SKULL_ICON)
-assert(skullShown(cueShield) and math.abs(cueShield.RenderScale.X-skullAt(0.6))<1e-6,
+assert(skullShown(cueSkull) and math.abs(cueSkull.RenderScale.X-skullAt(0.6))<1e-6,
     'an unblockable attack shows the skull at its starting size')
 clock=clock+0.1
 run()
-assert(math.abs(cueShield.RenderScale.X-skullAt(0.8))<1e-6 and cueShield.RenderTranslation==nil,'it grows in place')
+assert(math.abs(cueSkull.RenderScale.X-skullAt(0.8))<1e-6 and cueSkull.RenderTranslation==nil,'it grows in place')
 settle(0.05)
-assert(math.abs(cueShield.RenderScale.X*432-1080)<1e-6 and #delayed==0,'to the full screen height, then holds')
+assert(math.abs(cueSkull.RenderScale.X*432-1080)<1e-6 and #delayed==0,'to the full screen height, then holds')
 icon(other,SWORD_ICON)
 run()
-assert(clear(cueShield),'the centre clears once it passes')
+assert(clear(cueSkull),'the centre clears once it passes')
 settle(0.05)
 icon(other,SKULL_ICON)
 run()
 endCombat()
 run()
-assert(clear(cueShield),'combat end clears the skull')
+assert(clear(cueSkull),'combat end clears the skull')
 settle(0.05)
 startCombat()
 run()
@@ -608,7 +608,7 @@ twin.visible=false
 icon(other,BOTTOM)
 icon(twin,BOTTOM)
 icon(twin,SKULL_ICON)
-assert(clear(cueShield),'a hidden indicator shows no skull')
+assert(clear(cueSkull),'a hidden indicator shows no skull')
 icon(other,BOTTOM+PARRY)
 icon(twin,BOTTOM+PARRY)
 assert(red(front(bottom)) and equal(bottom.RenderScale.X,bottomScale),
@@ -624,16 +624,16 @@ icon(other,SWORD_ICON)
 settle(0.05)
 -- Nor does a hidden twin take away the skull its visible indicator shows.
 icon(other,SKULL_ICON)
-assert(skullShown(cueShield))
+assert(skullShown(cueSkull))
 icon(twin,SWORD_ICON)
 icon(twin,BOTTOM+PARRY)
-assert(skullShown(cueShield),'a hidden twin leaves the skull')
+assert(skullShown(cueSkull),'a hidden twin leaves the skull')
 icon(other,SWORD_ICON)
-assert(clear(cueShield),'its own indicator takes it away')
+assert(clear(cueSkull),'its own indicator takes it away')
 -- A skull followed straight by an arrow gives way to it.
 icon(other,SKULL_ICON)
 icon(other,BOTTOM)
-assert(clear(cueShield) and bottom.RenderOpacity==1,'an arrow after the skull clears it')
+assert(clear(cueSkull) and bottom.RenderOpacity==1,'an arrow after the skull clears it')
 icon(other,SWORD_ICON)
 settle(0.05)
 
@@ -692,10 +692,10 @@ assert(equal(tunedEndScale,540/LONG)
     and equal(tunedEnd,tunedLength+0.5*(540-tunedLength)-540*RATIO/2),'the spec, by hand')
 assert(equal(tunedBottom.RenderScale.X,tunedEndScale) and equal(tunedBottom.RenderTranslation.Y,tunedEnd),'and Movement where it ends')
 icon(other,SKULL_ICON)
-assert(math.abs(shieldOf(tuned).RenderScale.X-skullAt(0))<1e-6,'the unblockable skull takes its size')
+assert(math.abs(skullOf(tuned).RenderScale.X-skullAt(0))<1e-6,'the unblockable skull takes its size')
 other.AttackQueue=nil
 icon(other,SWORD_ICON)
-assert(shieldOf(tuned).ColorAndOpacity.A==0,'the skull goes with the attack')
+assert(skullOf(tuned).ColorAndOpacity.A==0,'the skull goes with the attack')
 icon(other,SWORD_ICON)
 settle(0.05)
 
@@ -1055,7 +1055,7 @@ for _,case in ipairs({{incoming='normal',opacity=1},{incoming='faint',opacity=0.
     settle(0.05)
     icon(other,SKULL_ICON)
     settle(0.05)
-    assert(skullShown(shieldOf(cue)),name..'the unblockable picture shows')
+    assert(skullShown(skullOf(cue)),name..'the unblockable picture shows')
     icon(other,SWORD_ICON)
     settle(0.05)
 end
@@ -1091,14 +1091,14 @@ end
 
 local critical=criticalAttack({})
 assert(red(front(arrowOf(critical,2))),'a critical attack turns the arrow red')
-assert(shieldOf(critical).ColorAndOpacity.A==0,'and leaves the centre clear')
+assert(skullOf(critical).ColorAndOpacity.A==0,'and leaves the centre clear')
 resolveAttack()
 -- The skull takes the centre over a critical attack.
 criticalAttack({})
 icon(other,SKULL_ICON)
-assert(skullShown(shieldOf(layer.children[1])),'the skull takes the centre')
+assert(skullShown(skullOf(layer.children[1])),'the skull takes the centre')
 settle(0.05)
-assert(skullShown(shieldOf(layer.children[1])),'and holds')
+assert(skullShown(skullOf(layer.children[1])),'and holds')
 icon(other,SWORD_ICON)
 resolveAttack()
 

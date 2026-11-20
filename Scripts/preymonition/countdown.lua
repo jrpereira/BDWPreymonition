@@ -35,7 +35,7 @@ local PAUSED_FRAMES=5
 local records={}
 -- Whether combat is on: requests arrive only while it is.
 local active=false
-local M={LEAD=LEAD,WINDOW=WINDOW,OPEN_BEFORE=OPEN_BEFORE,PREVIEW_LEAD=PREVIEW_LEAD,PREVIEW_WINDOW=PREVIEW_WINDOW}
+local M={}
 
 local function silent() end
 local log={enabled=function() return false end}

@@ -102,19 +102,15 @@ end
 -- The cue's widgets as live wrappers for this call, or nil once any is gone.
 -- The cue keeps them only as weak handles: a kept wrapper reads freed memory
 -- after its HUD is collected, as on a level load.
-local LISTS={'images'}
 local function resolve(ui)
-    local widgets={}
-    for _,key in ipairs({'hud','layer','box','stack','shield','arrows'}) do
+    local widgets={images={}}
+    for _,key in ipairs({'hud','layer','box','stack','skull','arrows'}) do
         widgets[key]=MC.get(ui.handles[key])
         if not widgets[key] then return nil end
     end
-    for _,list in ipairs(LISTS) do
-        widgets[list]={}
-        for index,handle in ipairs(ui.handles[list]) do
-            widgets[list][index]=MC.get(handle)
-            if not widgets[list][index] then return nil end
-        end
+    for index,handle in ipairs(ui.handles.images) do
+        widgets.images[index]=MC.get(handle)
+        if not widgets.images[index] then return nil end
     end
     return widgets
 end
@@ -236,7 +232,7 @@ function M.build(hud,layer,screen,settings)
     local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionCue'..suffix)
     local stack=construct('/Script/UMG.Overlay',tree,'PreymonitionStack'..suffix)
     local centre=construct('/Script/UMG.SizeBox',tree,'PreymonitionUnblockable'..suffix)
-    local shield=construct('/Script/UMG.Image',tree,'PreymonitionCentre'..suffix)
+    local skull=construct('/Script/UMG.Image',tree,'PreymonitionCentre'..suffix)
     local arrows=construct('/Script/UMG.Overlay',tree,'PreymonitionArrows'..suffix)
     -- Plain numbers: each arrow's turn, the shape's size and the units along
     -- each axis.
@@ -293,20 +289,20 @@ function M.build(hud,layer,screen,settings)
     box:SetWidthOverride(size)
     box:SetHeightOverride(size)
     box:SetRenderOpacity(0)
-    centre:SetContent(shield)
+    centre:SetContent(skull)
     centre:SetWidthOverride(size)
     centre:SetHeightOverride(size)
     centre:SetRenderOpacity(0)
     -- An Image's default brush is solid white: clear until the indicator shows.
-    shield:SetColorAndOpacity(CLEAR)
+    skull:SetColorAndOpacity(CLEAR)
     -- The indicator sizes itself, drawn around its centre; its box keeps its size.
-    shield:SetRenderTransformPivot({X=0.5,Y=0.5})
+    skull:SetRenderTransformPivot({X=0.5,Y=0.5})
     -- Only the chosen picture loads, now rather than at the first unblockable
     -- attack, mid-combat; the image holds it from here on.
     if visuals.unblockable then
         local textures,why=Images.load(hud,{visuals.unblockable})
         if textures then
-            shield:SetBrushFromTexture(textures[1],false)
+            skull:SetBrushFromTexture(textures[1],false)
             ui.picture=true
         else
             ui.pictureMissing=why
@@ -322,7 +318,7 @@ function M.build(hud,layer,screen,settings)
     centreSlot:SetVerticalAlignment(2)
 
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box'),
-        stack=hold(stack,'stack'),centre=hold(centre,'centre'),shield=hold(shield,'shield'),arrows=hold(arrows,'arrows'),
+        stack=hold(stack,'stack'),centre=hold(centre,'centre'),skull=hold(skull,'skull'),arrows=hold(arrows,'arrows'),
         images={},parts={}}
     for index,image in ipairs(images) do handles.images[index]=hold(image,ARROWS[index]) end
     -- An arrow's layers, resolved only to recolour them.
@@ -368,11 +364,11 @@ function M.skull(ui,shown)
     if not file then return true end
     if not ui.picture then return nil,ui.pictureMissing end
     if not shown then
-        widgets.shield:SetColorAndOpacity(CLEAR)
+        widgets.skull:SetColorAndOpacity(CLEAR)
         return file
     end
-    widgets.shield:SetRenderScale({X=skullScale(ui,0),Y=skullScale(ui,0)})
-    widgets.shield:SetColorAndOpacity(SHOWN)
+    widgets.skull:SetRenderScale({X=skullScale(ui,0),Y=skullScale(ui,0)})
+    widgets.skull:SetColorAndOpacity(SHOWN)
     return file
 end
 
@@ -462,7 +458,7 @@ function M.apply(ui,state)
     -- The skull grows from its starting to its grown size.
     if ui.skull then
         local scale=skullScale(ui,state.skull.grow)
-        setPair(ui,widgets.shield,'skullScale','SetRenderScale',scale,scale)
+        setPair(ui,widgets.skull,'skullScale','SetRenderScale',scale,scale)
     end
 end
 
