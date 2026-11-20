@@ -31,7 +31,8 @@ local SIZE={1,10}
 local SKULL_SIZE={1,1/UNIT}
 -- The unblockable indicator shows at half the cue's opacity.
 local SKULL_OPACITY=0.5
--- Where each arrow travels on the screen: 1 vertical (height), 2 horizontal (width).
+-- The screen axis each arrow travels along, an index into ui.unit: 1 horizontal
+-- (width), 2 vertical (height).
 local AXIS={2,2,1,1}
 -- What apply last wrote to each arrow, by these keys in ui.applied.
 local KEYS={}
