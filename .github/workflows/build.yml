@@ -5,6 +5,11 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      modcore-templates:
+        description: ModCoreTemplates to test against, main or declared (the release mod.json requires)
+        type: string
+        default: main
 permissions:
   contents: read
 jobs:
@@ -18,10 +23,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: Preymonition
+      # Builds test against ModCoreTemplates' main; a release against the version its
+      # mod.json requires, each placeholder ? taken as 0 as packaging does.
+      - name: Choose the ModCoreTemplates version
+        id: templates
+        env:
+          WANTED: ${{ inputs.modcore-templates || 'main' }}
+        run: |
+          if [ "$WANTED" = declared ]; then
+            version=$(python3 -c "import json; print(next(d['version'] for d in json.load(open('Preymonition/mod.json'))['dependencies'] if d['id']=='ModCoreTemplates'))")
+            version="${version%+}"
+            echo "ref=v${version//\?/0}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$WANTED" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
         with:
           repository: jrpereira/ModCoreTemplates
-          ref: main
+          ref: ${{ steps.templates.outputs.ref }}
           path: ModCoreTemplates
       - name: Install Lua 5.4
         run: sudo apt-get update && sudo apt-get install -y lua5.4
