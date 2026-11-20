@@ -3,17 +3,15 @@
 -- they show.
 local MC=require('mc')
 local Combat=require('preymonition.combat')
+local Placement=require('preymonition.placement')
 local Widgets=require('preymonition.widgets')
 
 -- Sizes as shares of the screen height: the bar's width and height, its outline,
 -- the text's line above it and the text's font size.
 local WIDTH,HEIGHT,OUTLINE,LINE,FONT=0.2,0.015,0.002,0.035,0.02
 -- Position puts the bar's bottom this share of the screen height below the
--- centre of the omens' cue area at its default size. The centres match the
--- Omens template's: Middle centres it, Below and Above keep an area half the
--- screen height 10% of it from the bottom or top edge.
+-- centre of the omens' cue area at its default size (preymonition.placement).
 local BELOW_CENTRE=0.2
-local CENTRES={below=0.65,middle=0.5,above=0.35}
 -- Yellow while counting down, red for the Perfect Opportunity window. The outline and the
 -- remaining bar are see-through; the elapsed part is not drawn at all.
 local COLORS={
@@ -27,7 +25,7 @@ local M={}
 
 -- Where the countdown sits for a Position: the top of its box, in screen units.
 function M.top(position,height)
-    local centre=CENTRES[position] or CENTRES.middle
+    local centre=Placement.centre(position,1,Placement.SIZE)
     return height*(centre+BELOW_CENTRE-LINE-HEIGHT)
 end
 
