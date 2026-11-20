@@ -65,12 +65,14 @@ function M.build(hud,layer,screen,position)
     box:SetHeightOverride(line+bar)
     box:SetContent(stack)
     box:SetRenderOpacity(0)
-    -- The font keeps its face; only its size changes.
-    pcall(function()
+    -- The font keeps its face; only its size changes. When it cannot, the time keeps
+    -- the engine's default size and fontFailed says why.
+    local sized,why=pcall(function()
         local font=text.Font
         font.Size=math.floor(height*FONT+0.5)
         text:SetFont(font)
     end)
+    local fontFailed=not sized and tostring(why) or nil
     local textSlot=stack:AddChildToOverlay(text)
     textSlot:SetHorizontalAlignment(3)
     textSlot:SetVerticalAlignment(1)
@@ -108,7 +110,7 @@ function M.build(hud,layer,screen,position)
     -- every frame and request checks the HUD first (M.root). MCT detaches the
     -- countdown before it clears the layer or the HUD is replaced.
     local widgets={box=box,text=text,fill=fill,lines=lines}
-    return {handles=handles,widgets=widgets,applied={}}
+    return {handles=handles,widgets=widgets,applied={},fontFailed=fontFailed}
 end
 
 -- The countdown's HUD, live for this call, or nil once it is gone: then its widgets

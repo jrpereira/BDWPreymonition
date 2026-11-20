@@ -336,7 +336,7 @@ function M.attach(hud,layer,params,onCleanup)
     log.info(record.preview and 'preview cue attached, position ' or 'cue attached, position ',ui.visuals.position,', screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale)
     if ui.visuals.missing then
-        log.warn('arrow picture for Style ',ui.visuals.style,' did not load; no arrows show')
+        log.warn('arrow picture for Style ',ui.visuals.style,' did not load; no arrows show: ',ui.visuals.missing)
     end
 end
 

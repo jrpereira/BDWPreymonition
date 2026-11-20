@@ -68,9 +68,11 @@ local function newName(name)
     builtNames[text]=true
     return text
 end
+-- fontless: the text has no Font to resize.
+local fontless=false
 StaticConstructObject=function(class,_,name)
     local made=object(newName(name))
-    if class.path=='/Script/UMG.TextBlock' then made.Font={Size=24} end
+    if class.path=='/Script/UMG.TextBlock' and not fontless then made.Font={Size=24} end
     return made
 end
 FName=function(value) return {ToString=function() return value end} end
@@ -343,6 +345,24 @@ do
     template.events.sleep({},{name='sleep'})
     ExecuteInGameThreadAfterFrames=afterFrames
     run(0.1)
+end
+
+-- A font size that cannot be set leaves the time at the default size, warned about once.
+do
+    local warnings={}
+    local logger={enabled=function() return false end}
+    for _,level in ipairs({'trace','debug','info','warn','error','critical'}) do
+        logger[level]=function(...) if level=='warn' then warnings[#warnings+1]=table.concat({...}) end end
+    end
+    local Countdown=require('preymonition.countdown')
+    Countdown.setLog(logger)
+    fontless=true
+    attach(nil)
+    attach(nil)
+    fontless=false
+    assert(#warnings==1 and warnings[1]:match('^countdown font size not set; the time keeps the default size: '),
+        'a font that cannot be sized warns once')
+    Countdown.setLog(setmetatable({enabled=function() return false end},{__index=function() return function() end end}))
 end
 
 assert(classFinds==4,'each widget class is looked up once across attaches: SizeBox, Overlay, TextBlock and Image')

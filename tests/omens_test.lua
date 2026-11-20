@@ -901,8 +901,8 @@ collectTextures(true)
 attach(nil,{ParryStyle='fancy'})
 local missing=layer.children[1]
 assert(bare(missing),'a picture that does not load leaves the arrows without one')
-assert(#warnings==1 and warnings[1]=='arrow picture for Style fancy did not load; no arrows show',
-    'and the cue warns that no arrows show')
+assert(#warnings==1 and warnings[1]:match('^arrow picture for Style fancy did not load; no arrows show: images not loaded from '),
+    'and the cue warns that no arrows show, and why')
 -- Nor does the unblockable picture load: the attack still plays out, the centre clear.
 endCombat()
 startCombat()
@@ -1338,7 +1338,7 @@ settle(0.05)
 icon(other,BOTTOM)
 settle(0.05)
 assert(arrowOf(layer.children[1],2).RenderOpacity==0 and bare(layer.children[1]),'a saved Perspective Style shows no arrows')
-assert(#warnings==1 and warnings[1]=='arrow picture for Style perspective did not load; no arrows show',
+assert(#warnings==1 and warnings[1]:match('^arrow picture for Style perspective did not load; no arrows show: images not loaded from '),
     'and warns that its picture did not load')
 icon(other,SWORD_ICON)
 settle(0.05)

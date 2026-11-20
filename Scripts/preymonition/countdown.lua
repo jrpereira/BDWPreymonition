@@ -246,6 +246,9 @@ function M.sleep()
     failures={}
 end
 
+-- A font size that could not be set is warned about once.
+local fontWarned=false
+
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
     local record={lead=LEAD*FALLBACK,count=LEAD*FALLBACK,window=WINDOW,preview=params.preview==true}
@@ -266,6 +269,10 @@ function M.attach(hud,layer,params,onCleanup)
     end)
     local position=Placement.position(settings.Position)
     record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),position)
+    if record.ui.fontFailed and not fontWarned then
+        fontWarned=true
+        log.warn('countdown font size not set; the time keeps the default size: ',record.ui.fontFailed)
+    end
     records[#records+1]=record
     -- Attached in combat (enabled or applied mid-fight, or woken before it attached):
     -- it takes the combat's pace as wake would give it.

@@ -240,11 +240,12 @@ function M.build(hud,layer,screen,settings)
     local arrows=construct('/Script/UMG.Overlay',tree,'PreymonitionArrows'..suffix)
     -- Plain numbers: each arrow's turn, the shape's size and the units along
     -- each axis.
-    -- The Style's picture; without it no arrows show (visuals.missing).
+    -- The Style's picture; without it no arrows show (visuals.missing says why).
     local picture
     if visuals.arrows then
-        picture=Fancy.load(hud,visuals.style)
-        if not picture then visuals.arrows,visuals.missing=false,true end
+        local why
+        picture,why=Fancy.load(hud,visuals.style)
+        if not picture then visuals.arrows,visuals.missing=false,tostring(why or 'not loaded') end
     end
     local flat={width=Fancy.SIZE.X,height=Fancy.SIZE.Y}
     local angle={}
