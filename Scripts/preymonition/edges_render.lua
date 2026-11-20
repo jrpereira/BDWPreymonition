@@ -20,19 +20,9 @@ local nonce=string.format('%06x',math.random(0,0xffffff))
 local M={EDGES=EDGES,BANDS=BANDS}
 
 -- Gradient pictures, images/edge_<key>_v.png and _h.png, loaded once per file
--- and kept for every later build while the engine keeps them.
-local textures={}
+-- and kept for every later build while the engine keeps them (preymonition.omens_images).
 local function gradient(context,key)
-    local files={v='edge_'..key..'_v.png',h='edge_'..key..'_h.png'}
-    local out={}
-    for side,name in pairs(files) do
-        if MC.valid(textures[name]) then out[side]=textures[name] end
-    end
-    if out.v and out.h then return out end
-    local loaded,why=Images.load(context,files)
-    if not loaded then return nil,why end
-    for side,name in pairs(files) do textures[name]=loaded[side] end
-    return loaded
+    return Images.load(context,{v='edge_'..key..'_v.png',h='edge_'..key..'_h.png'})
 end
 
 local function construct(classPath,outer,name)

@@ -106,7 +106,13 @@ objects['/Script/Engine.Default__GameplayStatics']=statics
 -- here the source tree, each a new texture named after its file; picturesMissing
 -- makes every import fail. A picture the mod does not ship fails as well.
 local picturesMissing=false
-local imported={}
+local imported,textures={},{}
+-- How often a picture was imported this session.
+local function importsOf(file)
+    local count=0
+    for _,path in ipairs(imported) do if path=='Preymonition/images/'..file then count=count+1 end end
+    return count
+end
 local rendering=object('KismetRenderingLibrary')
 function rendering:ImportFileAsTexture2D(context,path)
     imported[#imported+1]=path
@@ -115,7 +121,13 @@ function rendering:ImportFileAsTexture2D(context,path)
     -- Only a picture the mod ships loads, as in the game.
     local file=name and io.open(path,'rb')
     if file then file:close() end
-    return file and object('Texture '..name) or nil
+    local texture=file and object('Texture '..name) or nil
+    textures[#textures+1]=texture
+    return texture
+end
+-- Every texture imported, so a check can have the engine collect them all.
+local function collectTextures(collected)
+    for _,texture in ipairs(textures) do texture.invalid=collected or nil end
 end
 objects['/Script/Engine.Default__KismetRenderingLibrary']=rendering
 -- The game's combat subsystem, reached without a scan, holds the parry window
@@ -732,15 +744,10 @@ end
 for _,style in ipairs({'chevron','solid'}) do
     detachAll()
     cleanups={}
-    local before=#imported
     attach(nil,{ParryStyle=style})
     local looks=layer.children[1]
     assert(#layer.children==2,'the omens build no screen edges: the arrows\' box and the centre box')
-    local loads=0
-    for at=before+1,#imported do
-        if imported[at]=='Preymonition/images/omen_'..style..'.png' then loads=loads+1 end
-    end
-    assert(loads==1,style..' loads its picture once')
+    assert(importsOf('omen_'..style..'.png')==1,style..' loads its picture once a session')
     endCombat()
     startCombat()
     run()
@@ -772,12 +779,22 @@ end
 -- as a whole as it grows.
 detachAll()
 cleanups={}
-local before=#imported
 attach(nil,{ParryStyle='fancy'})
 local fancy=layer.children[1]
-local fancyLoads=0
-for at=before+1,#imported do if imported[at]:match('/omen_fancy%.png$') then fancyLoads=fancyLoads+1 end end
-assert(fancyLoads==1,'the one picture loads from the images folder')
+assert(importsOf('omen_fancy.png')==1,'the one picture loads from the images folder')
+-- A later attach reuses the picture while the engine keeps it; one it collected loads again.
+detachAll()
+cleanups={}
+attach(nil,{ParryStyle='fancy'})
+assert(importsOf('omen_fancy.png')==1,'a reattach reuses the loaded picture')
+local kept=arrowOf(layer.children[1],1).content.children[1].children[1].BrushFromTexture
+kept.invalid=true
+detachAll()
+cleanups={}
+attach(nil,{ParryStyle='fancy'})
+kept.invalid=nil
+assert(importsOf('omen_fancy.png')==2,'a collected picture loads again')
+fancy=layer.children[1]
 endCombat()
 startCombat()
 run()
@@ -850,6 +867,8 @@ end
 detachAll()
 cleanups={}
 picturesMissing=true
+-- The pictures loaded so far are gone too, so the attach imports them again.
+collectTextures(true)
 attach(nil,{ParryStyle='fancy'})
 local missing=layer.children[1]
 assert(bare(missing),'a picture that does not load leaves the arrows without one')
@@ -872,6 +891,7 @@ assert(layer.children[2].content.ColorAndOpacity.A==0 and layer.children[2].cont
 icon(other,SWORD_ICON)
 settle(0.05)
 picturesMissing=false
+collectTextures(false)
 
 -- Attack Incoming Off with Perfect Opportunity Start holds the yellow arrow
 -- back unseen and still; the Perfect Opportunity window starts its whole show, red: the
@@ -1115,8 +1135,8 @@ detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
--- twenty-six cues.
-assert(cueReleased==(11+4*2)*26,'each detached cue releases its handles')
+-- twenty-eight cues.
+assert(cueReleased==(11+4*2)*28,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
@@ -1148,10 +1168,11 @@ for _,style in ipairs(STYLES) do
     local before=#imported
     attach(nil,{UnblockableStyle=style})
     local file=style~='off' and 'unblockable_'..style or nil
-    -- Besides the arrows' Chevron picture.
-    assert(#imported==before+(file and 2 or 1) and imported[before+1]=='Preymonition/images/omen_chevron.png'
-        and (not file or imported[#imported]=='Preymonition/images/'..file..'.png'),
-        'style '..style..' loads only its picture')
+    -- Besides the arrows' Chevron picture, already loaded: its own, unless already loaded.
+    assert(#imported<=before+1,'style '..style..' loads at most one picture')
+    for at=before+1,#imported do
+        assert(file and imported[at]=='Preymonition/images/'..file..'.png','style '..style..' loads only its picture')
+    end
     local image=layer.children[2].content
     endCombat()
     startCombat()

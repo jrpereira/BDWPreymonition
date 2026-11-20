@@ -33,7 +33,8 @@ second box at the screen's centre with the unblockable picture. That picture is
 the Unblockable Style's file from the mod's `images` folder, the only one loaded,
 set on the image when the cue attaches and kept clear until an unblockable attack.
 Every Style but Off (Solid, Chevron, Fancy and any other the menu lists) shows one picture from the mod's
-`images` folder, `omen_<style>.png`, loaded as a texture when the cue attaches. It holds
+`images` folder, `omen_<style>.png`, loaded as a texture when the cue attaches and
+reused by later attaches while the engine keeps it (as every picture the mod loads). It holds
 two layers side by side: the glow on the left half, drawn tinted (yellow, red in the
 Perfect Opportunity window), and the white core on the right, drawn on top untinted, each
 shown through a clip that shifts the picture to its half. `tools/make_omen_layers.py`
