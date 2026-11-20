@@ -211,6 +211,7 @@ end
 function M.sleep()
     if not active then return end
     active=false
+    Combat.forgetStubs()
     for _,record in ipairs(records) do
         if not record.preview and Render.valid(record.ui) then
             clear(record)

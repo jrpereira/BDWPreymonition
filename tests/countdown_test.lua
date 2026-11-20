@@ -18,7 +18,7 @@ local function object(name,fields)
     value.name=name
     value.children=value.children or {}
     local methods={}
-    function methods:IsValid() return true end
+    function methods:IsValid() return self.invalid~=true end
     function methods:GetWorld() return self.world or world end
     function methods:AddChildToOverlay(child)
         self.children[#self.children+1]=child
@@ -46,12 +46,15 @@ local statics={
 }
 -- Widget classes, by path, and how often one is looked up.
 local classes,classFinds={},0
+-- How often an attacker's stub is looked up.
+local stubFinds=0
 StaticFindObject=function(path)
     if path:match('^/Script/UMG%.') then
         classFinds=classFinds+1
         classes[path]=classes[path] or object(path,{path=path})
         return classes[path]
     end
+    if path:match(':Stubs%.') then stubFinds=stubFinds+1 end
     return statics[path] or {path=path}
 end
 -- The engine refuses a second object under one name in an outer (a crash in game): every
@@ -184,6 +187,16 @@ run(0.25)
 assert(equal(fill.RenderScale.X,0.5),'the red bar runs to the hit window\'s end, 0.5 s away')
 run(0.3)
 assert(fill.RenderScale.X==0 and #frames==0,'and empties there')
+update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
+-- The stub is looked up once a combat: the next attack from it reads the kept one.
+local finds=stubFinds
+attack(clock+0.88,clock+1.1)
+assert(label()=='0.7s' and stubFinds==finds,'a stub seen this combat is not looked up again')
+update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
+guard.invalid=true
+attack(clock+0.88,clock+1.1)
+assert(label()=='0.5s' and stubFinds==finds+1,'a stub that died is looked up again: gone, the estimate')
+guard.invalid=nil
 update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
 -- A hit window the game does not have (-1), or a stub that is gone, falls back to the estimate.
 attack(-1,-1)

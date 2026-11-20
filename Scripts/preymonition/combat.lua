@@ -54,15 +54,34 @@ function M.gameTime(context)
     return clock:GetTimeSeconds(context)
 end
 
+-- Attackers' AI stubs by path, as weak handles: StaticFindObject walks every
+-- object, so it runs only for a stub not seen this combat or whose stub died.
+-- forgetStubs drops them when combat ends.
+local stubs={}
+local function stubAt(path)
+    local held=stubs[path]
+    local stub=MC.get(held)
+    if stub then return stub end
+    if held then MC.release(held); stubs[path]=nil end
+    stub=StaticFindObject(path)
+    if not MC.valid(stub) then return nil end
+    stubs[path]=MC.hold(stub)
+    return stub
+end
+function M.forgetStubs()
+    for _,held in pairs(stubs) do MC.release(held) end
+    stubs={}
+end
+
 -- An attack's hit window in game time, from its attacker's AI stub (a path, as MCT
 -- gives it): its start and end, or nil when the stub is gone or the game has
 -- none for its current attack (it reports -1). The game fixes it as the attack
 -- starts, in the frame its arrow shows.
 function M.hitWindow(stubPath)
     if type(stubPath)~='string' then return nil end
-    local stub=StaticFindObject(stubPath)
     local library=M.default(COMBAT_LIBRARY)
-    if not (MC.valid(stub) and library) then return nil end
+    local stub=library and stubAt(stubPath)
+    if not stub then return nil end
     local from=library:GetHitWindowTime(stub,false)
     local to=library:GetHitWindowTime(stub,true)
     if type(from)~='number' or type(to)~='number' or from<0 or to<from then return nil end
