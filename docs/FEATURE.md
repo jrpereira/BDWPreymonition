@@ -37,8 +37,9 @@ Every Style but Off (Solid, Chevron, Fancy and any other the menu lists) shows o
 reused by later attaches while the engine keeps it (as every picture the mod loads). It holds
 two layers side by side: the glow on the left half, drawn tinted (yellow, red in the
 Perfect Opportunity window), and the white core on the right, drawn on top untinted, each
-shown through a clip that shifts the picture to its half. `tools/make_omen_layers.py`
-makes it from the colour art in `art/<style>.png`; each half must share Fancy's canvas
+shown through a clip that shifts the picture to its half. `tools/make_omen_shapes.py`
+draws Solid and Chevron; `tools/make_omen_layers.py` makes Fancy, or any other painted
+Style, from its colour art in `art/<style>.png`. Each half must share Fancy's canvas
 and arrow placement (887 by 1774, tip and back where `omens_fancy.lua` says). The menu
 lists every `omen_<style>.png` each time it opens. The arrow is turned from pointing right
 to each direction and scales as a whole. If the picture does not load, no arrows show
@@ -170,7 +171,7 @@ for the same attack replays nothing; its `resolve` forgets it, and combat end
 forgets every attack.
 
 The arrow sounds are the mod's own WAV files, `sounds/cue_<name>.wav`
-(`tools/make_sounds.py` builds Ping, Bell and Knock), listed by
+(`tools/make_sounds.py` builds Ping and Bell), listed by
 `Scripts/choices/cue_sounds.lua` each time the menu opens and saved by name;
 selecting one in the menu plays it, centred. The three sounds sit under Sounds;
 Enable directional sound, Differentiate back/front by pitch and Sound volume
