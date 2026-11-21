@@ -1,5 +1,5 @@
 -- Where the omens' cue area sits, shared by the templates that line up on it:
--- the Omens centre their arrows on it and the Countdown sits under it.
+-- the Omens centre their arrows on it. The Countdown has positions of its own.
 local M={}
 
 -- The cue box, as a share of the shorter screen side.
