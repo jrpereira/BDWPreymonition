@@ -18,11 +18,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 HALF_W, H = 887, 1774
 TIP = (687.0, 866.5)
-ANGLE = math.radians(135 / 2)      # each side's angle from the axis
+ANGLE = math.radians(135 / 2)      # the reference arm angle from the axis; sets scale and Solid
 OUTLINE, INSET, DIM = 3, 4, 0.55   # outline and inset widths in design units; the inset's grey
 BASE = 100                         # Solid's base, design units
 ARM, THICKNESS = 70, 16            # Chevron's arm length and thickness, design units
-MARGIN = 24                        # pixels kept clear at the top and bottom
+SOLID_WIDTH = 0.9                  # Solid's width as a share of the reference chevron's
+CHEVRON_WIDTH = 1.1                # Chevron's width as a share of the reference chevron's
+MARGIN = 24                       # pixels kept clear at the top and bottom
 
 
 def encode(width, height, rows):
@@ -55,25 +57,42 @@ def edge_distance(poly, x, y):
 
 
 def solid():
-    """The triangle, its base as tall as the half allows, and the pixels per design unit."""
-    base = 2 * (min(TIP[1], H - TIP[1]) - MARGIN)
-    scale = base / BASE
-    depth = base / 2 / math.tan(ANGLE)
+    """The triangle sharing Chevron's tip and height, its base corners level with the top and
+    bottom of Chevron's arms and SOLID_WIDTH of the ANGLE chevron's width back from the tip.
+    Returns it and the pixels per design unit."""
+    poly, _ = chevron(ANGLE)
+    xs, ys = [p[0] for p in poly], [p[1] for p in poly]
     tx, ty = TIP
-    return [(tx, ty), (tx - depth, ty + base / 2), (tx - depth, ty - base / 2)], scale
+    left = tx - SOLID_WIDTH * (tx - min(xs))
+    return [(tx, ty), (left, max(ys)), (left, min(ys))], (max(ys) - min(ys)) / BASE
 
 
-def chevron():
-    """The chevron, its arms reaching as far as the half allows."""
+def chevron(angle=None):
+    """The chevron, its arms reaching as far as the half allows. The arm thickness and the
+    pixels per design unit are those of the ANGLE chevron; by default the arms open at the
+    lower angle that makes it CHEVRON_WIDTH times as wide."""
     reach = min(TIP[1], H - TIP[1]) - MARGIN
     scale = reach / (ARM * math.sin(ANGLE))
-    arm, thickness = ARM * scale, THICKNESS * scale
-    tx, ty = TIP
-    back = (-math.cos(ANGLE), math.sin(ANGLE))
-    shift = thickness / math.sin(ANGLE)           # along the axis, for the arms' thickness
-    up = (tx + back[0] * arm, ty - back[1] * arm)
-    down = (tx + back[0] * arm, ty + back[1] * arm)
-    return [(tx, ty), up, (up[0] - shift, up[1]), (tx - shift, ty), (down[0] - shift, down[1]), down], scale
+    thickness = THICKNESS * scale
+
+    def shape(a):
+        arm = reach / math.sin(a)
+        shift = thickness / math.sin(a)           # along the axis, for the arms' thickness
+        tx, ty = TIP
+        up = (tx - math.cos(a) * arm, ty - reach)
+        down = (tx - math.cos(a) * arm, ty + reach)
+        return [(tx, ty), up, (up[0] - shift, up[1]), (tx - shift, ty), (down[0] - shift, down[1]), down]
+
+    def width(a):
+        return TIP[0] - min(p[0] for p in shape(a))
+
+    if angle is None:
+        target, low, high = CHEVRON_WIDTH * width(ANGLE), math.radians(10), ANGLE
+        for _ in range(60):                       # the width grows as the angle falls
+            mid = (low + high) / 2
+            low, high = (mid, high) if width(mid) > target else (low, mid)
+        angle = (low + high) / 2
+    return shape(angle), scale
 
 
 def picture(poly, scale):
