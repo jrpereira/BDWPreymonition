@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Log levels no longer come from `log_level.txt`. With the UE4SS Lua Log Bridge installed they
+  are set on its Logs page or under `[Levels]` in its `config.ini`; without it, WARN and above.
 - New Unblockable Attack Indicator → Opacity, a range (50%–80% by default): the picture
   appears at the low end and reaches the high end as it grows. It replaces the fixed 50%.
 
