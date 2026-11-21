@@ -96,16 +96,12 @@ end
 
 -- One MC_NPCAttackIndicator event. Preview events run without combat.
 function M.update(event)
-    if not next(records) or not (active or event.preview) then return end
     -- A preview event may come silent (its sound button off, or a non-sound setting
     -- selected); the preview then plays nothing for it.
     if event.preview then
         for _,record in ipairs(records) do if record.preview then record.silent=event.silent==true end end
     end
-    local handler=handlers[event.kind]
-    if not handler then return end
-    local ok,why=pcall(handler,event)
-    if not ok then fail(event.kind,why) end
+    Controller.dispatch(records,handlers,event,active,fail)
 end
 
 -- The game's Master and Effects volume scale the sounds; read at attach and
@@ -160,9 +156,7 @@ function M.attach(_,params,onCleanup)
     end
     if next(record.sounds) then refreshVolume() end
     onCleanup(function()
-        for index,current in ipairs(records) do
-            if current==record then table.remove(records,index); break end
-        end
+        Controller.remove(records,record)
         log.debug('audio cues detached; ',#records,' attached')
         return true
     end)

@@ -1,7 +1,9 @@
 -- What every template's controller does alike: a log that stays silent until the
--- template's own one arrives, failures logged once per kind, one attack across
--- indicators, deferred frames and the parry window's pace.
+-- template's own one arrives, failures logged once per kind, event dispatch and
+-- the records it reaches, one attack across indicators, deferred frames and the
+-- parry window's pace.
 local Combat=require('preymonition.combat')
+local Widgets=require('preymonition.widgets')
 
 local FRAME_MS=16
 -- The parry window multiplier assumed when the game's cannot be read: the second
@@ -55,6 +57,39 @@ function M.later(callback,frames)
         ExecuteInGameThreadWithDelay(FRAME_MS*frames,callback)
     else
         ExecuteWithDelay(FRAME_MS*frames,function() ExecuteInGameThread(callback) end)
+    end
+end
+
+-- One MC_NPCAttackIndicator event for a template's records: dropped while none
+-- is attached, or outside combat unless it is a preview event; else the handler
+-- for its kind runs through run (pcall by default; the Omens run it in a pass),
+-- a failure going to fail.
+function M.dispatch(records,handlers,event,active,fail,run)
+    if not next(records) or not (active or event.preview) then return end
+    local handler=handlers[event.kind]
+    if not handler then return end
+    local ok,why=(run or pcall)(handler,event)
+    if not ok then fail(event.kind,why) end
+end
+
+-- Takes a detached record out of its template's records.
+function M.remove(records,record)
+    for index,current in ipairs(records) do
+        if current==record then table.remove(records,index); return end
+    end
+end
+
+-- Runs callback(record,hud) for the records an event reaches, hud being the live
+-- root root(record.ui) gives. A preview event (ModCore Templates' live preview in
+-- the mod menu, the menu's widget as its indicator) reaches only the preview
+-- records, a game event only the others in the indicator's world.
+function M.each(records,event,root,callback)
+    local preview=event.preview==true
+    for _,record in ipairs(records) do
+        if record.preview==preview then
+            local hud=root(record.ui)
+            if hud and (preview or Widgets.sameWorld(hud,event.indicator)) then callback(record,hud) end
+        end
     end
 end
 

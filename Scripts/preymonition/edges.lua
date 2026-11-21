@@ -5,7 +5,6 @@
 -- out as soon as it resolves. An unblockable attack lights every edge red while
 -- it shows (→ Unblockable Attack), over any directional attack.
 local Render=require('preymonition.edges_render')
-local Widgets=require('preymonition.widgets')
 local Controller=require('preymonition.controller')
 
 local ALL={}
@@ -48,18 +47,8 @@ local function clear(record)
     render(record)
 end
 
--- The records an event reaches. A preview event (ModCore Templates' live preview
--- in the mod menu, the menu's widget as its indicator) reaches only the preview
--- records, a game event only the others in the indicator's world.
-local function each(event,callback)
-    local preview=event.preview==true
-    for _,record in ipairs(records) do
-        if record.preview==preview then
-            local hud=Render.root(record.ui)
-            if hud and (preview or Widgets.sameWorld(hud,event.indicator)) then callback(record) end
-        end
-    end
-end
+-- The records an event reaches (preymonition.controller's each).
+local function each(event,callback) Controller.each(records,event,Render.root,callback) end
 
 local handlers={}
 
@@ -111,13 +100,7 @@ function handlers.unblockable(event)
 end
 
 -- One MC_NPCAttackIndicator request.
-function M.update(event)
-    if not next(records) or not (active or event.preview) then return end
-    local handler=handlers[event.kind]
-    if not handler then return end
-    local ok,why=pcall(handler,event)
-    if not ok then fail(event.kind,why) end
-end
+function M.update(event) Controller.dispatch(records,handlers,event,active,fail) end
 
 function M.wake()
     active=true
@@ -163,9 +146,7 @@ function M.attach(hud,layer,params,onCleanup)
         perfect=switch(settings.ActivatePerfect),unblockable=switch(settings.ActivateUnblockable)}}
     local options=look(settings)
     onCleanup(function()
-        for index,current in ipairs(records) do
-            if current==record then table.remove(records,index); break end
-        end
+        Controller.remove(records,record)
         if record.ui then Render.destroy(record.ui) end
         log.debug('edges detached; ',#records,' attached')
         return true

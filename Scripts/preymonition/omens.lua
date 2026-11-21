@@ -225,13 +225,7 @@ local handlers={
 }
 
 -- One MC_NPCAttackIndicator event, in a pass.
-function M.update(event)
-    if not next(cues) or not (active or event.preview) then return end
-    local handler=handlers[event.kind]
-    if not handler then return end
-    local ok,why=Cue.pass(handler,event)
-    if not ok then fail(event.kind,why) end
-end
+function M.update(event) Controller.dispatch(cues,handlers,event,active,fail,Cue.pass) end
 
 -- Combat started: take MCT's attack events and show the idle cue.
 function M.wake()
@@ -272,9 +266,7 @@ function M.attach(hud,layer,params,onCleanup)
     onCleanup(function()
         record.detached=true
         if record.model then record.model:cancel() end
-        for index,current in ipairs(cues) do
-            if current==record then table.remove(cues,index); break end
-        end
+        Controller.remove(cues,record)
         if record.ui then Cue.destroy(record.ui) end
         log.debug('cue detached; ',#cues,' attached')
         return true
