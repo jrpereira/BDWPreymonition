@@ -14,7 +14,7 @@ local BANDS=6
 -- The glow's colours; its opacity comes from Intensity.
 -- Critical is a deep red, as the arrows' glow.
 local COLOR,CRITICAL={R=1,G=0.67,B=0.19},{R=0.72,G=0.06,B=0.02}
-local M={EDGES=EDGES,BANDS=BANDS}
+local M={EDGES=EDGES}
 
 -- Gradient pictures, images/edge_<key>_v.png and _h.png, loaded once per file
 -- and kept for every later build while the engine keeps them (preymonition.omens_images).
@@ -113,10 +113,6 @@ function M.root(ui)
     local hud=ui and ui.widgets and MC.get(ui.handles.hud)
     if not hud and ui then ui.widgets=nil end
     return hud
-end
-
-function M.valid(ui)
-    return M.root(ui)~=nil
 end
 
 -- Lights the edges in lit (index -> true) and puts the others out; critical

@@ -201,8 +201,6 @@ function M.build(hud,layer,screen,settings)
     local centre=construct('/Script/UMG.SizeBox',tree,'PreymonitionUnblockable'..suffix)
     local skull=construct('/Script/UMG.Image',tree,'PreymonitionCentre'..suffix)
     local arrows=construct('/Script/UMG.Overlay',tree,'PreymonitionArrows'..suffix)
-    -- Plain numbers: each arrow's turn, the shape's size and the units along
-    -- each axis.
     -- The Style's picture; without it no arrows show (visuals.missing says why).
     local picture
     if visuals.arrows then
@@ -210,10 +208,11 @@ function M.build(hud,layer,screen,settings)
         picture,why=Fancy.load(hud,visuals.style)
         if not picture then visuals.arrows,visuals.missing=false,tostring(why or 'not loaded') end
     end
-    local flat={width=Fancy.SIZE.X,height=Fancy.SIZE.Y}
     local angle={}
     for index=1,#ARROWS do angle[index]=Fancy.angle(OUTWARD[index]) end
-    local ui={angle=angle,shapeSize={X=flat.width,Y=flat.height},visuals=visuals,
+    -- Plain numbers: each arrow's turn, the shape's size and the units along
+    -- each axis.
+    local ui={angle=angle,shapeSize={X=Fancy.SIZE.X,Y=Fancy.SIZE.Y},visuals=visuals,
         unit={screen.width*UNIT,screen.height*UNIT},applied={}}
     -- The box is centred where preymonition.placement puts a cue area of its
     -- default size, at the arrows' Position vertically.
@@ -236,7 +235,7 @@ function M.build(hud,layer,screen,settings)
         for _,entry in ipairs(coloured) do
             parts[index][#parts[index]+1]=entry
         end
-        paintParts(ui,coloured,LIT_COLOR)
+        paintParts(coloured,LIT_COLOR)
         local slot=arrows:AddChildToOverlay(arrow)
         slot:SetHorizontalAlignment(2)
         slot:SetVerticalAlignment(2)
@@ -299,7 +298,7 @@ end
 
 -- Colours an arrow's layers, as {widget,role}: the glow red for the critical colour and
 -- yellow otherwise, the core white.
-function paintParts(ui,list,color)
+function paintParts(list,color)
     for _,entry in ipairs(list) do
         entry[1]:SetColorAndOpacity(Fancy.color(entry[2],color==CRITICAL_COLOR))
     end
@@ -311,7 +310,7 @@ local function paint(ui,index,color)
     for at,entry in ipairs(ui.handles.parts[index]) do
         list[at]={assert(MC.get(entry[1]),'Preymonition cue is no longer valid'),entry[2]}
     end
-    paintParts(ui,list,color)
+    paintParts(list,color)
 end
 
 -- Readies one cue arrow for a new attack: back to the lit colour.

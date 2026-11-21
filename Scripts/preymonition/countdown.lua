@@ -208,7 +208,7 @@ local fontWarned=false
 
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
-    local record={lead=LEAD*FALLBACK,count=LEAD*FALLBACK,window=WINDOW,preview=params.preview==true}
+    local record={lead=LEAD*FALLBACK,preview=params.preview==true}
     record.onFrame=function()
         record.scheduled=false
         if record.detached then return end
