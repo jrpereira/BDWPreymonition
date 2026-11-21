@@ -887,9 +887,18 @@ collectTextures(true)
 attach({ParryStyle='fancy'})
 local missing=layer.children[1]
 assert(bare(missing),'a picture that does not load leaves the arrows without one')
-assert(#warnings==1 and warnings[1]:match('^arrow picture for Style fancy did not load; no arrows show: images not loaded from '),
+assert(#warnings==2 and warnings[1]:match('^arrow picture for Style fancy did not load; no arrows show: images not loaded from '),
     'and the cue warns that no arrows show, and why')
--- Nor does the unblockable picture load: the attack still plays out, the centre clear.
+-- Nor does the unblockable picture load: said at attach; the attack still plays out,
+-- the centre clear, with no warning per attack.
+assert(warnings[2]:match('^unblockable picture [%w_]+%.png did not load; the centre stays clear: images not loaded from '),
+    'the cue says at attach why the centre stays clear')
+-- Each missing picture warns once: a reattach (a settings Apply, the preview) says nothing again.
+detachAll()
+cleanups={}
+attach({ParryStyle='fancy'})
+missing=layer.children[1]
+assert(#warnings==2,'a picture already warned about is not warned about again')
 endCombat()
 startCombat()
 run()
@@ -903,8 +912,7 @@ icon(other,SKULL_ICON)
 settle(0.05)
 assert(layer.children[2].content.ColorAndOpacity.A==0 and layer.children[2].content.BrushFromTexture==nil,
     'a missing unblockable picture leaves the centre clear')
-assert(warnings[#warnings]:match('^unblockable picture unavailable: images not loaded from '),
-    'and the cue says why it shows none')
+assert(#warnings==2,'and the attack adds no warning')
 icon(other,SWORD_ICON)
 settle(0.05)
 picturesMissing=false
@@ -1152,8 +1160,8 @@ detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
--- twenty-nine cues.
-assert(cueReleased==(11+4*2)*29,'each detached cue releases its handles')
+-- thirty cues.
+assert(cueReleased==(11+4*2)*30,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()

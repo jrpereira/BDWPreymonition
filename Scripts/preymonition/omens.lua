@@ -147,8 +147,9 @@ local function showUnblockable(record,event)
     if event.active then
         if record.skull then return end
         record.skull=true
-        local ok,file,why=pcall(Cue.skull,record.ui,true)
-        if not ok or not file then log.warn('unblockable picture unavailable: ',ok and why or file) end
+        -- A picture that did not load was reported at attach; the centre stays clear.
+        local ok,why=pcall(Cue.skull,record.ui,true)
+        if not ok then fail('unblockable picture',why) end
         record.model:unblockable(true)
         pump(record)
         log.debug('unblockable attack')
@@ -251,6 +252,10 @@ function M.sleep()
     if not ok then error(why,0) end
 end
 
+-- Pictures that did not load, by Style or unblockable file: each is warned about
+-- once, at the first attach that misses it.
+local warned={}
+
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
     -- The arrow's phases by Attack Incoming and Perfect Opportunity: whether
@@ -291,8 +296,13 @@ function M.attach(hud,layer,params,onCleanup)
     end
     log.info(record.preview and 'preview cue attached, position ' or 'cue attached, position ',ui.visuals.position,', screen ',
         params.screen.width,'x',params.screen.height,' @',params.screen.scale)
-    if ui.visuals.missing then
+    if ui.visuals.missing and not warned['style:'..tostring(ui.visuals.style)] then
+        warned['style:'..tostring(ui.visuals.style)]=true
         log.warn('arrow picture for Style ',ui.visuals.style,' did not load; no arrows show: ',ui.visuals.missing)
+    end
+    if ui.pictureMissing and not warned['unblockable:'..tostring(ui.visuals.unblockable)] then
+        warned['unblockable:'..tostring(ui.visuals.unblockable)]=true
+        log.warn('unblockable picture ',ui.visuals.unblockable,' did not load; the centre stays clear: ',ui.pictureMissing)
     end
 end
 
