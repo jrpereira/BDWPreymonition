@@ -161,7 +161,7 @@ local function layout()
     local edge=edges.children[1].children[1]
     local count=countdown.children[1]
     return {box=box,size=box.WidthOverride,top=box.slot.Padding.Top,
-        depth=edge.HeightOverride,countdownTop=count.slot.Padding.Top,countdownWidth=count.WidthOverride}
+        depth=edge.HeightOverride,countdownTop=count.slot.Padding.Top,countdownWidth=count.MinDesiredWidth}
 end
 -- An arrow shown now, through MCT's update event: its travel runs out from the cue's
 -- centre towards the screen edge, so where it starts depends on that edge.
@@ -193,7 +193,7 @@ noErrors()
 local first=layout()
 assert(equal(first.size,432) and equal(first.top,(1080-432)/2),'the cue box is 40% of the short side, centred')
 assert(equal(first.depth,1080*0.08),'the edges reach 8% of the short side in')
-assert(equal(first.countdownTop,1080*0.65) and equal(first.countdownWidth,1080*0.2),'the countdown sits under the cue area')
+assert(equal(first.countdownTop,1080*0.5) and equal(first.countdownWidth,1080*0.2),'the countdown sits 50% down')
 runtime:signal('MC_CombatStart')
 noErrors()
 assert(equal(arrowStart(3),expectedStart(960,1080)),'the left arrow travels towards the 960 edge')
@@ -230,7 +230,7 @@ noErrors()
 local tall=layout()
 assert(equal(tall.size,576) and equal(tall.top,(1440-576)/2),'the cue box is 40% of the new short side')
 assert(equal(tall.depth,1440*0.08),'the edges reach 8% of the new short side in')
-assert(equal(tall.countdownTop,1440*0.65) and equal(tall.countdownWidth,1440*0.2),'the countdown follows the height')
+assert(equal(tall.countdownTop,1440*0.5) and equal(tall.countdownWidth,1440*0.2),'the countdown follows the height')
 assert(equal(arrowStart(3),expectedStart(1280,1440)),'the left arrow travels towards the 1280 edge')
 assert(equal(arrowStart(1),expectedStart(720,1440)),'the top arrow travels towards the 720 edge')
 

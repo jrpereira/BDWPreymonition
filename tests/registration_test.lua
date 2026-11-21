@@ -18,7 +18,7 @@ local audio=assert(byFile.audio)
 assert(omens.id=='Preymonition_Omens' and omens.label=='Omens Overlay'
     and edges.id=='Preymonition_Edges' and edges.label=='Edges Flash')
 assert(audio.id=='Preymonition_Audio' and audio.label=='Audio Cues')
-assert(countdown.id=='Preymonition_Countdown' and countdown.label=='Countdown (WIP)')
+assert(countdown.id=='Preymonition_Countdown' and countdown.label=='Countdown')
 assert(omens.priority==10 and edges.priority==11 and countdown.priority==12
     and audio.priority==13,'omens, edges, the countdown, then the audio cues')
 local category=dofile('ModCoreTemplates/Scripts/categories/npc_attacks.lua')

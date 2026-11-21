@@ -3,15 +3,19 @@
 -- they show.
 local MC=require('mc')
 local Combat=require('preymonition.combat')
-local Placement=require('preymonition.placement')
 local Widgets=require('preymonition.widgets')
 
--- Sizes as shares of the screen height: the bar's width and height, its outline,
--- the text's line above it and the text's font size.
+-- Sizes at the default Size (10%), as shares of the screen height: the bar's
+-- width and height, its outline, the text's line above it and the text's font size.
 local WIDTH,HEIGHT,OUTLINE,LINE,FONT=0.2,0.015,0.002,0.035,0.02
--- Position puts the bar's bottom this share of the screen height below the
--- centre of the omens' cue area at its default size (preymonition.placement).
-local BELOW_CENTRE=0.2
+-- Size, a percentage: SIZE_DEFAULT draws the sizes above. The bar grows linearly
+-- to BAR_MAX times at SIZE_MAX; the text's line grows linearly to LINE_MAX of the
+-- screen height at SIZE_MAX, keeping the font's share of it.
+local SIZE_MIN,SIZE_MAX,SIZE_DEFAULT=5,100,10
+local BAR_MAX,LINE_MAX=3,0.7
+-- Position puts the bar's bottom this share of the screen height from the top,
+-- at the default Size: Below and Above mirror each other around Middle.
+local BOTTOMS={below=0.775,middle=0.55,above=0.325}
 -- Yellow while counting down, red for the Perfect Opportunity window. The outline and the
 -- remaining bar are see-through; the elapsed part is not drawn at all.
 local COLORS={
@@ -23,29 +27,57 @@ local construct=Widgets.construct
 local function hold(object,name) return Widgets.hold(object,'countdown',name) end
 local M={}
 
--- Where the countdown sits for a Position: the top of its box, in screen units.
-function M.top(position,height)
-    local centre=Placement.centre(position,1,Placement.SIZE)
-    return height*(centre+BELOW_CENTRE-LINE-HEIGHT)
+-- A Position setting as one of its keys: an unknown value is Middle, the default.
+function M.position(key)
+    return BOTTOMS[key] and key or 'middle'
+end
+
+-- A Size setting as a percentage within its range: anything else is the default.
+function M.size(value)
+    if type(value)~='number' or value~=value then return SIZE_DEFAULT end
+    return math.max(SIZE_MIN,math.min(SIZE_MAX,value))
+end
+
+-- The countdown's measures for a Position and Size on a screen height tall, in
+-- screen units: the bar's width, height and outline, the text's line and font
+-- size, and the top of the box (the line above the bar).
+--
+-- Position is set at the default Size. Another Size keeps the box's vertical
+-- centre where the default box has it for that Position, so it grows evenly up
+-- and down, then moves it back inside the screen if it would cross the top or
+-- bottom edge.
+function M.layout(height,position,size)
+    size=M.size(size)
+    local t=(size-SIZE_DEFAULT)/(SIZE_MAX-SIZE_DEFAULT)
+    local scale=1+(BAR_MAX-1)*t
+    -- Below the default the straight line would shrink the text to nothing by 5%;
+    -- there it shrinks with the bar instead.
+    local line=math.max(LINE+(LINE_MAX-LINE)*t,LINE*scale)
+    local bar=HEIGHT*scale
+    local centre=BOTTOMS[M.position(position)]-(LINE+HEIGHT)/2
+    local box=line+bar
+    local top=math.max(0,math.min(centre-box/2,1-box))
+    return {width=height*WIDTH*scale,bar=height*bar,outline=math.max(1,height*OUTLINE*scale),
+        line=height*line,font=height*line*FONT/LINE,top=height*top}
 end
 
 -- Builds the countdown in the layer, hidden, and returns its handles.
-function M.build(hud,layer,screen,position)
+function M.build(hud,layer,screen,position,size)
     local tree=assert(hud.WidgetTree,'HUD has no widget tree')
     -- A settings update reattaches the same layer; replace its previous content.
     layer:ClearChildren()
     local suffix=Widgets.suffix()
-    local height=screen.height
-    local width,bar,line=height*WIDTH,height*HEIGHT,height*LINE
-    local outline=math.max(1,height*OUTLINE)
-    -- SizeBox > Overlay of the time, top right, and the bar along the bottom.
+    local layout=M.layout(screen.height,position,size)
+    local width,bar,line,outline=layout.width,layout.bar,layout.line,layout.outline
+    -- SizeBox > Overlay of the time, centred at the top, and the bar centred along
+    -- the bottom. The box is at least the bar's width and widens to a wider time.
     local box=construct('/Script/UMG.SizeBox',tree,'PreymonitionCountdown'..suffix)
     local stack=construct('/Script/UMG.Overlay',tree,'PreymonitionCountdownStack'..suffix)
     local text=construct('/Script/UMG.TextBlock',tree,'PreymonitionCountdownText'..suffix)
     local barBox=construct('/Script/UMG.SizeBox',tree,'PreymonitionCountdownBar'..suffix)
     local barStack=construct('/Script/UMG.Overlay',tree,'PreymonitionCountdownBarStack'..suffix)
     local fill=construct('/Script/UMG.Image',tree,'PreymonitionCountdownFill'..suffix)
-    box:SetWidthOverride(width)
+    box:SetMinDesiredWidth(width)
     box:SetHeightOverride(line+bar)
     box:SetContent(stack)
     box:SetRenderOpacity(0)
@@ -53,17 +85,18 @@ function M.build(hud,layer,screen,position)
     -- the engine's default size and fontFailed says why.
     local sized,why=pcall(function()
         local font=text.Font
-        font.Size=math.floor(height*FONT+0.5)
+        font.Size=math.floor(layout.font+0.5)
         text:SetFont(font)
     end)
     local fontFailed=not sized and tostring(why) or nil
     local textSlot=stack:AddChildToOverlay(text)
-    textSlot:SetHorizontalAlignment(3)
+    textSlot:SetHorizontalAlignment(2)
     textSlot:SetVerticalAlignment(1)
+    barBox:SetWidthOverride(width)
     barBox:SetHeightOverride(bar)
     barBox:SetContent(barStack)
     local barSlot=stack:AddChildToOverlay(barBox)
-    barSlot:SetHorizontalAlignment(0)
+    barSlot:SetHorizontalAlignment(2)
     barSlot:SetVerticalAlignment(3)
     -- The remaining part fills inside the outline and shrinks towards the left.
     local fillSlot=barStack:AddChildToOverlay(fill)
@@ -88,7 +121,7 @@ function M.build(hud,layer,screen,position)
     local slot=layer:AddChildToOverlay(box)
     slot:SetHorizontalAlignment(2)
     slot:SetVerticalAlignment(1)
-    slot:SetPadding({Left=0,Top=M.top(position,height),Right=0,Bottom=0})
+    slot:SetPadding({Left=0,Top=layout.top,Right=0,Bottom=0})
     local handles={hud=hold(hud,'hud'),layer=hold(layer,'layer'),box=hold(box,'box')}
     -- The widgets drawn in, kept as built: they belong to the HUD's widget tree, and
     -- every frame and request checks the HUD first (M.root). MCT detaches the

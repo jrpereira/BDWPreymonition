@@ -84,14 +84,15 @@ Light the screen edges while an attack is incoming.
 | Thickness | 2% to 20%, in steps of 1 | 8% | `VisualsThickness` |
 | Intensity | 10% to 100%, in steps of 5 | 50% | `VisualsIntensity` |
 
-### Countdown (WIP)
+### Countdown
 
 Count down to the incoming attack's Perfect Opportunity window, then show NOW while it is open.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
-- **Turn on:** set Countdown (WIP) (`[Preymonition.Countdown] Enabled=1`) to Enabled.
+- **Turn on:** set Countdown (`[Preymonition.Countdown] Enabled=1`) to Enabled.
 - **Saved in:** `9_ModCore_Preymonition/config.ini`, section `[Preymonition.Countdown]`.
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
 | Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `Position` |
+| Size | 5% to 100%, in steps of 5 | 10% | `Size` |

@@ -3,7 +3,7 @@
 Preymonition registers four managed MCT templates in `npc.attacks`, listed on
 the settings page in this order: **Omens Overlay** (`mc_omens.lua`), the attack shown as
 symbols, the cue, **Audio Cues** (`mc_audio.lua`), a sound for each attack,
-**Edges Flash** (`mc_edges.lua`), the screen edge glows, and **Countdown (WIP)**
+**Edges Flash** (`mc_edges.lua`), the screen edge glows, and **Countdown**
 (`mc_countdown.lua`), a count to the Perfect Opportunity window. Each is turned
 on by its own Enabled, so any of them, the Audio Cues alone included, can be on
 without the others. MCT attaches them by priority (Omens 10, Edges 11,
@@ -45,7 +45,7 @@ lists every `omen_<style>.png` each time it opens. The arrow is turned from poin
 to each direction and scales as a whole. If the picture does not load, no arrows show
 and the cue logs a warning; a saved Style that is not a name is Chevron. The box is 40% of the shorter screen side and centred
 horizontally. Position places it vertically, centred on a cue area 50% of the
-screen height tall (`preymonition/placement.lua`, shared with the Countdown): Below keeps that
+screen height tall (`preymonition/placement.lua`): Below keeps that
 area's bottom 10% of the screen height above the bottom edge, Above keeps its
 top 10% below the top edge, and Middle centres it.
 
@@ -232,9 +232,14 @@ sound.
 
 ## Countdown
 
-The Countdown template, a work in progress, builds a time above a thin bar in its layer, 20% of the
-screen height wide, under where the omens' cue area (50% of the height)
-sits for its Position. Its requests (`preymonition/countdown.lua`) time the
+The Countdown template builds a time, centred above a thin bar, in its layer. At
+the default Size (10%) the bar is 20% of the screen height wide and its bottom
+sits 77.5%, 55% or 32.5% of the height down for Below, Middle and Above, its own
+places, not the omens'. Size scales the bar by 1+2*(s-10)/90 (three times at 100%)
+and the time's line linearly from 3.5% of the height at 10% to 70% at 100% (below
+10% it shrinks with the bar), keeping the font at 4/7 of the line; the box widens
+to a time wider than the bar. Another Size keeps the box's vertical centre where
+the 10% box has it for its Position, then moves it inside the screen. Its requests (`preymonition/countdown.lua`) time the
 attack and its renderer (`preymonition/countdown_render.lua`) draws it, stepping
 every frame only while something moves. Each frame looks up the HUD once and reuses
 the widgets built in it while it lives; while the game is paused its clock stands

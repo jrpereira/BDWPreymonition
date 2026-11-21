@@ -29,7 +29,7 @@ Install these before Preymonition:
 [/list]
 [b]Settings[/b]
 
-Combat Preymonition has four parts, each with its own [b]Enabled[/b]: the [b]Omens Overlay[/b] (symbols near the middle of the screen), the [b]Audio Cues[/b] (sounds for each attack, whatever else is on), the [b]Edges Flash[/b] on the screen edges and the [b]Countdown (WIP)[/b]. Open [b]Mod Settings → Combat Preymonition[/b], set [b]Enabled[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b], [b]Countdown (WIP)[/b] or any of them to [b]Yes[/b], and choose [b]Apply[/b]. The Audio Cues can be on alone, for sounds without the arrows.
+Combat Preymonition has four parts, each with its own [b]Enabled[/b]: the [b]Omens Overlay[/b] (symbols near the middle of the screen), the [b]Audio Cues[/b] (sounds for each attack, whatever else is on), the [b]Edges Flash[/b] on the screen edges and the [b]Countdown[/b]. Open [b]Mod Settings → Combat Preymonition[/b], set [b]Enabled[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b], [b]Countdown[/b] or any of them to [b]Yes[/b], and choose [b]Apply[/b]. The Audio Cues can be on alone, for sounds without the arrows.
 
 An attack's [b]parry window[/b] opens when it is first shown (the yellow arrow), and its [b]Perfect Opportunity window[/b] later (the red arrow). Adjust each part's settings on the same page and choose [b]Apply[/b] after changing them.
 [list]
@@ -54,12 +54,13 @@ An attack's [b]parry window[/b] opens when it is first shown (the yellow arrow),
 [*][b]Edges Flash → Visuals → Style[/b]: Bands, or a smooth gradient, Linear or [b]Soft[/b]. Drop a pair [i]edge_<name>_v.png[/i] (top edge, fading down) and [i]edge_<name>_h.png[/i] (left edge, fading right) into the mod's [i]images[/i] folder to add one.
 [*][b]Edges Flash → Visuals → Thickness[/b]: 2% to 20% of the shorter screen side, [b]8%[/b] by default.
 [*][b]Edges Flash → Visuals → Intensity[/b]: the glow's opacity at the screen edge, 10% to 100%, [b]50%[/b] by default.
-[*][b]Countdown (WIP) → Position[/b]: Below, [b]Middle[/b] or Above. A work in progress: the time left to the Perfect Opportunity window counts down above a yellow bar, from the attack's own timing in the game. [b]NOW[/b] shows in red only when the game opens the Perfect Opportunity window, never before.
+[*][b]Countdown → Position[/b]: Below, [b]Middle[/b] or Above, from low on the screen to high. The time left to the Perfect Opportunity window counts down above a yellow bar, from the attack's own timing in the game. [b]NOW[/b] shows in red only when the game opens the Perfect Opportunity window, never before.
+[*][b]Countdown → Size[/b]: 5% to 100%, [b]10%[/b] by default. The bar grows to three times its size and the time, centred over it, to most of the screen height; the countdown always stays on screen.
 [/list]
 
 [b]If the cue does not appear[/b]
 [list]
-[*]Confirm [b]Enabled[/b] is set to [b]Yes[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b] or [b]Countdown (WIP)[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b].
+[*]Confirm [b]Enabled[/b] is set to [b]Yes[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b] or [b]Countdown[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b].
 [*]Check during combat while the game's original indicator shows an attack direction.
 [*]Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings, ModCore Templates and UE4SS Lua Event Bridge are installed and enabled, then restart the game.
 [*]If another mod changes the original attack indicator, try disabling it to check for a conflict.
@@ -68,4 +69,4 @@ An attack's [b]parry window[/b] opens when it is first shown (the yellow arrow),
 
 Close the game before updating and keep your saved settings. Do not replace them with example defaults.
 
-To stop the extra cues, set [b]Enabled[/b] to [b]No[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b] and [b]Countdown (WIP)[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b]. To uninstall, close the game, disable or remove [font=Courier New]9_ModCore_Preymonition[/font], and restart. Keep dependencies used by other mods.
+To stop the extra cues, set [b]Enabled[/b] to [b]No[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b] and [b]Countdown[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b]. To uninstall, close the game, disable or remove [font=Courier New]9_ModCore_Preymonition[/font], and restart. Keep dependencies used by other mods.

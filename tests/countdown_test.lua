@@ -94,11 +94,11 @@ local template=dofile('Preymonition/Scripts/mc_countdown.lua')
 assert(template.id=='Countdown' and template.category=='npc.attacks' and template.priority==12)
 local hud=object('HUD',{WidgetTree=object('WidgetTree')})
 local cleanups={}
-local function attach(position)
+local function attach(position,size)
     for index=#cleanups,1,-1 do cleanups[index]() end
     cleanups={}
     local layer=object('Countdown layer')
-    template.attach({hud=hud,cue=layer},{settings={Position=position},screen={width=1920,height=1080,scale=1},
+    template.attach({hud=hud,cue=layer},{settings={Position=position,Size=size},screen={width=1920,height=1080,scale=1},
         onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
     return layer
 end
@@ -107,8 +107,8 @@ local indicator=object('Indicator')
 local PATH='/Game/HUD.Indicator'
 local function equal(a,b) return math.abs(a-b)<1e-6 end
 
--- SizeBox > Overlay of the time, top right, and the bar along the bottom: a
--- fill inside four outline lines.
+-- SizeBox > Overlay of the time, centred at the top, and the bar centred along
+-- the bottom: a fill inside four outline lines.
 local layer=attach(nil)
 local box=layer.children[1]
 local text,bar=box.content.children[1],box.content.children[2]
@@ -116,13 +116,15 @@ local fill=bar.content.children[1]
 local function lines() local list={} for index=2,5 do list[#list+1]=bar.content.children[index].content end return list end
 local function shown() return box.RenderOpacity==1 end
 local function label() return text.Text and text.Text.text end
-assert(equal(box.WidthOverride,216) and equal(bar.HeightOverride,1080*0.015),'the bar is 20% of the height wide')
-assert(text.slot.HorizontalAlignment==3 and text.slot.VerticalAlignment==1,'the time sits top right')
+assert(equal(box.MinDesiredWidth,216) and box.WidthOverride==nil,'the box is at least the bar wide and widens to the time')
+assert(equal(bar.WidthOverride,216) and equal(bar.HeightOverride,1080*0.015),'the bar is 20% of the height wide')
+assert(bar.slot.HorizontalAlignment==2,'the bar is centred under the time')
+assert(text.slot.HorizontalAlignment==2 and text.slot.VerticalAlignment==1,'the time sits centred at the top')
 assert(bar.slot.VerticalAlignment==3 and #bar.content.children==5,'the bar: a fill and four outline lines')
 assert(text.Font.Size==22,'the time is 2% of the height')
 assert(fill.RenderTransformPivot.X==0,'the bar runs down towards the left')
--- Middle puts the bar's bottom 20% of the height below the centre.
-assert(equal(box.slot.Padding.Top+box.HeightOverride,1080*0.7),'Middle: the bar ends 20% below the centre')
+-- Middle puts the bar's bottom 55% of the height down.
+assert(equal(box.slot.Padding.Top+box.HeightOverride,1080*0.55),'Middle: the bar ends 55% down')
 assert(not shown(),'the countdown waits unseen')
 
 update({kind='arrow',direction=2,path=PATH,indicator=indicator})
@@ -388,10 +390,50 @@ end
 
 assert(classFinds==4,'each widget class is looked up once across attaches: SizeBox, Overlay, TextBlock and Image')
 
--- Below and Above follow the omens' cue area at its default size.
-assert(equal(attach('below').children[1].slot.Padding.Top+box.HeightOverride,1080*0.85),'Below: 85% down')
-assert(equal(attach('above').children[1].slot.Padding.Top+box.HeightOverride,1080*0.55),'Above: 55% down')
--- A saved value the picker no longer offers, such as the old numeric 2, is Middle.
-assert(equal(attach(2).children[1].slot.Padding.Top+box.HeightOverride,1080*0.7),'an unknown Position is Middle')
+-- Below and Above mirror each other around Middle, at the default Size.
+local function bottom(layer) local made=layer.children[1] return made.slot.Padding.Top+made.HeightOverride end
+assert(equal(bottom(attach('below')),1080*0.775),'Below: 77.5% down')
+assert(equal(bottom(attach('above')),1080*0.325),'Above: 32.5% down')
+assert(equal(bottom(attach('middle',10)),1080*0.55),'10% is the default Size')
+-- A saved value the picker no longer offers, such as the old numeric 2, is Middle;
+-- a Size that is not a number is the default, one out of range the nearest end.
+assert(equal(bottom(attach(2)),1080*0.55),'an unknown Position is Middle')
+assert(equal(bottom(attach('middle','big')),1080*0.55),'an unknown Size is 10%')
+
+-- Size scales the bar by 1+2*(s-10)/90 and the text's line linearly to 70% of the
+-- height at 100%, keeping the font's share of it; below 10% the text shrinks with
+-- the bar. The box keeps its centre for the Position, then stays on screen.
+local Render=require('preymonition.countdown_render')
+local function parts(layer)
+    local made=layer.children[1]
+    return made,made.content.children[1],made.content.children[2]
+end
+do
+    local made,time,strip=parts(attach('middle',100))
+    assert(equal(strip.WidthOverride,216*3) and equal(strip.HeightOverride,1080*0.045),'100%: the bar is three times as big')
+    assert(equal(made.MinDesiredWidth,216*3),'100%: the box is at least the bar wide')
+    assert(equal(made.HeightOverride,1080*(0.7+0.045)),'100%: the time\'s line is 70% of the height')
+    assert(time.Font.Size==math.floor(1080*0.7*0.02/0.035+0.5),'100%: the font keeps its share of the line')
+    assert(time.slot.HorizontalAlignment==2 and strip.slot.HorizontalAlignment==2,'100%: time and bar stay centred')
+    -- Middle's centre is 52.5% down; the box fits around it.
+    assert(equal(made.slot.Padding.Top+made.HeightOverride/2,1080*0.525),'100% Middle keeps its centre')
+    -- Below and Above would cross the screen edge: they stop at it.
+    made=attach('below',100).children[1]
+    assert(equal(made.slot.Padding.Top+made.HeightOverride,1080),'100% Below stops at the bottom edge')
+    made=attach('above',100).children[1]
+    assert(equal(made.slot.Padding.Top,0),'100% Above stops at the top edge')
+    made,time,strip=parts(attach('middle',5))
+    local small=1-2*5/90
+    assert(equal(strip.WidthOverride,216*small) and equal(strip.HeightOverride,1080*0.015*small),'5%: the bar is 0.89 times as big')
+    assert(equal(made.HeightOverride,1080*0.05*small),'5%: the time shrinks with the bar')
+    assert(equal(made.slot.Padding.Top+made.HeightOverride/2,1080*0.525),'5% Middle keeps its centre')
+    made=attach('below',55).children[1]
+    assert(equal(made.slot.Padding.Top+made.HeightOverride/2,1080*0.75),'55% Below keeps its centre while it fits')
+    made=attach('middle',500).children[1]
+    assert(equal(made.HeightOverride,1080*0.745),'a Size above 100% is 100%')
+    local layout=Render.layout(1080,'middle',10)
+    assert(equal(layout.line,1080*0.035) and equal(layout.font,1080*0.02) and equal(layout.outline,1080*0.002),'10% is today\'s size')
+    assert(equal(Render.layout(1080,'middle',100).outline,1080*0.006),'the outline grows with the bar')
+end
 for index=#cleanups,1,-1 do cleanups[index]() end
 print('PASS: Countdown counts to the Perfect Opportunity window, says NOW in red while it is open and clears with the attack, in preview too')

@@ -22,7 +22,6 @@
 local Combat=require('preymonition.combat')
 local Controller=require('preymonition.controller')
 local Render=require('preymonition.countdown_render')
-local Placement=require('preymonition.placement')
 
 local OPEN_BEFORE=0.18
 local LEAD,FALLBACK=0.3,Controller.FALLBACK
@@ -222,8 +221,8 @@ function M.attach(hud,layer,params,onCleanup)
         log.debug('countdown detached; ',#records,' attached')
         return true
     end)
-    local position=Placement.position(settings.Position)
-    record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),position)
+    local position,size=Render.position(settings.Position),Render.size(settings.Size)
+    record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),position,size)
     if record.ui.fontFailed and not fontWarned then
         fontWarned=true
         log.warn('countdown font size not set; the time keeps the default size: ',record.ui.fontFailed)
@@ -235,7 +234,7 @@ function M.attach(hud,layer,params,onCleanup)
         local ok,why=pcall(pace,record)
         if not ok then fail('pace',why) end
     end
-    log.info(record.preview and 'preview countdown attached, position ' or 'countdown attached, position ',position)
+    log.info(record.preview and 'preview countdown attached, position ' or 'countdown attached, position ',position,', size ',size,'%')
 end
 
 return M

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- The Countdown is no longer marked as a work in progress.
+- The Countdown's time is centred over its bar instead of at its right end.
+- The Countdown has positions of its own instead of following the Omens' cue area: at
+  the default size its bar ends 77.5% (Below), 55% (Middle) or 32.5% (Above) of the
+  screen height down, where it was 85%, 70% and 55%.
+- New Countdown → Size, 5% to 100% (10% by default, the size so far). The bar grows to
+  three times its size at 100% and the time to a line 70% of the screen height tall;
+  the countdown stays centred where it is at 10% for its Position, kept on screen.
 - Log levels no longer come from `log_level.txt`. With the UE4SS Lua Log Bridge installed they
   are set on its Logs page or under `[Levels]` in its `config.ini`; without it, WARN and above.
 - New Unblockable Attack Indicator → Opacity, a range (50%–80% by default): the picture
