@@ -34,6 +34,7 @@ Show the incoming attack as symbols: an arrow for its direction, or a picture wh
 |---|---|---|---|
 | Style | Off (`off`), Cracked (`cracked`), Ember (`ember`), Fiend (`fiend`), Gore (`gore`), Shattered (`shattered`), Splatter (`splatter`); the list follows the files in the mod folder each time the menu opens | Fiend | `UnblockableStyle` |
 | Size | A low and a high value from 0% to 100%, in steps of 10 | 60% to 100% | `UnblockableSize` |
+| Opacity | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 50% to 80% | `UnblockableOpacity` |
 
 ### Audio Cues
 

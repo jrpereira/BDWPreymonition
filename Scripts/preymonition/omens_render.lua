@@ -28,8 +28,6 @@ local SIZE={1,10}
 -- The unblockable skull's size on the same units: 0% is 1 unit, 100% the full
 -- screen height.
 local SKULL_SIZE={1,1/UNIT}
--- The unblockable indicator shows at half the cue's opacity.
-local SKULL_OPACITY=0.5
 -- The screen axis each arrow travels along, an index into ui.unit: 1 horizontal
 -- (width), 2 vertical (height).
 local AXIS={2,2,1,1}
@@ -185,6 +183,9 @@ local function config(settings)
         -- shares, 0 to 1.
         unblockable=unblockablePicture(settings.UnblockableStyle),
         skull=share(settings.UnblockableSize,60,100),
+        -- Its {appears, grown} opacity as shares: it fades from the low end to the
+        -- high one as it grows.
+        skullOpacity=share(settings.UnblockableOpacity,50,80),
     }
 end
 
@@ -402,12 +403,14 @@ function M.apply(ui,state)
     local widgets=assert(live(ui),'Preymonition cue is no longer valid')
     local visuals=ui.visuals
     set(ui,widgets.box,'box','SetRenderOpacity',state.opacity)
-    -- The centre box fades with the cue, at half its opacity, written only while it
-    -- shows something. Resolved only then, keeping the per-frame cost of the arrows
-    -- alone.
+    -- The centre box fades with the cue and with the skull's grow, from Opacity's
+    -- low end as it appears to its high end once grown (as Size), written only while
+    -- it shows something. Resolved only then, keeping the per-frame cost of the
+    -- arrows alone.
     if ui.skull then
         local centre=assert(MC.get(ui.handles.centre),'Preymonition cue is no longer valid')
-        set(ui,centre,'centre','SetRenderOpacity',state.opacity*SKULL_OPACITY)
+        local fade=visuals.skullOpacity[1]+(visuals.skullOpacity[2]-visuals.skullOpacity[1])*state.skull.grow
+        set(ui,centre,'centre','SetRenderOpacity',state.opacity*fade)
     end
     for index,arrow in ipairs(state.arrows) do
         local out=OUTWARD[index]

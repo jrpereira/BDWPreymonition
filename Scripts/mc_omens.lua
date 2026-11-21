@@ -74,6 +74,11 @@ local template={
             {id='.Size', label='Size', type='range',
                 description='The size when it appears, and the size it grows to.',
                 values={min=0,max=100,step=10,suffix='%'}, default={60,100}},
+            -- Opacity: the picture's opacity as it appears (low) and once grown
+            -- (high), animated with Size.
+            {id='.Opacity', label='Opacity', type='range',
+                description='The opacity when it appears, and the opacity it reaches as it grows.',
+                values={min=0,max=100,step=10,suffix='%',delta={10}}, default={50,80}},
         }},
     },
 }

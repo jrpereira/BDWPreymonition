@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- New Unblockable Attack Indicator → Opacity, a range (50%–80% by default): the picture
+  appears at the low end and reaches the high end as it grows. It replaces the fixed 50%.
+
 ## v1.5.1
 
 - Solid and Chevron are pictures in `images/` like Fancy, and a Style whose picture does

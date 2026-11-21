@@ -71,7 +71,8 @@ game's change:
   The cue shows its unblockable picture at the screen's centre; the picture grows from Unblockable
   Attack Indicator → Size's low end to its high end over the animation time,
   then holds until the attack's skull goes. 0% is 5% of the screen height and 100% the
-  full screen height.
+  full screen height. Its opacity runs with that growth, from Unblockable Attack
+  Indicator → Opacity's low end (50% by default) to its high end (80%).
 
 A frame's delay is small next to the Perfect Opportunity window, which opens
 0.02–0.81 s after the arrow shows (see the Countdown). The game also updates hidden twin
@@ -114,8 +115,9 @@ share of the travel, and carries on with it once revealed). The cue's box adds n
 its own, at 100% in combat and 0% outside it, so that is what shows on screen. A yellow
 arrow also takes Attack Incoming's opacity: with the defaults a Normal arrow appears
 at 50% and reaches 70%, a Faint one 17.5% to 24.5%, and a red arrow shows at the
-range's value where its travel is, 70% once it stops. The unblockable picture shows
-at half the cue's opacity, 50% in combat.
+range's value where its travel is, 70% once it stops. The unblockable picture takes
+its own Opacity (Unblockable Attack Indicator → Opacity, 50%–80% by default), in step
+with its growth.
 
 Critical turns the arrow red, and its grown size if its travel has not got
 there, until the attack resolves, as the game turns its shield red (unless

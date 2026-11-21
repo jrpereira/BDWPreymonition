@@ -566,14 +566,21 @@ local function skullShown(image)
     return image.BrushFromTexture.name=='Texture unblockable_fiend' and color.R==1 and color.G==1 and color.B==1 and color.A==1
 end
 local function clear(image) return image.ColorAndOpacity.A==0 end
+-- Its Opacity (default 50%-80%) runs with the grow: the centre box shows at the
+-- cue's opacity times 0.5 as it appears and 0.8 once grown.
+local cueCentre=centreOf(layer.children[1])
+local function centreAt(share) return layer.children[1].RenderOpacity*(0.5+0.3*share) end
 icon(other,SKULL_ICON)
 assert(skullShown(cueSkull) and math.abs(cueSkull.RenderScale.X-skullAt(0.6))<1e-6,
     'an unblockable attack shows the skull at its starting size')
+assert(math.abs(cueCentre.RenderOpacity-centreAt(0))<1e-6,'at Opacity\'s low end')
 clock=clock+0.1
 run()
 assert(math.abs(cueSkull.RenderScale.X-skullAt(0.8))<1e-6 and cueSkull.RenderTranslation==nil,'it grows in place')
+assert(math.abs(cueCentre.RenderOpacity-centreAt(0.5))<1e-6,'its opacity rising with it')
 settle(0.05)
 assert(math.abs(cueSkull.RenderScale.X*432-1080)<1e-6 and #delayed==0,'to the full screen height, then holds')
+assert(math.abs(cueCentre.RenderOpacity-centreAt(1))<1e-6,'at Opacity\'s high end')
 icon(other,SWORD_ICON)
 run()
 assert(clear(cueSkull),'the centre clears once it passes')
@@ -742,6 +749,24 @@ do
     assert(arrowOf(shown,3).RenderOpacity>0,'it stays while the repeat has not resolved')
     send('resolve','preview:2:2');settle(0.3)
     assert(arrowOf(shown,3).RenderOpacity==0,'and goes once both have')
+    -- A preview unblockable attack takes the preview's own Unblockable Opacity.
+    detachAll()
+    cleanups={}
+    attach({})
+    previewLayer=object('Preview layer')
+    template.attach({hud=hud,cue=previewLayer},{settings={UnblockableOpacity={20,60}},
+        screen={width=1920,height=1080,scale=1},preview=true,
+        onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
+    settle(0.6)
+    shown,real=previewLayer.children[1],layer.children[1]
+    template.events.update({},{kind='unblockable',active=true,path='preview:5:1',indicator=other,preview=true})
+    assert(math.abs(previewLayer.children[2].RenderOpacity-shown.RenderOpacity*0.2)<1e-6,
+        'a preview unblockable picture appears at its low Opacity')
+    settle(0.3)
+    assert(math.abs(previewLayer.children[2].RenderOpacity-shown.RenderOpacity*0.6)<1e-6
+        and real.parent.children[2].RenderOpacity==0,'and grows to its high Opacity, on the preview alone')
+    template.events.update({},{kind='unblockable',active=false,path='preview:5:1',indicator=other,preview=true})
+    settle(0.3)
     startCombat()
     run()
     icon(other,LEFT)
@@ -1160,8 +1185,8 @@ detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
--- thirty cues.
-assert(cueReleased==(11+4*2)*30,'each detached cue releases its handles')
+-- thirty-two cues.
+assert(cueReleased==(11+4*2)*32,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()
@@ -1208,8 +1233,8 @@ for _,style in ipairs(STYLES) do
     if file then
         local color=image.ColorAndOpacity
         assert(image.BrushFromTexture.name=='Texture '..file and color.R==1 and color.G==1 and color.A==1
-            and layer.children[2].RenderOpacity==layer.children[1].RenderOpacity*0.5,
-            'style '..style..' shows its picture in its own colours, at half the cue\'s opacity')
+            and math.abs(layer.children[2].RenderOpacity-layer.children[1].RenderOpacity*0.8)<1e-6,
+            'style '..style..' shows its picture in its own colours, grown to Opacity\'s high end')
     else
         assert(image.ColorAndOpacity.A==0 and image.BrushFromTexture==nil,'Off shows nothing')
     end
