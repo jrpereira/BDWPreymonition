@@ -77,13 +77,14 @@ local function hitWindowOf(event)
 end
 
 local pump
--- Draws a record now, hud being its live HUD (looked up when not given); asks for
--- the next frame while its view still changes. A request always draws.
-local function render(record,hud)
+-- Draws a record now, hud being its live HUD (looked up when not given) and now
+-- the clock already read this frame (read when not given); asks for the next
+-- frame while its view still changes. A request always draws.
+local function render(record,hud,now)
     hud=hud or Render.root(record.ui)
     if not hud then return end
     -- Game time, or real time for a preview.
-    local now=Render.now(hud,record.preview)
+    now=now or Render.now(hud,record.preview)
     local view,moving=M.view(record,now)
     Render.show(record.ui,view)
     record.drawn=now
@@ -95,11 +96,12 @@ end
 local function step(record)
     local hud=Render.root(record.ui)
     if not hud then return end
-    if Render.now(hud,record.preview)==record.drawn then
+    local now=Render.now(hud,record.preview)
+    if now==record.drawn then
         pump(record,PAUSED_FRAMES)
         return
     end
-    render(record,hud)
+    render(record,hud,now)
 end
 
 function pump(record,frames)
@@ -146,7 +148,7 @@ function handlers.arrow(event)
             log.debug('counting ',string.format('%.2f',record.count),' s, estimated: ',
                 event.stub and 'no hit window' or 'no attacker')
         end
-        render(record,hud)
+        render(record,hud,now)
     end)
 end
 
@@ -166,7 +168,7 @@ function handlers.critical(event)
         -- (PREVIEW_WINDOW in a preview).
         record.window=record.hitEnd and record.hitEnd>now and record.hitEnd-now
             or (record.preview and PREVIEW_WINDOW or WINDOW)
-        render(record,hud)
+        render(record,hud,now)
     end)
 end
 

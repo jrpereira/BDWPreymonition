@@ -36,9 +36,11 @@ local function object(name,fields)
     end})
 end
 local clock=0
+-- How often the game clock is read, for the frame budget.
+local clockReads=0
 local statics={
     -- The countdown runs on game time, the clock attacks' hit windows are in.
-    ['/Script/Engine.Default__GameplayStatics']=object('GameplayStatics',{GetTimeSeconds=function() return clock end,
+    ['/Script/Engine.Default__GameplayStatics']=object('GameplayStatics',{GetTimeSeconds=function() clockReads=clockReads+1; return clock end,
         GetRealTimeSeconds=function() error('the countdown runs on game time') end}),
     -- An attacker's hit window, by stub: start and end, or -1 when the game has none.
     ['/Script/DogwoodCombat.Default__CombatBlueprintFunctionLibrary']=object('CombatBlueprintFunctionLibrary',
@@ -341,11 +343,15 @@ do
     template.events.wake({},{name='wake'})
     local counted=attach(nil).children[1]
     local countText=counted.content.children[1]
+    local reads=clockReads
     update({kind='arrow',direction=1,path=PATH,indicator=indicator})
     assert(asked==1,'a count asks for the next frame')
+    assert(clockReads-reads==1,'an arrow reads the clock once')
     local before=gets
+    reads=clockReads
     run(0.05)
     assert(gets-before==1 and asked==1,'a frame looks up the HUD once')
+    assert(clockReads-reads==1,'and reads the clock once')
     local paused=countText.Text.text
     run(0)
     assert(asked==5 and countText.Text.text==paused,'paused: nothing drawn, the next look five frames on')
