@@ -38,8 +38,13 @@ local function render(record)
     end
 end
 
+local function forget(record)
+    record.source,record.direction,record.critical,record.paths=nil,nil,nil,nil
+end
+
 local function clear(record)
-    record.source,record.direction,record.critical,record.unblockable=nil,nil,nil,nil
+    forget(record)
+    record.unblockable=nil
     render(record)
 end
 
@@ -58,10 +63,13 @@ end
 
 local handlers={}
 
--- An attack is first seen: its parry window opens.
+-- An attack is first seen: its parry window opens. The same attack reported
+-- again, from any indicator, changes nothing (preymonition.controller's joins).
 function handlers.arrow(event)
     each(event,function(record)
-        record.source,record.direction,record.critical=event.path,event.direction,nil
+        if Controller.joins(record,event) then return end
+        Controller.open(record,event)
+        record.critical=nil
         render(record)
     end)
 end
@@ -70,15 +78,21 @@ end
 -- from now on.
 function handlers.critical(event)
     each(event,function(record)
-        record.source,record.direction,record.critical=event.path,event.direction,true
+        if Controller.joins(record,event) then
+            if record.critical then return end
+        else
+            Controller.open(record,event)
+        end
+        record.critical=true
         render(record)
     end)
 end
 
+-- The edge goes out once every indicator of its attack resolved.
 function handlers.resolve(event)
     each(event,function(record)
-        if record.source==event.path then
-            record.source,record.direction,record.critical=nil,nil,nil
+        if Controller.resolves(record,event.path) then
+            forget(record)
             render(record)
         end
     end)

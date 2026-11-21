@@ -1,6 +1,6 @@
 -- What every template's controller does alike: a log that stays silent until the
--- template's own one arrives, failures logged once per kind, deferred frames and
--- the parry window's pace.
+-- template's own one arrives, failures logged once per kind, one attack across
+-- indicators, deferred frames and the parry window's pace.
 local Combat=require('preymonition.combat')
 
 local FRAME_MS=16
@@ -56,6 +56,32 @@ function M.later(callback,frames)
     else
         ExecuteWithDelay(FRAME_MS*frames,function() ExecuteInGameThread(callback) end)
     end
+end
+
+-- One attack across indicators. The game sometimes reports one attack on two
+-- indicators in the same direction: a report in the direction of the attack a
+-- record follows counts as that attack, whatever its indicator, and the attack
+-- lasts until every one of them resolves. A record keeps the attack's first
+-- indicator as source, its direction and the paths of all its indicators.
+
+-- Whether event is the record's open attack; its indicator is counted when it is.
+function M.joins(record,event)
+    if not (record.source and record.direction==event.direction) then return false end
+    record.paths[event.path]=true
+    return true
+end
+
+-- The record follows event's attack from now on.
+function M.open(record,event)
+    record.source,record.direction,record.paths=event.path,event.direction,{[event.path]=true}
+end
+
+-- An indicator resolved: whether it was the last of the record's attack.
+function M.resolves(record,path)
+    local paths=record.paths
+    if not (paths and paths[path]) then return false end
+    paths[path]=nil
+    return next(paths)==nil
 end
 
 -- The current difficulty's parry window multiplier, read through context (any

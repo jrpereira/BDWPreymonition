@@ -153,6 +153,21 @@ assert(shown(),'another indicator\'s resolve changes nothing')
 update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
 assert(not shown(),'the resolve clears it')
 
+-- The same direction reported again from another indicator is the same attack:
+-- its count carries on, and it shows until both resolve.
+local OTHER='/Game/HUD.Second'
+update({kind='arrow',direction=3,path=PATH,indicator=indicator})
+run(0.21)
+update({kind='arrow',direction=3,path=OTHER,indicator=indicator})
+assert(label()=='0.3s','a same-direction repeat from another indicator keeps the count')
+update({kind='resolve',reason='sword',path=OTHER,indicator=indicator})
+assert(shown() and label()=='0.3s','still counting while the first indicator has not resolved')
+update({kind='critical',direction=3,path=PATH,indicator=indicator})
+assert(label()=='NOW','the first indicator\'s Perfect Opportunity window says NOW')
+update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
+assert(not shown(),'once all resolve it clears')
+run(1.1)
+
 -- A Perfect Opportunity window sooner than the estimate cuts the count short.
 update({kind='arrow',direction=1,path=PATH,indicator=indicator})
 run(0.1)

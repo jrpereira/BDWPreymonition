@@ -104,13 +104,13 @@ end
 --
 -- An attack in the direction of the arrow still shown counts as that arrow's,
 -- whatever its indicator: the game sometimes reports one attack twice, and a new
--- arrow would flash in again. The arrow stays until all of them resolve.
+-- arrow would flash in again. The arrow stays until all of them resolve
+-- (preymonition.controller's joins).
 local function present(record,event)
     local path,direction=event.path,event.direction
     local held=record.held
     local critical=record.red and event.kind=='critical'
-    if record.source and record.direction==direction then
-        record.paths[path]=true
+    if Controller.joins(record,event) then
         -- Only the attack's Perfect Opportunity window changes its arrow; a
         -- repeated arrow event leaves it as it is.
         if record.critical or not critical then return end
@@ -132,8 +132,8 @@ local function present(record,event)
     -- have when that window opened.
     local mode=critical and 'critical' or (held and 'held') or nil
     if critical then Cue.critical(record.ui,direction) else Cue.arm(record.ui,direction) end
-    record.source,record.direction,record.critical=path,direction,critical or nil
-    record.paths={[path]=true}
+    Controller.open(record,event)
+    record.critical=critical or nil
     if record.model:show(direction,mode,record.travel) then
         if critical and not held then record.model:critical(direction) end
         log.debug('show ',DIRECTIONS[direction],mode and ' '..mode or '',' from ',path)
@@ -166,13 +166,9 @@ local function unblockable(event) eachCue(event,showUnblockable) end
 -- An indicator's attack ended: the indicator went back to the sword, or was
 -- hidden.
 local function resolve(event)
-    local path=event.path
     for _,record in ipairs(cues) do
-        if record.paths and record.paths[path] and record.preview==(event.preview==true) then
-            record.paths[path]=nil
-            if next(record.paths)==nil then
-                release(record,event.reason=='sword' and 'attack resolved:' or 'indicator hidden:')
-            end
+        if record.preview==(event.preview==true) and Controller.resolves(record,event.path) then
+            release(record,event.reason=='sword' and 'attack resolved:' or 'indicator hidden:')
         end
     end
 end

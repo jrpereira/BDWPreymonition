@@ -47,26 +47,15 @@ local function forget(record)
     record.source,record.direction,record.critical,record.paths=nil,nil,nil,nil
 end
 
--- An attack in the direction of the one still open counts as that one, whatever
--- its indicator: the game sometimes reports one attack twice, and its sound would
--- play again. It stays open until all of them resolve.
-local function same(record,event)
-    if not (record.source and record.direction==event.direction) then return false end
-    record.paths[event.path]=true
-    return true
-end
-local function open(record,event)
-    record.source,record.direction,record.paths=event.path,event.direction,{[event.path]=true}
-end
-
 local handlers={}
 
 -- An attack is first seen: its parry window opens. A repeated event for the
--- same attack plays nothing again.
+-- same attack, from any indicator in its direction, plays nothing again: the
+-- game sometimes reports one attack twice (preymonition.controller's joins).
 function handlers.arrow(event)
     each(event,function(record)
-        if same(record,event) then return end
-        open(record,event)
+        if Controller.joins(record,event) then return end
+        Controller.open(record,event)
         record.critical=nil
         play(record,record.sounds.incoming,event.direction)
     end)
@@ -76,10 +65,10 @@ end
 -- here plays only Perfect Opportunity.
 function handlers.critical(event)
     each(event,function(record)
-        if same(record,event) then
+        if Controller.joins(record,event) then
             if record.critical then return end
         else
-            open(record,event)
+            Controller.open(record,event)
         end
         record.critical=true
         play(record,record.sounds.perfect,event.direction)
@@ -88,10 +77,7 @@ end
 
 function handlers.resolve(event)
     each(event,function(record)
-        if record.paths and record.paths[event.path] then
-            record.paths[event.path]=nil
-            if next(record.paths)==nil then forget(record) end
-        end
+        if Controller.resolves(record,event.path) then forget(record) end
     end)
 end
 

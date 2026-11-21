@@ -147,6 +147,24 @@ assert(gets-before==3 and lit(layer)=='off off off off','one HUD lookup per requ
 -- An indicator in another world is not this HUD's.
 update({kind='arrow',direction=1,path='/Game/Other',indicator=object('Other',{world=elsewhere})})
 assert(lit(layer)=='off off off off','another world\'s attack is ignored')
+-- The same direction reported again from another indicator is the same attack:
+-- it stays lit until both resolve, in either order.
+local OTHER='/Game/HUD.Second'
+arrow(3)
+arrow(3,OTHER)
+assert(lit(layer)=='off off on off' and not red(layer),'a same-direction repeat is the open attack')
+critical(3,OTHER)
+assert(lit(layer)=='off off on off' and red(layer),'its Perfect Opportunity window from either indicator turns it red')
+resolve(OTHER)
+assert(lit(layer)=='off off on off' and red(layer),'still lit while the first indicator has not resolved')
+resolve()
+assert(lit(layer)=='off off off off','out once both resolve')
+arrow(3)
+arrow(3,OTHER)
+resolve()
+assert(lit(layer)=='off off on off','still lit while the second indicator has not resolved')
+resolve(OTHER)
+assert(lit(layer)=='off off off off','out once both resolve, the first first')
 
 -- Attack incoming On, Perfect Opportunity Off: yellow from the arrow to the resolve.
 layer=attach({ActivatePerfect=0})

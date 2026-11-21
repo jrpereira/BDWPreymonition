@@ -65,7 +65,7 @@ function M.view(record,now)
 end
 
 local function clear(record)
-    record.source,record.direction,record.started,record.opened,record.hitEnd=nil,nil,nil,nil,nil
+    record.source,record.direction,record.paths,record.started,record.opened,record.hitEnd=nil,nil,nil,nil,nil,nil
 end
 
 -- The attack's hit window from its attacker, when MCT names one and the game has it.
@@ -126,11 +126,13 @@ end
 local handlers={}
 
 -- An attack shows: its count starts. The game's arrow sometimes shows twice for
--- one attack; the count already running for it carries on.
+-- one attack, on the same indicator or another in its direction; the count
+-- already running for it carries on (preymonition.controller's joins).
 function handlers.arrow(event)
     each(event,function(record,hud)
-        if record.source==event.path and record.direction==event.direction then return end
-        record.source,record.direction,record.opened=event.path,event.direction,nil
+        if Controller.joins(record,event) then return end
+        Controller.open(record,event)
+        record.opened=nil
         local now=Render.now(hud,record.preview)
         record.started=now
         local from,to=hitWindowOf(event)
@@ -151,12 +153,13 @@ end
 -- Its Perfect Opportunity window opened: NOW, once per attack.
 function handlers.critical(event)
     each(event,function(record,hud)
-        if record.opened and record.source==event.path and record.direction==event.direction then return end
-        if record.source~=event.path or record.direction~=event.direction then
+        if Controller.joins(record,event) then
+            if record.opened then return end
+        else
+            Controller.open(record,event)
             local _,to=hitWindowOf(event)
             record.hitEnd=to
         end
-        record.source,record.direction=event.path,event.direction
         local now=Render.now(hud,record.preview)
         record.opened=now
         -- The red bar runs to the hit window's end, or over WINDOW without one
@@ -167,9 +170,10 @@ function handlers.critical(event)
     end)
 end
 
+-- The count goes once every indicator of its attack resolved.
 function handlers.resolve(event)
     each(event,function(record,hud)
-        if record.source==event.path then clear(record); render(record,hud) end
+        if Controller.resolves(record,event.path) then clear(record); render(record,hud) end
     end)
 end
 
