@@ -2,18 +2,15 @@
 
 ## Unreleased
 
-- Parry & Block Indicator → Movement from Center is now Travel (`ParryTravel`), just below
-  Opacity.
+- Parry & Block Indicator → Movement from Center is now Travel, just below Opacity.
 - The Countdown is no longer marked as a work in progress.
 - The Countdown's time is centred over its bar instead of at its right end.
-- The Countdown has positions of its own instead of following the Omens' cue area: at
-  the default size its bar ends 77.5% (Below), 55% (Middle) or 32.5% (Above) of the
-  screen height down, where it was 85%, 70% and 55%.
+- The Countdown has positions of its own instead of following the Omens' arrows, each a
+  little higher on the screen.
 - New Countdown → Size, a range on 5% to 100% (10%–10% by default, the size so far):
   the size as the count starts and as it reaches the Perfect Opportunity window, growing
-  as it runs down. The bar grows to three times its size at 100% and the time to a line
-  70% of the screen height tall; the countdown stays centred where it is at 10% for its
-  Position, kept on screen.
+  as it runs down. At 100% the bar is three times its size and the time most of the
+  screen height tall; the countdown stays centred at its Position and on screen.
 - New Countdown → Style, first on its page: Full (the time above the bar), Bar only or
   Label only.
 - New Countdown → Show direction in label (Off by default): in the Perfect Opportunity
@@ -21,9 +18,8 @@
   Omens' arrow points, instead of NOW. Hidden with Style Bar only.
 - New Countdown → Opacity, a range (50%–70% by default): the countdown appears at the low
   end and reaches the high end at the Perfect Opportunity window. It replaces the fixed
-  full opacity; the bar and outline keep their half see-through colours within it.
-- Every Size, Opacity and Travel range accepts equal ends, which hold the value still;
-  the Omens' Size and Opacity no longer need their ends 10% apart.
+  full opacity.
+- Every Size, Opacity and Travel range accepts equal ends, which hold the value still.
 - Log levels no longer come from `log_level.txt`. With the UE4SS Lua Log Bridge installed they
   are set on its Logs page or under `[Levels]` in its `config.ini`; without it, WARN and above.
 - New Unblockable Attack Indicator → Opacity, a range (50%–80% by default): the picture
@@ -38,24 +34,20 @@
 - The Background template is removed.
 - Parry & Block Indicator → Style lists the styles found in the `images` folder
   after Off: each `omen_<style>.png`, Chevron, Fancy and Solid among them. A
-  style is one picture with its glow and white core side by side; the mod tints the glow
-  yellow, or red in the Perfect Opportunity window.
-  A picture that is not a 1774 by 1774 PNG is left out of the list.
+  style's arrow is yellow, or red in the Perfect Opportunity window. A picture that is
+  not a 1774 by 1774 PNG is left out of the list.
 - Requires ModCore Templates 1.9.1 or later, which starts the Audio Cues on, and
   ModCore Settings 1.9.0 and UE4SS Lua Event Bridge 1.3.0 or newer.
-- The Omens' Style and Position and the Countdown's Position save their choice by name
-  (`ParryStyle=chevron`, `Position=middle`) instead of a number. Choices saved before for
-  them reset to their defaults once.
+- The Omens' Style and Position and the Countdown's Position reset to their defaults once.
 - The Omens' Perspective Style is removed. A saved Perspective shows Chevron.
-- New Audio Cues template: the sounds move out of the Omens into a template of their
-  own, with its own Enabled, so they can play with the arrows off or on their own. Its
+- New Audio Cues: the sounds move out of the Omens into a part of their own, with its
+  own Enabled, so they can play with the arrows off or on their own. Its
   Sounds group holds Attack incoming, Perfect Opportunity and Unblockable Attack; its
   Options group holds Enable directional sound, Differentiate back/front by pitch and
   Sound volume.
 - Attack incoming plays as soon as an attack is first seen, as its parry window opens,
   whatever the Omens' Attack Incoming and Perfect Opportunity, and whether or not the
-  Omens are on. Before, it followed the arrow and was skipped while the yellow arrow was
-  held back. Perfect Opportunity plays when its Perfect Opportunity window opens, and a
+  Omens are on. Perfect Opportunity plays when its Perfect Opportunity window opens, and a
   repeated event for the same attack never plays a sound again.
 - An attack reported again in the same direction while its arrow still shows no longer
   flashes the arrow in again or replays its sound: it counts as the attack shown, and the
@@ -78,9 +70,8 @@
 - Attack incoming and Perfect Opportunity play the mod's own cue sounds (Bass, Bell, Clink,
   Ding, Whisper and more) instead of the game's: the `cue_<name>.wav` files in its `sounds`
   folder, listed each time the menu opens, so a file dropped in while the game runs is
-  offered the next time. Default Rumble and Ding. They are saved by name
-  (`SoundIncoming=ding`), so new files never move a saved choice. They play through UE4SS
-  Lua Sound Bridge; without it, or when the chosen file is gone, they are silent.
+  offered the next time. Default Rumble and Ding. New files never move a saved choice.
+  They need UE4SS Lua Sound Bridge; without it, or when the chosen file is gone, they are silent.
 - Unblockable Attack plays the mod's own sounds too (Bleah, Creature, Evil, Growl, Heart,
   Pulse, Roar, Serpent): the `unblockable_<name>.wav` files in the `sounds` folder, listed
   the same way. Default Growl. Growl and Boom, the game's sounds, are gone.
@@ -90,16 +81,15 @@
   Sound volume, 0% to 200% (default 100%), for all of these sounds, relative to the game's
   Effects volume times its Master volume, and silent when the game is muted; changes in the
   game's audio settings apply from the next fight.
-- The bundled sounds are mono 48 kHz, matched in loudness (unblockable sounds a little
-  louder) and cut to start at once.
+- The bundled sounds are matched in loudness (unblockable sounds a little louder) and
+  start at once.
 - Requires UE4SS Lua Sound Bridge 1.1.0 or newer for the sounds.
 - Position moves into Parry & Block Indicator and places only the arrows; the unblockable
   indicator stays at the screen's centre.
 - New Unblockable Attack Indicator → Style: Off, Fiend (default), Gore, Cracked, Shattered,
   Ember or Splatter, the mod's own pictures in place of the game's low-resolution skull.
-  Only the chosen picture loads. The list follows the `unblockable_<name>.png` files in the
-  `images` folder each time the menu opens, and the choice is saved by name
-  (`UnblockableStyle=fiend`).
+  The list follows the `unblockable_<name>.png` files in the `images` folder each time
+  the menu opens.
 - Parry & Block Indicator → Attack Incoming (Normal, Faint, Off) and Perfect Opportunity
   (End, Start, Halfway, Off) replace Prioritize Perfection over Buildup, Buildup visibility
   and Buildup animation, and saved Buildup choices are ignored. Attack Incoming sets how
@@ -113,8 +103,8 @@
   by default. Edges always light the attacked side only; a saved Edge Style is ignored.
 - New Edges Flash → Visuals group: Style, Bands or a smooth gradient picture, Linear or
   Soft (default). The list follows the `edge_<name>_v.png` and `edge_<name>_h.png`
-  pairs in the `images` folder each time the menu opens, and the choice is saved by name
-  (`VisualsStyle=soft`). A gradient whose pictures cannot load draws Bands. Thickness,
+  pairs in the `images` folder each time the menu opens. A gradient whose pictures cannot
+  load draws Bands. Thickness,
   2% to 20% of the shorter screen side (default 8%), and Intensity, the glow's opacity at
   the screen edge, 10% to 100% (default 50%), apply to Bands and gradients alike.
 - Settings saved under the old Position, Play sound and Prioritize Perfection keys are
@@ -122,16 +112,15 @@
 
 ## v1.4.0
 
-- Requires ModCore Settings 1.6.0 or later and ModCore Templates 1.7.0 or later, which
-  names the attacker behind each attack.
+- Requires ModCore Settings 1.6.0 or later and ModCore Templates 1.7.0 or later.
 - New Countdown template (Countdown Overlay), with its own Position (Below, Middle, Above):
   the time left to the attack's parry window above a yellow bar that runs down. When
   ModCore Templates names the attacker, the time comes from the attack's hit window in the
-  game; otherwise it is an estimate, 0.3 s times the difficulty's parry window multiplier.
+  game; otherwise it is an estimate for the difficulty.
   NOW shows in red only when the game opens the parry window, and its bar runs down until
   the hit window ends (or over a second); it all goes when the attack resolves.
-- The Center template is now Omens (Omens Overlay): the attack shown as symbols. Its settings are saved under `MCT_Preymonition_Omens_*`; values saved under
-  `MCT_Preymonition_Center_*` are not carried over.
+- The Center template is now Omens (Omens Overlay): the attack shown as symbols. Its
+  saved settings are not carried over.
 - Every setting has a description in the menu.
 - Parry & Block Indicator → Prioritize Perfection over Buildup (default Off): the arrow
   animates, red, once the parry window opens. Buildup visibility (Hidden, Faint, Normal)
@@ -141,10 +130,9 @@
 - New Background template (Background Overlay): the shield moves out of the Omens into a
   template of its own, drawn under them, with Position, Visibility (In Combat, Defending,
   Critical; the template's Enabled replaces Off) and Size (5% to 100% of the screen height,
-  default 50%). Defending now shows the shield a see-through yellow, the arrows' colour,
-  while an attack is shown (was faint white), then red once its parry window opens. Its
-  settings are saved under `MCT_Preymonition_Background_*`; the Omens' Shield Visible and
-  Shield Scale values are not carried over. The Omens line up on the shield at its default
+  default 50%). Defending shows the shield a see-through yellow, the arrows' colour,
+  while an attack is shown, then red once its parry window opens. The Omens' Shield
+  Visible and Shield Scale values are not carried over. The Omens line up on the shield at its default
   size.
 - The Solid arrow no longer shows a brighter line down its middle while it fades.
 - The Chevron arrow's two arms meet at the tip instead of showing apart.
@@ -184,10 +172,9 @@
 
 ## v1.2.3
 
-- Requires ModCore Settings 1.4.0 or later and ModCore Templates 1.5.0 or later, which name
-  templates by `id` and `label`. Center and Edges declare them (Center Overlay, Edges Overlay).
-  Center's Position, Shield Visible and Shield Scale are standalone settings and Edges' Screen
-  Edges shows no heading, so their rows sit directly under the template's toggle. Center's
+- Requires ModCore Settings 1.4.0 or later and ModCore Templates 1.5.0 or later. The
+  templates are named Center Overlay and Edges Overlay. Center's Position, Shield Visible
+  and Shield Scale and Edges' Screen Edges sit directly under the template's toggle. Center's
   Display Shield is now Shield Visible and its Opportunity option is Critical, Scale is Shield
   Scale, and Parry & Block's Size and Unblockable size are both Indicator Size.
 - Sounds play by default: Chime for parry and block cues, Growl for unblockable attacks.
@@ -205,55 +192,39 @@
 
 ## v1.2.0
 
-- Requires ModCore Templates 1.4.0 or later, which follows the indicator's own state
-  change through UE4SSLuaEventBridge function hooks, and UE4SSLuaEventBridge 1.1.0 or
-  later. The cue changes on the next engine tick, about a frame after the game's indicator.
+- Requires ModCore Templates 1.4.0 or later and UE4SSLuaEventBridge 1.1.0 or later. The
+  cue changes about a frame after the game's indicator.
 - The early warning is gone, from both the center cue and the edges: the game's early
-  warning arrives in the same frame as the attack's arrow.
-- The `acceptance.txt` developer aid is gone.
+  warning arrives together with the attack's arrow.
 
 ## v1.1.1
 
-- Requires ModCore Settings 1.3.0 or later, which plays the previewing sound choices and
-  reads the `conditions` rules in its menu data. No change to the cue.
+- Requires ModCore Settings 1.3.0 or later. No change to the cue.
 
 ## v1.1.0
 
 - Two templates in place of one, each with its own Enabled: Center, the cue near the
   middle of the screen, and Edges, the screen edge glows, with an Edge Style of Framed
-  or Directional. Settings are saved under `MCT_Center_*` and `MCT_Edges_*`; earlier
-  `MCT_Preymonition_*` values are ignored.
+  or Directional. Earlier saved settings are ignored.
 - General Options at the top of the Center settings: Scale (−50% to 200%) resizes the
   shield, Position puts the cue Below, in the Middle (the default) or Above, and
   Display Shield moves here. The cue is twice its former size.
 - Parry & Block sounds are Chime and Swish; Long Swoosh is gone.
-- Requires ModCore Templates 1.3.0 or later, which watches the game's attack indicator
-  and delivers it as `MC_NPCAttackIndicator`; Preymonition no longer hooks the game.
-- The arrows take their artwork from the indicator blueprint when the cue attaches
-  instead of copying it from the live indicator during an attack.
-- The `probe.txt` and `preview.txt` developer aids are gone.
+- Requires ModCore Templates 1.3.0 or later.
 
 ## v1.0.1
 
-- Requires ModCore Settings 1.2.0 or later, which ModCore Templates 1.2.0 needs for
-  its Templates tab. ModCore Templates 1.1.0 or later still works.
-- The Combat Preymonition settings no longer set a menu row level on the Main
-  Options, Parry & Block Indicator and Unblockable Attack sections; they follow the
-  menu's default nesting.
+- Requires ModCore Settings 1.2.0 or later. ModCore Templates 1.1.0 or later still works.
 
 ## v1.0.0
 
 - Rename the mod to Combat Preymonition and move it to ModCore Templates'
-  npc.attacks category. The game's styling call is hooked only during combat,
-  so outside combat the mod costs nothing.
+  NPC Attacks category. Outside combat the mod costs nothing.
 - List UE4SS Lua Event Bridge as a requirement. Requires ModCore Templates 1.1.0
   or newer.
 - Keep the unblockable skull when the game updates a hidden copy of the indicator.
-- Keep cue widget names unique after a Lua reload.
-- Cut the cue's work per attack and per animation frame by about two thirds:
-  widgets resolve once per call, frames write only what changed, and the
-  skull and chosen sounds load when the cue attaches instead of mid-combat.
-- Log a repeating failure once per combat instead of on every call.
+- Cut the cue's cost per attack by about two thirds.
+- Log a repeating failure once per combat.
 - Rename the installed mod folder to `9_ModCore_Preymonition`.
 - Move the cue just below the screen center and redesign it: an arrow flashes in
   from the attack's direction, travels outward, turns red when the attack becomes
@@ -266,16 +237,16 @@
 
 ## v0.2.0
 
-- Rebuild Preymonition as a ModCoreTemplates notification template. MCT now
-  finds the HUD and hosts the cue; settings appear on the module page.
+- Preymonition is now a ModCore Templates template; its settings appear on the
+  module page.
 - Add a Size setting (Small, Standard, Large).
 - Require ModCoreSettings and ModCoreTemplates. The standalone settings page,
-  Enable and Debug toggles are replaced by the MCT template toggle.
+  Enable and Debug toggles are replaced by the template's Enabled.
 
 ## v0.1.1
 
 - Add a combined player guide with installation, settings, and troubleshooting.
-- Add project metadata and dependency links. Gameplay behavior is unchanged.
+- Add dependency links. Gameplay behavior is unchanged.
 
 ## v0.1.0
 
