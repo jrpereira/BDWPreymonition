@@ -178,7 +178,7 @@ local function arrowStart(direction)
     runtime:emit('MC_NPCAttackIndicator',{kind='resolve',path=path,reason='sword'})
     return math.abs(offset)
 end
--- By the spec, with the default Size 30%-80% and Movement 40%-60%: the arrow starts
+-- By the spec, with the default Size 30%-80% and Travel 40%-60%: the arrow starts
 -- 1+9*0.3 units of 5% of the height across, its tip 40% of the way from its back edge
 -- on the centre to the screen edge, its centre half its length back.
 local function expectedStart(edge,height)

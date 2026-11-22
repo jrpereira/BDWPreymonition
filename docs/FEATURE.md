@@ -95,7 +95,7 @@ for the current difficulty, read from its combat subsystem when combat starts:
 (1.2) and 200 ms on the hardest (1.0). 1.4 is assumed when it cannot be read.
 
 An arrow shows at once, then over the animation time grows while its tip travels
-outward and its opacity runs from Opacity's low end to its high end. Movement from Center is a range on the space the arrow
+outward and its opacity runs from Opacity's low end to its high end. Travel is a range on the space the arrow
 has: at 0% the arrow, at its starting size, has its back edge on the cue's
 centre; at 100% its tip is at the screen edge it travels towards. Up and down
 arrows travel alike, as far as the nearer of the top and bottom edges, so at Below or
@@ -110,7 +110,7 @@ screen, so the cue shows them there too.
 
 Opacity (Parry & Block Indicator → Opacity, a range, 50%–70% by default) is the
 arrow's own opacity over its travel: the low end as it appears, the high end once its
-travel ends, in step with its growth and movement (a held arrow's opacity follows its
+travel ends, in step with its growth and travel (a held arrow's opacity follows its
 share of the travel, and carries on with it once revealed). The cue's box adds none of
 its own, at 100% in combat and 0% outside it, so that is what shows on screen. A yellow
 arrow also takes Attack Incoming's opacity: with the defaults a Normal arrow appears

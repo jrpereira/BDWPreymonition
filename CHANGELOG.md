@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Parry & Block Indicator → Movement from Center is now Travel (`ParryTravel`), just below
+  Opacity.
 - The Countdown is no longer marked as a work in progress.
 - The Countdown's time is centred over its bar instead of at its right end.
 - The Countdown has positions of its own instead of following the Omens' cue area: at

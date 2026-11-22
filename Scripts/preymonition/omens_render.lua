@@ -16,7 +16,7 @@ local CRITICAL_COLOR={R=1,G=0.2,B=0,A=1}
 -- and RightArrow show on the opposite sides of the screen (seen 2026-10-18).
 local OUTWARD={{X=0,Y=-1},{X=0,Y=1},{X=1,Y=0},{X=-1,Y=0}}
 -- Distances run out from the cue's centre, as a share of the way to the screen
--- edge the arrow travels towards. Movement from Center is a range: an
+-- edge the arrow travels towards. Travel is a range: an
 -- arrow shows up with its back edge at the low share, and its tip, the edge
 -- furthest along its travel, stops at the high share. An arrow whose tip already
 -- reaches past the high share does not move.
@@ -171,9 +171,9 @@ local function config(settings)
         yellowOpacity=phases.opacity,
         red=phases.red,
         position=Placement.position(settings.ParryPosition),
-        -- Movement and Size are shares, 0 to 1: the movement is {appears,
+        -- Travel and Size are shares, 0 to 1: the travel is {appears,
         -- stops} of the way to the screen edge, the size {starting, grown}.
-        move=share(settings.ParryMovement,40,60),
+        travel=share(settings.ParryTravel,40,60),
         size=share(settings.ParrySize,30,80),
         -- Opacity is a share too: {appears, travelled}, the arrow's own opacity
         -- as it appears and once its travel ends.
@@ -379,17 +379,17 @@ function fit(ui,index,size)
     return scale,extent*scale/2
 end
 -- How far an arrow's tip is from the cue's centre at a share of its travel.
--- Movement from Center is measured in the space the arrow has: at 0% the
+-- Travel is measured in the space the arrow has: at 0% the
 -- arrow, at its starting size, has its back edge on the centre; at 100% its
 -- tip is at the screen edge.
 -- It appears with its tip at the low share and travels to the high one.
 function tipDistance(ui,index,offset)
-    local move,edge=ui.visuals.move,ui.edge[index]
+    local travel,edge=ui.visuals.travel,ui.edge[index]
     local _,tip=fit(ui,index,arrowSize(ui,0))
     -- Where the tip is at 0%, as a share of the way to the edge.
     local start=math.min(1,2*tip/edge)
     local function at(share) return edge*(start+(1-start)*share) end
-    local from,to=at(move[1]),at(move[2])
+    local from,to=at(travel[1]),at(travel[2])
     return from+(to-from)*offset
 end
 

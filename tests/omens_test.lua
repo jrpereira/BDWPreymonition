@@ -266,10 +266,10 @@ local function attach(visuals)
     local original={}
     -- The cue box is 40% of the short side, 432 high; the omens line up on a
     -- cue area half the screen height. The
-    -- hand-worked arrows below use Size 10% to 50% and Movement 5% to 60%.
+    -- hand-worked arrows below use Size 10% to 50% and Travel 5% to 60%.
     -- Opacity 100%-100% keeps each arrow at its full own opacity for the checks
     -- below; the default 50%-70% has its own check.
-    local settings={ParrySize={10,50},ParryMovement={5,60},ParryOpacity={100,100}}
+    local settings={ParrySize={10,50},ParryTravel={5,60},ParryOpacity={100,100}}
     for key,value in pairs(visuals or {}) do settings[key]=value end
     local result=template.attach({hud=hud,cue=layer},
         {settings=settings,screen={width=1920,height=1080,scale=1},
@@ -279,7 +279,7 @@ end
 -- Where an arrow is, by the spec, on this 1920x1080 screen with the cue in the
 -- middle: the screen edge is 960 across and 540 down from its centre, and sizes
 -- are in units of 5% of the height (54). Size {L,H} takes an arrow from
--- 1+9L to 1+9H units. Movement from Center {L,H} is the space the arrow has:
+-- 1+9L to 1+9H units. Travel {L,H} is the space the arrow has:
 -- at 0% its back edge (at its starting size) is on the centre, at 100% its tip
 -- is at the screen edge. It shows with its tip at L and stops it at H.
 -- Every Style's arrow is a picture (preymonition.omens_fancy): a box the arrow's span
@@ -294,7 +294,7 @@ local function arrowAt(across,size,move,grow,offset)
     local edge=across and 960 or 540
     local from,to=54*(1+9*size[1]),54*(1+9*size[2])
     local now=from+(to-from)*grow
-    -- Movement is the space the arrow has: at 0% its back edge (at its starting
+    -- Travel is the space the arrow has: at 0% its back edge (at its starting
     -- size) is on the centre, at 100% its tip at the screen edge.
     local length=from*RATIO
     local first=length+move[1]*(edge-length)
@@ -305,7 +305,7 @@ end
 local function front(arrow) return arrow.content.children[1].children[1].ColorAndOpacity end
 local function lit(color) return color.R==Fancy.NORMAL.R and color.G==Fancy.NORMAL.G and color.B==Fancy.NORMAL.B end
 local function red(color) return color.R==Fancy.CRITICAL.R and color.G==Fancy.CRITICAL.G and color.B==Fancy.CRITICAL.B end
--- The tests' Size 10% to 50% and Movement from Center 5% to 60% (the defaults are 30%-80% and 40%-60%).
+-- The tests' Size 10% to 50% and Travel 5% to 60% (the defaults are 30%-80% and 40%-60%).
 local function arrowAtDefault(across,grow,offset) return arrowAt(across,{0.1,0.5},{0.05,0.6},grow,offset) end
 local function equal(a,b) return math.abs(a-b)<1e-6 end
 -- The arrows' SizeBox > Overlay > the arrows overlay, which holds the four
@@ -442,7 +442,7 @@ assert(equal(bottom.RenderTranslation.Y,bottomStart),'the bottom arrow shows up 
 run()
 settle(0.05)
 assert(math.abs(bottom.RenderOpacity-1)<1e-6,'an indicator attack shows its direction')
-assert(equal(bottom.RenderTranslation.Y,bottomEnd) and bottom.RenderTranslation.X==0,'and travels as far as Movement takes it')
+assert(equal(bottom.RenderTranslation.Y,bottomEnd) and bottom.RenderTranslation.X==0,'and travels as far as Travel takes it')
 local hidden=newIndicator('WBP_CombatTargetIndicator_C_3')
 hidden.visible=false
 icon(hidden,RIGHT)
@@ -531,7 +531,7 @@ settle(0.05)
 -- Every cue in the indicator's world shows its attack, as when a replaced HUD is not
 -- yet detached; a cue never shows another world's.
 local secondLayer=object('Second cue layer')
-template.attach({hud=hud,cue=secondLayer},{settings={ParrySize={10,50},ParryMovement={5,60},ParryOpacity={100,100}},
+template.attach({hud=hud,cue=secondLayer},{settings={ParrySize={10,50},ParryTravel={5,60},ParryOpacity={100,100}},
     screen={width=1920,height=1080,scale=1},onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
 icon(other,BOTTOM)
 assert(arrowOf(layer.children[1],2).RenderOpacity==1 and arrowOf(secondLayer.children[1],2).RenderOpacity==1,
@@ -654,7 +654,7 @@ hud.invalid=nil
 -- larger skull.
 detachAll()
 cleanups={}
-attach({ParryMovement={10,50},ParrySize={25,100},UnblockableSize={0,50}})
+attach({ParryTravel={10,50},ParrySize={25,100},UnblockableSize={0,50}})
 local tuned=layer.children[1]
 endCombat()
 startCombat()
@@ -683,7 +683,7 @@ local tunedEndScale,tunedEnd=arrowAt(false,{0.25,1},{0.1,0.5},1,1)
 -- Grown to ten units (540) across, its tip halfway through the space it has.
 assert(equal(tunedEndScale,540/LONG)
     and equal(tunedEnd,tunedLength+0.5*(540-tunedLength)-540*RATIO/2),'the spec, by hand')
-assert(equal(tunedBottom.RenderScale.X,tunedEndScale) and equal(tunedBottom.RenderTranslation.Y,tunedEnd),'and Movement where it ends')
+assert(equal(tunedBottom.RenderScale.X,tunedEndScale) and equal(tunedBottom.RenderTranslation.Y,tunedEnd),'and Travel where it ends')
 icon(other,SKULL_ICON)
 assert(math.abs(skullOf(tuned).RenderScale.X-skullAt(0))<1e-6,'the unblockable skull takes its size')
 other.AttackQueue=nil
@@ -718,7 +718,7 @@ do
     local waitsBefore=delays
     attach({})
     local previewLayer=object('Preview layer')
-    template.attach({hud=hud,cue=previewLayer},{settings={ParrySize={10,50},ParryMovement={5,60},ParryOpacity={100,100}},
+    template.attach({hud=hud,cue=previewLayer},{settings={ParrySize={10,50},ParryTravel={5,60},ParryOpacity={100,100}},
         screen={width=1920,height=1080,scale=1},preview=true,
         onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
     settle(0.6)
@@ -1244,12 +1244,12 @@ for _,style in ipairs(STYLES) do
     detachAll()
 end
 
--- Movement from Center runs from the cue's centre wherever Position puts it. Up and
+-- Travel runs from the cue's centre wherever Position puts it. Up and
 -- down travel alike, as far as the nearer screen edge: Above centres the cue 378 down,
 -- so 100% takes a bottom arrow's tip 378 down from there, as far as a top arrow's goes up.
-local function travel(movement,direction,index)
+local function travel(range,direction,index)
     cleanups={}
-    attach({ParryPosition='above',ParryMovement=movement})
+    attach({ParryPosition='above',ParryTravel=range})
     local cue=layer.children[1]
     endCombat()
     startCombat()
@@ -1276,7 +1276,7 @@ start,stop=travel({50,50},BOTTOM,2)
 assert(equal(start,2*half+0.5*(378-2*half)-half) and equal(stop+grown,start+half),
     '50% is halfway through the space the arrow has; equal ends keep it still')
 
--- With no settings the cue takes the defaults: Size 30% to 80%, Movement 40% to 60%,
+-- With no settings the cue takes the defaults: Size 30% to 80%, Travel 40% to 60%,
 -- Opacity 50% to 70%.
 cleanups={}
 template.attach({hud=hud,cue=layer},{settings={},screen={width=1920,height=1080,scale=1},

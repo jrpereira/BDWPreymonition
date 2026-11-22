@@ -108,7 +108,7 @@ function M.new(env)
     -- An attack: its arrow shows at once at its starting size, then grows and
     -- travels outward. Any other arrow goes at once. mode 'held' holds the
     -- attack's yellow arrow back until reveal: it grows and travels share of
-    -- its way (both size and movement), or stays at rest without it; 'critical' shows an attack first seen critical, its arrow
+    -- its way (both size and travel), or stays at rest without it; 'critical' shows an attack first seen critical, its arrow
     -- travelling from rest.
     function state:show(index, mode, share)
         assert(self.arrows[index], 'Invalid arrow index')

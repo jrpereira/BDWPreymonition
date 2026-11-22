@@ -23,8 +23,8 @@ Show the incoming attack as symbols: an arrow for its direction, or a picture wh
 | Style | Off (`off`), Chevron (`chevron`), Fancy (`fancy`), Solid (`solid`); the list follows the files in the mod folder each time the menu opens | Chevron | `ParryStyle` |
 | Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `ParryPosition` |
 | Size | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 30% to 80% | `ParrySize` |
-| Movement from Center | A low and a high value from 0% to 100%, in steps of 5 | 40% to 60% | `ParryMovement` |
 | Opacity | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 50% to 70% | `ParryOpacity` |
+| Travel | A low and a high value from 0% to 100%, in steps of 5 | 40% to 60% | `ParryTravel` |
 | Attack Incoming | Normal (`normal`), Faint (`faint`), Off (`off`) | Normal | `ParryIncoming` |
 | Perfect Opportunity | End (`end`), Start (`start`), Halfway (`halfway`), Off (`off`) | End | `ParryPerfect` |
 
