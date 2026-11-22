@@ -40,8 +40,12 @@
   `[Preymonition.Omens]`, `[Preymonition.Audio]`, `[Preymonition.Edges]` and
   `[Preymonition.Countdown]`. Settings saved by 1.5.1 are not read: they start at their
   defaults once.
-- Log levels no longer come from `log_level.txt`. With the UE4SS Lua Log Bridge installed they
-  are set on its Logs page or under `[Levels]` in its `config.ini`; without it, WARN and above.
+- Log levels no longer come from `log_level.txt`. With UE4SS Lua Extensions installed they
+  are set in the Logs section of the Extensions tab of the ModCore Settings page, or under
+  `[Levels]` in the Log Bridge's `config.ini`; without it, WARN and above.
+- Requires UE4SS Lua Extensions 1.4.0, ModCore Settings 1.10.0 and ModCore Templates 1.10.0
+  or newer. UE4SS Lua Extensions replaces the separate UE4SS Lua Event Bridge and Sound
+  Bridge requirements.
 
 ## v1.5.1
 

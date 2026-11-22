@@ -97,7 +97,7 @@ recorded, centred.
 volume, and the sounds are silent when the game is muted. Changes in the game's
 audio settings apply from the next fight.
 
-The sounds need UE4SS Lua Sound Bridge. Without it, or when the chosen file is
+The sounds need UE4SS Lua Extensions. Without it, or when the chosen file is
 missing or longer than 3 seconds, nothing plays and the log says why.
 
 ## Edges Flash

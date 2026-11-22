@@ -52,13 +52,11 @@ credit remain your responsibility.
 - [Dawnwalker Mod Menu](https://www.nexusmods.com/thebloodofdawnwalker/mods/271)
   for the settings page.
 - [ModCore Settings](https://www.nexusmods.com/thebloodofdawnwalker/mods/590)
-  1.9.0 or newer.
+  1.10.0 or newer.
 - [ModCore Templates](https://www.nexusmods.com/thebloodofdawnwalker/mods/641)
-  1.9.1 or later.
-- [UE4SS Lua Event Bridge](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.3.0 or newer, which
-  ModCore Templates also requires. Without it no cue appears.
-- [UE4SS Lua Sound Bridge](https://github.com/jrpereira/UE4SSLuaEXtensions/releases) 1.1.0 or newer,
-  for the Audio Cues. Without it they are silent.
+  1.10.0 or newer.
+- [UE4SS Lua Extensions](https://www.nexusmods.com/thebloodofdawnwalker/mods/526) 1.4.0 or newer, which
+  ModCore Templates also requires. Without it no cue appears and the Audio Cues are silent.
 
 ## Installation
 
@@ -101,7 +99,7 @@ in `SETTINGS.md`, next to this file in the installed mod.
 | **Unblockable Attack Indicator → Style** | How an unblockable attack shows at the screen's centre: Off, **Fiend** (a horned skull), Gore (a bleeding skull), Cracked (a cracked shield), Shattered (a shattered shield), Ember (a red cloud) or Splatter (a blood splatter), each a picture from the mod's `images` folder in its own colours. The list follows the `unblockable_<name>.png` files there; add your own and it is offered the next time the menu opens. |
 | **Unblockable Attack Indicator → Size** | A range on 0%–100% (**60%–100%**): the low end is the indicator's size as it appears, the high end the size it grows to. 0% is 5% of the screen height and 100% the full screen height, so by default it grows from about 62% of the screen to all of it. |
 | **Unblockable Attack Indicator → Opacity** | A range on 0%–100% (**50%–80%**): the indicator's opacity as it appears and once grown, changing as it grows. |
-| **Audio Cues → Sounds → Attack incoming** | Played when the parry window opens (the yellow arrow), as the attack is first seen, whatever the Omens show: None or one of the mod's cue sounds, **Rumble** by default. The cue sounds are the `cue_<name>.wav` files in the mod's `sounds` folder; add your own WAV (up to 3 seconds) as `cue_<name>.wav` and it is offered the next time the menu opens. They need UE4SS Lua Sound Bridge. |
+| **Audio Cues → Sounds → Attack incoming** | Played when the parry window opens (the yellow arrow), as the attack is first seen, whatever the Omens show: None or one of the mod's cue sounds, **Rumble** by default. The cue sounds are the `cue_<name>.wav` files in the mod's `sounds` folder; add your own WAV (up to 3 seconds) as `cue_<name>.wav` and it is offered the next time the menu opens. They need UE4SS Lua Extensions. |
 | **Audio Cues → Sounds → Perfect Opportunity** | Played when the Perfect Opportunity window opens (the red arrow): the same choices, **Ding** by default. |
 | **Audio Cues → Sounds → Unblockable Attack** | Played when the unblockable indicator appears: None or one of the mod's unblockable sounds, **Growl** by default: the `unblockable_<name>.wav` files in the `sounds` folder, which you can add to the same way. |
 | **Audio Cues → Options → Enable directional sound** | **On**: a side arrow's sound plays on the side the arrow shows on, and ahead and behind are set apart by pitch, behind also muffled. Off: every arrow sounds the same. |
@@ -125,8 +123,7 @@ in `SETTINGS.md`, next to this file in the installed mod.
   **Combat Preymonition** settings page and choose **Apply**.
 - Check during combat while the game's original indicator shows an attack direction.
 - Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings, ModCore Templates and
-  UE4SS Lua Event Bridge are enabled, then restart the game.
-- For silent Audio Cues, confirm UE4SS Lua Sound Bridge is installed and enabled.
+  UE4SS Lua Extensions are installed and enabled, then restart the game.
 - If another mod changes the original attack indicator, try disabling that mod
   to check for a conflict.
 

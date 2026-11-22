@@ -31,10 +31,9 @@ Install these before Preymonition:
 [list]
 [*][b]UE4SS compatible with your game version.[/b] See the loader links in the [url=https://www.nexusmods.com/thebloodofdawnwalker/mods/271]Dawnwalker Mod Menu requirements[/url].
 [*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/271]Dawnwalker Mod Menu[/url].
-[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/590]ModCore Settings[/url] 1.9.0 or newer.
-[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/641]ModCore Templates[/url] 1.9.1 or later.
-[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/526]UE4SS Lua Event Bridge[/url] 1.3.0 or newer, which ModCore Templates also requires. Without it no cue appears.
-[*][url=https://github.com/jrpereira/UE4SSLuaEXtensions/releases]UE4SS Lua Sound Bridge[/url] 1.1.0 or newer, for the Audio Cues. Without it they are silent.
+[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/590]ModCore Settings[/url] 1.10.0 or newer.
+[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/641]ModCore Templates[/url] 1.10.0 or newer.
+[*][url=https://www.nexusmods.com/thebloodofdawnwalker/mods/526]UE4SS Lua Extensions[/url] 1.4.0 or newer, which ModCore Templates also requires. Without it no cue appears and the Audio Cues are silent.
 [/list]
 [b]Installation[/b]
 [list=1]
@@ -80,8 +79,7 @@ An attack's [b]parry window[/b] opens when it is first shown (the yellow arrow),
 [list]
 [*]Confirm [b]Enabled[/b] is set to [b]Yes[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b] or [b]Countdown[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b].
 [*]Check during combat while the game's original indicator shows an attack direction.
-[*]Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings, ModCore Templates and UE4SS Lua Event Bridge are installed and enabled, then restart the game.
-[*]For silent Audio Cues, confirm UE4SS Lua Sound Bridge is installed and enabled.
+[*]Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings, ModCore Templates and UE4SS Lua Extensions are installed and enabled, then restart the game.
 [*]If another mod changes the original attack indicator, try disabling it to check for a conflict.
 [/list]
 [b]Updating or removing[/b]
