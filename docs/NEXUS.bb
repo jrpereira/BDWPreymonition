@@ -14,6 +14,17 @@ Preymonition adds an arrow cue near the center of the screen, below it, at its m
 
 Position, arrow style, size and travel, screen edge glows, the countdown and sounds are all adjustable. The original warning stays in place. Blocking, dodging, and taking the credit remain your responsibility.
 
+[b]Features[/b]
+[list]
+[*][b]Omens Overlay:[/b] an arrow flashes in from each attack's direction, yellow when the attack is first shown and red in its Perfect Opportunity window. Choose its Style (Chevron, Fancy or Solid), Position, and Size, Opacity and Travel ranges, and how the yellow and red arrows show.
+[*][b]Unblockable Attack Indicator:[/b] a picture at the screen's centre for unblockable attacks, from a horned skull to a blood splatter, that grows and fades in with its own Size and Opacity ranges.
+[*][b]Audio Cues:[/b] a sound when an attack comes, another for its Perfect Opportunity window and one for unblockable attacks, with or without the arrows. Directional sound plays each cue on the attack's side and sets ahead and behind apart by pitch.
+[*][b]Edges Flash:[/b] the screen edge on the attack's side glows yellow, then red; every edge glows red for an unblockable attack. Choose its Style, Thickness and Intensity.
+[*][b]Countdown:[/b] the time left to the attack's Perfect Opportunity window over a bar that runs down, then [b]NOW[/b] or the attack's direction. Choose its Style, Position, and Size and Opacity ranges.
+[*][b]Your own pictures and sounds:[/b] drop arrow pictures, unblockable pictures, edge gradients and WAV sounds into the mod's [i]images[/i] and [i]sounds[/i] folders and they are offered the next time the menu opens.
+[*][b]Live preview:[/b] the settings page loops attacks over a game scene, drawn and sounded with your current settings before you apply them.
+[/list]
+
 [b]Requirements[/b]
 
 Install these before Preymonition:
@@ -70,6 +81,7 @@ An attack's [b]parry window[/b] opens when it is first shown (the yellow arrow),
 [*]Confirm [b]Enabled[/b] is set to [b]Yes[/b] under [b]Omens Overlay[/b], [b]Audio Cues[/b], [b]Edges Flash[/b] or [b]Countdown[/b] on the [b]Combat Preymonition[/b] settings page and choose [b]Apply[/b].
 [*]Check during combat while the game's original indicator shows an attack direction.
 [*]Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings, ModCore Templates and UE4SS Lua Event Bridge are installed and enabled, then restart the game.
+[*]For silent Audio Cues, confirm UE4SS Lua Sound Bridge is installed and enabled.
 [*]If another mod changes the original attack indicator, try disabling it to check for a conflict.
 [/list]
 [b]Updating or removing[/b]

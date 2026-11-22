@@ -20,6 +20,31 @@ countdown can show the time left to the attack's Perfect Opportunity window.
 It makes the warning easier to keep in view. Blocking, dodging, and taking the
 credit remain your responsibility.
 
+## Features
+
+- **Omens Overlay:** an arrow flashes in from each attack's direction, yellow
+  when the attack is first shown and red in its Perfect Opportunity window.
+  Choose its Style (Chevron, Fancy or Solid), Position, and Size, Opacity and
+  Travel ranges, and how the yellow and red arrows show.
+- **Unblockable Attack Indicator:** a picture at the screen's centre for
+  unblockable attacks, from a horned skull to a blood splatter, that grows and
+  fades in with its own Size and Opacity ranges.
+- **Audio Cues:** a sound when an attack comes, another for its Perfect
+  Opportunity window and one for unblockable attacks, with or without the arrows.
+  Directional sound plays each cue on the attack's side and sets ahead and
+  behind apart by pitch.
+- **Edges Flash:** the screen edge on the attack's side glows yellow, then red;
+  every edge glows red for an unblockable attack. Choose its Style, Thickness
+  and Intensity.
+- **Countdown:** the time left to the attack's Perfect Opportunity window over a
+  bar that runs down, then **NOW** or the attack's direction. Choose its Style,
+  Position, and Size and Opacity ranges.
+- **Your own pictures and sounds:** drop arrow pictures, unblockable pictures,
+  edge gradients and WAV sounds into the mod's `images` and `sounds` folders and
+  they are offered the next time the menu opens.
+- **Live preview:** the settings page loops attacks over a game scene, drawn and
+  sounded with your current settings before you apply them.
+
 ## Requirements
 
 - **UE4SS for your Dawnwalker game version.** See the loader links in the
@@ -101,6 +126,7 @@ in `SETTINGS.md`, next to this file in the installed mod.
 - Check during combat while the game's original indicator shows an attack direction.
 - Confirm UE4SS, Dawnwalker Mod Menu, ModCore Settings, ModCore Templates and
   UE4SS Lua Event Bridge are enabled, then restart the game.
+- For silent Audio Cues, confirm UE4SS Lua Sound Bridge is installed and enabled.
 - If another mod changes the original attack indicator, try disabling that mod
   to check for a conflict.
 
