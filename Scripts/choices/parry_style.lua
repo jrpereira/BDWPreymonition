@@ -1,6 +1,6 @@
 -- Omens Overlay -> Parry & Block Indicator -> Style: after Off, the pictures in images/
--- (Chevron, Fancy and Solid ship), each omen_<style>.png (glow and core side by side, made by
--- tools/make_omen_layers.py), listed each time the settings page is built. A picture the
+-- (Chevron, Fancy and Solid ship), each omen_<style>.png (glow and core side by side),
+-- listed each time the settings page is built. A picture the
 -- Omens cannot draw is left out: one that is not a PNG, or not WIDTH by HEIGHT (two
 -- halves laid out like Fancy's art). Self-contained: it runs in the menu's Lua state as
 -- well as the templates'.

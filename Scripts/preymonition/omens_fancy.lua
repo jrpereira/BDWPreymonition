@@ -1,7 +1,7 @@
 -- An arrow (every Style but Off: Solid, Chevron, Fancy and any other): one picture
 -- from the mod's images folder, omen_<style>.png, holding two layers side by side, each an
 -- arrow pointing right on a transparent background: the glow on the left half and the
--- white core on the right (made by tools/make_omen_layers.py). The glow is drawn tinted,
+-- white core on the right. The glow is drawn tinted,
 -- yellow or red in the Perfect Opportunity window, and the core on top, untinted. Each half
 -- is laid out like Fancy's art (ART and TIP below). The game loads the picture as a texture
 -- when the cue attaches.
