@@ -692,6 +692,36 @@ assert(skullOf(tuned).ColorAndOpacity.A==0,'the skull goes with the attack')
 icon(other,SWORD_ICON)
 settle(0.05)
 
+-- Equal ends hold still: every range accepts them, and the arrow and the skull keep
+-- one size, place and opacity from appearing to the end of their animation.
+detachAll()
+cleanups={}
+attach({ParrySize={50,50},ParryTravel={30,30},ParryOpacity={60,60},UnblockableSize={40,40},UnblockableOpacity={70,70}})
+local still=layer.children[1]
+endCombat()
+startCombat()
+run()
+settle(0.05)
+icon(other,BOTTOM)
+local stillBottom=arrowOf(still,2)
+local stillScale,stillCentre=stillBottom.RenderScale.X,stillBottom.RenderTranslation.Y
+local fixedScale,fixedCentre=arrowAt(false,{0.5,0.5},{0.3,0.3},0,0)
+assert(equal(stillScale,fixedScale) and equal(stillCentre,fixedCentre),'equal ends: the arrow appears at that size and place')
+assert(equal(stillBottom.RenderOpacity,0.6),'and that opacity')
+settle(0.05)
+assert(equal(stillBottom.RenderScale.X,stillScale) and equal(stillBottom.RenderTranslation.Y,stillCentre)
+    and equal(stillBottom.RenderOpacity,0.6),'and keeps them to the end')
+icon(other,SWORD_ICON)
+settle(0.05)
+icon(other,SKULL_ICON)
+local skullStart=skullOf(still).RenderScale.X
+local skullOpacity=layer.children[2].RenderOpacity
+assert(equal(skullStart,skullAt(0.4)) and equal(skullOpacity,0.7*still.RenderOpacity),'the skull appears at its one size and opacity')
+settle(0.3)
+assert(equal(skullOf(still).RenderScale.X,skullStart) and equal(layer.children[2].RenderOpacity,skullOpacity),'and keeps them')
+icon(other,SWORD_ICON)
+settle(0.05)
+
 -- With the style off, an attack shows no arrow.
 detachAll()
 cleanups={}
@@ -1185,8 +1215,8 @@ detachAll()
 assert(scans==0,'nothing scans for objects')
 assert(delays==0,'with the engine tick hooked nothing waits on ExecuteWithDelay')
 -- Eleven handles per cue, and two layers per arrow (to colour them), for every Style's
--- thirty-two cues.
-assert(cueReleased==(11+4*2)*32,'each detached cue releases its handles')
+-- thirty-three cues.
+assert(cueReleased==(11+4*2)*33,'each detached cue releases its handles')
 -- Stopping MCT detaches every cue, then puts the template to sleep.
 removed=0
 endCombat()

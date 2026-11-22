@@ -94,11 +94,14 @@ local template=dofile('Preymonition/Scripts/mc_countdown.lua')
 assert(template.id=='Countdown' and template.category=='npc.attacks' and template.priority==12)
 local hud=object('HUD',{WidgetTree=object('WidgetTree')})
 local cleanups={}
-local function attach(position,size)
+-- Size is a range; a number given here is both ends. extra: more settings.
+local function attach(position,size,extra)
     for index=#cleanups,1,-1 do cleanups[index]() end
     cleanups={}
     local layer=object('Countdown layer')
-    template.attach({hud=hud,cue=layer},{settings={Position=position,Size=size},screen={width=1920,height=1080,scale=1},
+    local settings={Position=position,Size=type(size)=='number' and {size,size} or size}
+    for key,value in pairs(extra or {}) do settings[key]=value end
+    template.attach({hud=hud,cue=layer},{settings=settings,screen={width=1920,height=1080,scale=1},
         onCleanup=function(callback) cleanups[#cleanups+1]=callback end},{})
     return layer
 end
@@ -114,6 +117,7 @@ local box=layer.children[1]
 local text,bar=box.content.children[1],box.content.children[2]
 local fill=bar.content.children[1]
 local function lines() local list={} for index=2,5 do list[#list+1]=bar.content.children[index].content end return list end
+-- The box's render opacity shows and hides it; Opacity is the stack's, inside it.
 local function shown() return box.RenderOpacity==1 end
 local function label() return text.Text and text.Text.text end
 assert(equal(box.MinDesiredWidth,216) and box.WidthOverride==nil,'the box is at least the bar wide and widens to the time')
@@ -399,6 +403,7 @@ assert(equal(bottom(attach('middle',10)),1080*0.55),'10% is the default Size')
 -- a Size that is not a number is the default, one out of range the nearest end.
 assert(equal(bottom(attach(2)),1080*0.55),'an unknown Position is Middle')
 assert(equal(bottom(attach('middle','big')),1080*0.55),'an unknown Size is 10%')
+assert(equal(bottom(attach('middle',{})),1080*0.55),'a Size that is not a range is 10% at both ends')
 
 -- Size scales the bar by 1+2*(s-10)/90 and the text's line linearly to 70% of the
 -- height at 100%, keeping the font's share of it; below 10% the text shrinks with
@@ -434,6 +439,124 @@ do
     local layout=Render.layout(1080,'middle',10)
     assert(equal(layout.line,1080*0.035) and equal(layout.font,1080*0.02) and equal(layout.outline,1080*0.002),'10% is today\'s size')
     assert(equal(Render.layout(1080,'middle',100).outline,1080*0.006),'the outline grows with the bar')
+end
+
+-- One attack on a countdown attached with settings: its arrow at once, then after
+-- 0.21 s (half the 0.42 s estimate), then its Perfect Opportunity window. Returns the
+-- countdown's box and a function per moment's check, run in order.
+local function attackOn(made,direction,checks)
+    template.events.wake({},{name='wake'})
+    update({kind='arrow',direction=direction,path=PATH,indicator=indicator})
+    checks.start(made)
+    run(0.21)
+    checks.half(made)
+    update({kind='critical',direction=direction,path=PATH,indicator=indicator})
+    checks.now(made)
+    update({kind='resolve',reason='sword',path=PATH,indicator=indicator})
+    template.events.sleep({},{name='sleep'})
+    run(1.1)
+end
+local function textOf(made) return made.content.children[1].Text and made.content.children[1].Text.text end
+
+-- Style: Bar only builds the bar and its outline alone, Label only the time alone;
+-- either keeps the default box's centre for its Position and stays on screen.
+do
+    local made=attach('middle',10,{Style='bar'}).children[1]
+    local strip=made.content.children[1]
+    assert(#made.content.children==1 and strip.WidthOverride and #strip.content.children==5,'Bar only: the bar and its outline')
+    assert(equal(made.HeightOverride,1080*0.015) and equal(made.slot.Padding.Top+made.HeightOverride/2,1080*0.525),
+        'Bar only: the bar alone, centred where the full countdown is')
+    attackOn(made,1,{start=function(box_) assert(box_.RenderOpacity==1 and equal(strip.content.children[1].RenderScale.X,1),'Bar only counts') end,
+        half=function() assert(equal(strip.content.children[1].RenderScale.X,0.5),'and runs down') end,
+        now=function() assert(strip.content.children[1].ColorAndOpacity.G==0.2,'and turns red, with no text to set') end})
+    made=attach('middle',10,{Style='label'}).children[1]
+    local time=made.content.children[1]
+    assert(#made.content.children==1 and time.Font,'Label only: the time alone, no bar or outline')
+    assert(equal(made.HeightOverride,1080*0.035) and equal(made.slot.Padding.Top+made.HeightOverride/2,1080*0.525),
+        'Label only: the time\'s line, centred where the full countdown is')
+    attackOn(made,1,{start=function() assert(textOf(made)=='0.5s','Label only counts') end,
+        half=function() assert(textOf(made)=='0.3s','and runs down') end,
+        now=function() assert(textOf(made)=='NOW' and time.ColorAndOpacity.SpecifiedColor.G==0.2,'and says NOW in red') end})
+    made=attach('below',100,{Style='label'}).children[1]
+    assert(equal(made.slot.Padding.Top+made.HeightOverride,1080),'Label only stays on screen')
+    made=attach('middle',10,{Style='diagonal'}).children[1]
+    assert(#made.content.children==2,'an unknown Style is Full')
+end
+
+-- Show direction in label: in the Perfect Opportunity window the time gives way to
+-- the attack's direction as the Omens' arrow points on screen (the game's left and
+-- right arrows show on the opposite sides), or NOW when the direction is unknown.
+do
+    for direction,word in ipairs({'UP','DOWN','RIGHT','LEFT'}) do
+        local made=attach('middle',10,{Direction=1}).children[1]
+        attackOn(made,direction,{start=function() assert(textOf(made)=='0.5s','the count still shows its time') end,
+            half=function() end,
+            now=function() assert(textOf(made)==word,'direction '..direction..' says '..word..', not '..tostring(textOf(made))) end})
+    end
+    local made=attach('middle',10,{Direction=1}).children[1]
+    attackOn(made,nil,{start=function() end,half=function() end,
+        now=function() assert(textOf(made)=='NOW','an unknown direction says NOW') end})
+    made=attach('middle',10,{Direction=0}).children[1]
+    attackOn(made,3,{start=function() end,half=function() end,
+        now=function() assert(textOf(made)=='NOW','Off says NOW') end})
+    made=attach('middle',10,{Direction=1,Style='label'}).children[1]
+    attackOn(made,2,{start=function() end,half=function() end,
+        now=function() assert(textOf(made)=='DOWN','Label only names it too') end})
+end
+
+-- Opacity: the stack's render opacity, inside the box's show and hide, fading the time,
+-- the bar and the outline together: the low end as the count starts, rising as it runs
+-- down, the high end in the window. Equal ends hold it.
+do
+    local made=attach('middle',10).children[1]
+    local stack=made.content
+    assert(made.slot and stack.RenderOpacity==nil,'nothing is faded before an attack')
+    attackOn(made,1,{start=function() assert(made.RenderOpacity==1 and equal(stack.RenderOpacity,0.5),'50% as the count starts') end,
+        half=function() assert(equal(stack.RenderOpacity,0.6),'60% halfway down the count') end,
+        now=function() assert(equal(stack.RenderOpacity,0.7),'70% in the window') end})
+    made=attach('middle',10,{Opacity={60,60}}).children[1]
+    stack=made.content
+    attackOn(made,1,{start=function() assert(equal(stack.RenderOpacity,0.6),'equal ends: 60% from the start') end,
+        half=function() assert(equal(stack.RenderOpacity,0.6),'and through the count') end,
+        now=function() assert(equal(stack.RenderOpacity,0.6),'and in the window') end})
+    made=attach('middle',10,{Opacity={0,100}}).children[1]
+    stack=made.content
+    attackOn(made,1,{start=function() assert(stack.RenderOpacity==0 and made.RenderOpacity==1,'0% at the start, shown but clear') end,
+        half=function() assert(equal(stack.RenderOpacity,0.5),'halfway') end,
+        now=function() assert(stack.RenderOpacity==1,'full in the window') end})
+end
+
+-- Size, a range: built at its high end, the time and the bar start at the low end's
+-- size and place by render transforms, the time's top and the bar's bottom where the
+-- layout at that size puts them, and grow to the high end as the count reaches the
+-- window. Equal ends are laid out at their size and hold still.
+do
+    local made=attach('middle',{10,100}).children[1]
+    local time,strip=made.content.children[1],made.content.children[2]
+    local low,high=Render.layout(1080,'middle',10),Render.layout(1080,'middle',100)
+    assert(equal(strip.WidthOverride,216*3) and equal(made.HeightOverride,high.height),'built at the high end')
+    assert(time.RenderTransformPivot.Y==0 and strip.RenderTransformPivot.Y==1,'the time scales from its top, the bar from its bottom')
+    local function at(layout,label_)
+        assert(equal(time.RenderScale.X,layout.line/high.line) and equal(time.RenderTranslation.Y,layout.top-high.top),label_..': the time')
+        assert(equal(strip.RenderScale.X,layout.bar/high.bar)
+            and equal(strip.RenderTranslation.Y,layout.top+layout.height-high.top-high.height),label_..': the bar')
+    end
+    attackOn(made,1,{start=function() at(low,'10% as it starts') end,
+        half=function() at(Render.layout(1080,'middle',55),'55% halfway down the count') end,
+        now=function() at(high,'100% in the window') end})
+    assert(equal(time.RenderScale.X,1) and equal(strip.RenderTranslation.Y,0),'the high end is the built size')
+    made=attach('middle',{30,30}).children[1]
+    time,strip=made.content.children[1],made.content.children[2]
+    assert(equal(strip.WidthOverride,216*(1+2*20/90)),'equal ends are laid out at that size')
+    attackOn(made,1,{start=function() assert(equal(time.RenderScale.X,1) and equal(strip.RenderTranslation.Y,0),'and hold still') end,
+        half=function() assert(equal(strip.RenderScale.X,1),'through the count') end,
+        now=function() assert(equal(time.RenderTranslation.Y,0),'and in the window') end})
+    made=attach('middle',{100,10}).children[1]
+    assert(equal(made.content.children[2].WidthOverride,216*3),'reversed ends are put in order')
+    made=attach('middle',{10,100},{Style='bar'}).children[1]
+    strip=made.content.children[1]
+    attackOn(made,1,{start=function() assert(equal(strip.RenderScale.X,1/3),'Bar only scales its bar') end,
+        half=function() end,now=function() assert(equal(strip.RenderScale.X,1),'to the high end') end})
 end
 for index=#cleanups,1,-1 do cleanups[index]() end
 print('PASS: Countdown counts to the Perfect Opportunity window, says NOW in red while it is open and clears with the attack, in preview too')

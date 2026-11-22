@@ -9,9 +9,21 @@
 - The Countdown has positions of its own instead of following the Omens' cue area: at
   the default size its bar ends 77.5% (Below), 55% (Middle) or 32.5% (Above) of the
   screen height down, where it was 85%, 70% and 55%.
-- New Countdown → Size, 5% to 100% (10% by default, the size so far). The bar grows to
-  three times its size at 100% and the time to a line 70% of the screen height tall;
-  the countdown stays centred where it is at 10% for its Position, kept on screen.
+- New Countdown → Size, a range on 5% to 100% (10%–10% by default, the size so far):
+  the size as the count starts and as it reaches the Perfect Opportunity window, growing
+  as it runs down. The bar grows to three times its size at 100% and the time to a line
+  70% of the screen height tall; the countdown stays centred where it is at 10% for its
+  Position, kept on screen.
+- New Countdown → Style, first on its page: Full (the time above the bar), Bar only or
+  Label only.
+- New Countdown → Show direction in label (Off by default): in the Perfect Opportunity
+  window the label shows the attack's direction, UP, DOWN, LEFT or RIGHT, the way the
+  Omens' arrow points, instead of NOW. Hidden with Style Bar only.
+- New Countdown → Opacity, a range (50%–70% by default): the countdown appears at the low
+  end and reaches the high end at the Perfect Opportunity window. It replaces the fixed
+  full opacity; the bar and outline keep their half see-through colours within it.
+- Every Size, Opacity and Travel range accepts equal ends, which hold the value still;
+  the Omens' Size and Opacity no longer need their ends 10% apart.
 - Log levels no longer come from `log_level.txt`. With the UE4SS Lua Log Bridge installed they
   are set on its Logs page or under `[Levels]` in its `config.ini`; without it, WARN and above.
 - New Unblockable Attack Indicator → Opacity, a range (50%–80% by default): the picture

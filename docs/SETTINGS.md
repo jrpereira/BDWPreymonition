@@ -22,8 +22,8 @@ Show the incoming attack as symbols: an arrow for its direction, or a picture wh
 |---|---|---|---|
 | Style | Off (`off`), Chevron (`chevron`), Fancy (`fancy`), Solid (`solid`); the list follows the files in the mod folder each time the menu opens | Chevron | `ParryStyle` |
 | Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `ParryPosition` |
-| Size | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 30% to 80% | `ParrySize` |
-| Opacity | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 50% to 70% | `ParryOpacity` |
+| Size | A low and a high value from 0% to 100%, in steps of 10 | 30% to 80% | `ParrySize` |
+| Opacity | A low and a high value from 0% to 100%, in steps of 10 | 50% to 70% | `ParryOpacity` |
 | Travel | A low and a high value from 0% to 100%, in steps of 5 | 40% to 60% | `ParryTravel` |
 | Attack Incoming | Normal (`normal`), Faint (`faint`), Off (`off`) | Normal | `ParryIncoming` |
 | Perfect Opportunity | End (`end`), Start (`start`), Halfway (`halfway`), Off (`off`) | End | `ParryPerfect` |
@@ -34,7 +34,7 @@ Show the incoming attack as symbols: an arrow for its direction, or a picture wh
 |---|---|---|---|
 | Style | Off (`off`), Cracked (`cracked`), Ember (`ember`), Fiend (`fiend`), Gore (`gore`), Shattered (`shattered`), Splatter (`splatter`); the list follows the files in the mod folder each time the menu opens | Fiend | `UnblockableStyle` |
 | Size | A low and a high value from 0% to 100%, in steps of 10 | 60% to 100% | `UnblockableSize` |
-| Opacity | A low and a high value from 0% to 100%, in steps of 10; at least 10% apart | 50% to 80% | `UnblockableOpacity` |
+| Opacity | A low and a high value from 0% to 100%, in steps of 10 | 50% to 80% | `UnblockableOpacity` |
 
 ### Audio Cues
 
@@ -86,7 +86,7 @@ Light the screen edges while an attack is incoming.
 
 ### Countdown
 
-Count down to the incoming attack's Perfect Opportunity window, then show NOW while it is open.
+Count down to the incoming attack's Perfect Opportunity window, then show NOW, or its direction, while it is open.
 
 - **Category:** NPC Attacks. The settings appear on this module's page.
 - **Turn on:** set Countdown (`[Preymonition.Countdown] Enabled=1`) to Enabled.
@@ -94,5 +94,8 @@ Count down to the incoming attack's Perfect Opportunity window, then show NOW wh
 
 | Setting | Options | Default | Key |
 |---|---|---|---|
+| Style | Full (`full`), Bar only (`bar`), Label only (`label`) | Full | `Style` |
+| Show direction in label<br>*Shown when Style is Full or Label only.* | Off (`0`), On (`1`) | Off | `Direction` |
 | Position | Below (`below`), Middle (`middle`), Above (`above`) | Middle | `Position` |
-| Size | 5% to 100%, in steps of 5 | 10% | `Size` |
+| Size | A low and a high value from 5% to 100%, in steps of 5 | 10% to 10% | `Size` |
+| Opacity | A low and a high value from 0% to 100%, in steps of 10 | 50% to 70% | `Opacity` |

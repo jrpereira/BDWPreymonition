@@ -94,7 +94,31 @@ defaults(omensDefinition,{ParryStyle='chevron',ParrySize='30|80',ParryTravel='40
 assert(omensDefinition.settings.ParryEdges==nil,'the omens have no edge setting')
 defaults(edgesDefinition,{ActivateIncoming=1,ActivatePerfect=1,ActivateUnblockable=1,
     VisualsStyle='soft',VisualsThickness=8,VisualsIntensity=50})
-defaults(countdownDefinition,{Position='middle'})
+defaults(countdownDefinition,{Style='full',Direction=0,Position='middle',Size='10|10',Opacity='50|70'})
+-- The rows show in the declared order.
+local function order(prefix)
+    local list={}
+    for _,row in ipairs(page.rows) do
+        local name=row.id:match('^'..prefix..'(.+)$')
+        if name and name~='Enabled' then list[#list+1]=name end
+    end
+    return table.concat(list,' ')
+end
+assert(order('MCT_Preymonition_Countdown_')=='Style Direction Position Size Opacity','Countdown order: '..order('MCT_Preymonition_Countdown_'))
+assert(order('MCT_Preymonition_Omens_Parry')=='Style Position Size Opacity Travel Incoming Perfect',
+    'Parry & Block order: '..order('MCT_Preymonition_Omens_Parry'))
+-- Show direction in label shows while the Style has a label.
+local directionRow=rows[countdownDefinition.settings.Direction]
+assert(directionRow.widget=='switch' and directionRow.visible.field=='MCT_Preymonition_Countdown_Style'
+    and table.concat(directionRow.visible.values,'|')=='full|label','Show direction in label hides with Bar only')
+-- Every range accepts equal ends.
+for definition,list in pairs({[omensDefinition]={'ParrySize','ParryOpacity','ParryTravel','UnblockableSize','UnblockableOpacity'},
+    [countdownDefinition]={'Size','Opacity'}}) do
+    for _,key in ipairs(list) do
+        local row=rows[definition.settings[key]]
+        assert(row.type=='range' and row._bounds.deltaMin==0,key..' accepts equal ends')
+    end
+end
 
 -- Rows are ModCoreSettings menu data.
 local function labels(row)
@@ -111,7 +135,7 @@ end
 for definition,expected in pairs({
     [omensDefinition]={ParryStyle='off',ParryPosition='below|middle|above',
         ParryIncoming='normal|faint|off',ParryPerfect='end|start|halfway|off'},
-    [countdownDefinition]={Position='below|middle|above'}}) do
+    [countdownDefinition]={Position='below|middle|above',Style='full|bar|label'}}) do
     for key,list in pairs(expected) do
         local row=assert(rows[definition.settings[key]],'no settings row for '..key)
         assert(keys(row)==list,key..' keys '..keys(row))
@@ -188,6 +212,8 @@ for _,key in ipairs({'ParryIncoming','ParryPerfect'}) do
     assert(not (row.conditions and row.conditions.visible) and not row.visible,key..' always shows')
 end
 assert(labels(rows[countdownDefinition.settings.Position])=='Below|Middle|Above')
+assert(keys(rows[countdownDefinition.settings.Style])=='full|bar|label'
+    and labels(rows[countdownDefinition.settings.Style])=='Full|Bar only|Label only','Countdown Style choices')
 -- Both Size rows give their own description.
 for _,key in ipairs({'ParrySize','UnblockableSize'}) do
     assert(rows[omensDefinition.settings[key]].description
@@ -201,7 +227,7 @@ assert(rows[omensDefinition.settings.ParryOpacity].description
 for definition,keys in pairs({[omensDefinition]={'ParryPosition','UnblockableStyle','ParryStyle','ParrySize','ParryTravel','ParryOpacity','ParryIncoming','ParryPerfect',
     'UnblockableSize'},[audioDefinition]={'SoundIncoming','SoundPerfect','SoundUnblockable','OptionsDirectional','OptionsPitch','OptionsVolume'},
     [edgesDefinition]={'ActivateIncoming','ActivatePerfect','ActivateUnblockable','VisualsStyle','VisualsThickness','VisualsIntensity'},
-    [countdownDefinition]={'Position'}}) do
+    [countdownDefinition]={'Style','Direction','Position','Size','Opacity'}}) do
     for _,key in ipairs(keys) do
         local description=rows[definition.settings[key]].description
         assert(type(description)=='string' and #description>0,key..' has a description')

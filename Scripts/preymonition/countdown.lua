@@ -22,6 +22,7 @@
 local Combat=require('preymonition.combat')
 local Controller=require('preymonition.controller')
 local Render=require('preymonition.countdown_render')
+local Cue=require('preymonition.omens_render')
 
 local OPEN_BEFORE=0.18
 local LEAD,FALLBACK=0.3,Controller.FALLBACK
@@ -30,6 +31,11 @@ local PREVIEW_LEAD,PREVIEW_WINDOW=0.7,0.5
 -- While the game is paused its clock stands still and nothing on screen changes:
 -- the count looks again every PAUSED_FRAMES frames rather than every frame.
 local PAUSED_FRAMES=5
+
+-- Show direction in label: what NOW becomes, by the attack's direction (MCT's
+-- 1 top, 2 bottom, 3 left, 4 right), named as the Omens' arrow points on screen.
+local WORDS={}
+for index,name in ipairs(Cue.SCREEN_DIRECTIONS) do WORDS[index]=name:upper() end
 
 local records={}
 -- Whether combat is on: requests arrive only while it is.
@@ -43,12 +49,15 @@ function M.setLog(logger) log=logger end
 local fail,reportFailures=Controller.failures('countdown ',function() return log end)
 
 -- What a record shows at a time: nil when no attack is counted; else the text,
--- the remaining share of the bar, whether it is the Perfect Opportunity window, and whether it
--- still changes.
+-- the remaining share of the bar, how far the count has run (0 as it starts, 1 at
+-- the window, for Opacity and Size), whether it is the Perfect Opportunity window,
+-- and whether it still changes. In the window the text is NOW, or the attack's
+-- direction with Show direction in label on (NOW when it is unknown).
 function M.view(record,now)
     if record.opened then
         local fraction=math.max(0,1-(now-record.opened)/record.window)
-        return {text='NOW',fraction=fraction,now=true},fraction>0
+        local text=record.showDirection and WORDS[record.direction] or 'NOW'
+        return {text=text,fraction=fraction,progress=1,now=true},fraction>0
     end
     if not record.started then return nil,false end
     local remaining=math.max(0,record.count-(now-record.started))
@@ -59,7 +68,7 @@ function M.view(record,now)
         record.tenths,record.text=tenths,string.format('%d.%ds',tenths//10,tenths%10)
     end
     local fraction=record.count>0 and remaining/record.count or 0
-    return {text=record.text,fraction=fraction},remaining>0
+    return {text=record.text,fraction=fraction,progress=1-fraction},remaining>0
 end
 
 local function clear(record)
@@ -207,7 +216,7 @@ local fontWarned=false
 
 function M.attach(hud,layer,params,onCleanup)
     local settings=params.settings or {}
-    local record={lead=LEAD*FALLBACK,preview=params.preview==true}
+    local record={lead=LEAD*FALLBACK,preview=params.preview==true,showDirection=settings.Direction==1}
     record.onFrame=function()
         record.scheduled=false
         if record.detached then return end
@@ -221,8 +230,8 @@ function M.attach(hud,layer,params,onCleanup)
         log.debug('countdown detached; ',#records,' attached')
         return true
     end)
-    local position,size=Render.position(settings.Position),Render.size(settings.Size)
-    record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),position,size)
+    record.ui=Render.build(hud,layer,assert(params.screen,'screen unavailable'),
+        {position=settings.Position,size=settings.Size,style=settings.Style,opacity=settings.Opacity})
     if record.ui.fontFailed and not fontWarned then
         fontWarned=true
         log.warn('countdown font size not set; the time keeps the default size: ',record.ui.fontFailed)
@@ -234,7 +243,11 @@ function M.attach(hud,layer,params,onCleanup)
         local ok,why=pcall(pace,record)
         if not ok then fail('pace',why) end
     end
-    log.info(record.preview and 'preview countdown attached, position ' or 'countdown attached, position ',position,', size ',size,'%')
+    local ui=record.ui
+    log.info(record.preview and 'preview countdown attached, style ' or 'countdown attached, style ',ui.style,
+        ', position ',ui.position,', size ',ui.sizes[1],'-',ui.sizes[2],'%, opacity ',
+        math.floor(ui.opacity[1]*100+0.5),'-',math.floor(ui.opacity[2]*100+0.5),'%',
+        record.showDirection and ', direction in label' or '')
 end
 
 return M

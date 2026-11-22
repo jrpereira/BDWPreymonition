@@ -8,7 +8,7 @@ Keep incoming attack directions in sight with animated cues near the center of y
 
 Preymonition adds an arrow cue near the center of the screen, below it, at its middle or above it. When an attack comes, an arrow flashes in from its direction and turns red when the attack becomes critical. It vanishes once the attack lands or is deflected, so an empty cue means nothing is incoming. Unblockable attacks show a picture at the screen's centre, a horned skull by default. The cue clears when combat ends. Sound cues can play as the attack comes, with or without the arrows, and a countdown can show the time left to the attack's Perfect Opportunity window.
 
-Position, arrow style, size and movement, screen edge glows, the countdown and sounds are all adjustable. The original warning stays in place. Blocking, dodging, and taking the credit remain your responsibility.
+Position, arrow style, size and travel, screen edge glows, the countdown and sounds are all adjustable. The original warning stays in place. Blocking, dodging, and taking the credit remain your responsibility.
 
 [b]Requirements[/b]
 
@@ -35,14 +35,14 @@ An attack's [b]parry window[/b] opens when it is first shown (the yellow arrow),
 [list]
 [*][b]Parry & Block Indicator → Style[/b]: Off, then the pictures in the mod's images folder: [b]Chevron[/b], Fancy and Solid ship. Solid and Chevron are arrows with a thin black outline; Fancy is a glowing arrow. Arrows turn red when the attack is critical.
 [*][b]Parry & Block Indicator → Position[/b]: Below, [b]Middle[/b] or Above. Only the arrows move; the unblockable indicator stays at the screen's centre.
-[*][b]Parry & Block Indicator → Size[/b]: a range on 0%–100% ([b]30%–80%[/b]), at least 10% apart. An arrow appears at the low end's size and grows to the high end's as it travels, from 5% of the screen height at 0% to 50% at 100%.
+[*][b]Parry & Block Indicator → Size[/b]: a range on 0%–100% ([b]30%–80%[/b]). An arrow appears at the low end's size and grows to the high end's as it travels, from 5% of the screen height at 0% to 50% at 100%.
 [*][b]Parry & Block Indicator → Opacity[/b]: a range on 0%–100% ([b]50%–70%[/b]): the arrow's opacity as it appears and once its travel ends, changing as it travels.
 [*][b]Parry & Block Indicator → Travel[/b]: a range on 0%–100% ([b]40%–60%[/b]) of the space the arrow has: at 0% its back edge is on the cue's centre, at 100% its tip reaches the screen edge (up and down travel alike, as far as the nearer of the top and bottom edges). Its tip appears at the low end and stops at the high end; equal ends keep it still.
 [*][b]Parry & Block Indicator → Attack Incoming[/b]: how the Yellow arrow shows before the Perfect Opportunity window: [b]Normal[/b], Faint (35% of Opacity) or Off.
 [*][b]Parry & Block Indicator → Perfect Opportunity[/b]: how the Perfect Opportunity arrow takes over. [b]End[/b]: yellow runs its course first, red comes in at the end. Start: yellow doesn't move. Halfway: yellow moves 50%. Off: only yellow shows, never red; with Attack Incoming Off too, no arrow shows for attacks. The unblockable indicator and the Audio Cues are unaffected.
 [*][b]Unblockable Attack Indicator → Style[/b]: Off, [b]Fiend[/b] (a horned skull), Gore (a bleeding skull), Cracked or Shattered (a broken shield), Ember (a red cloud) or Splatter (a blood splatter), at the screen's centre. Add your own [i]unblockable_<name>.png[/i] to the [i]images[/i] folder to offer it.
 [*][b]Unblockable Attack Indicator → Size[/b]: a range on 0%–100% ([b]60%–100%[/b]). The indicator appears at the low end's size and grows to the high end's, from 5% of the screen height at 0% to the full screen height at 100%.
-[*][b]Unblockable Attack Indicator → Opacity[/b]: a range on 0%–100% ([b]50%–80%[/b]), at least 10% apart: the indicator's opacity as it appears and once grown, changing as it grows.
+[*][b]Unblockable Attack Indicator → Opacity[/b]: a range on 0%–100% ([b]50%–80%[/b]): the indicator's opacity as it appears and once grown, changing as it grows.
 [*][b]Audio Cues → Sounds → Attack incoming[/b] (parry window, yellow arrow, as the attack is first seen) and [b]Perfect Opportunity[/b] (Perfect Opportunity window, red arrow): None or one of the mod's cue sounds; [b]Rumble[/b] and [b]Ding[/b] by default. Drop your own [i]cue_<name>.wav[/i] into the mod's [i]sounds[/i] folder and it is offered the next time the menu opens.
 [*][b]Audio Cues → Options → Enable directional sound[/b]: [b]On[/b] plays a side arrow's sound on its side and sets ahead and behind apart by pitch, behind muffled.
 [*][b]Audio Cues → Options → Differentiate back/front by pitch[/b]: -50% to +50%, [b]-20%[/b] behind and [b]+20%[/b] ahead by default.
@@ -54,8 +54,11 @@ An attack's [b]parry window[/b] opens when it is first shown (the yellow arrow),
 [*][b]Edges Flash → Visuals → Style[/b]: Bands, or a smooth gradient, Linear or [b]Soft[/b]. Drop a pair [i]edge_<name>_v.png[/i] (top edge, fading down) and [i]edge_<name>_h.png[/i] (left edge, fading right) into the mod's [i]images[/i] folder to add one.
 [*][b]Edges Flash → Visuals → Thickness[/b]: 2% to 20% of the shorter screen side, [b]8%[/b] by default.
 [*][b]Edges Flash → Visuals → Intensity[/b]: the glow's opacity at the screen edge, 10% to 100%, [b]50%[/b] by default.
+[*][b]Countdown → Style[/b]: [b]Full[/b] (the time above the bar), Bar only or Label only.
+[*][b]Countdown → Show direction in label[/b]: [b]Off[/b] or On: in the Perfect Opportunity window the label shows the attack's direction, UP, DOWN, LEFT or RIGHT, instead of NOW. Hidden with Bar only.
 [*][b]Countdown → Position[/b]: Below, [b]Middle[/b] or Above, from low on the screen to high. The time left to the Perfect Opportunity window counts down above a yellow bar, from the attack's own timing in the game. [b]NOW[/b] shows in red only when the game opens the Perfect Opportunity window, never before.
-[*][b]Countdown → Size[/b]: 5% to 100%, [b]10%[/b] by default. The bar grows to three times its size and the time, centred over it, to most of the screen height; the countdown always stays on screen.
+[*][b]Countdown → Size[/b]: a range on 5%–100% ([b]10%–10%[/b]): its size as the count starts and as it reaches the Perfect Opportunity window. The bar grows to three times its size and the time, centred over it, to most of the screen height; the countdown always stays on screen.
+[*][b]Countdown → Opacity[/b]: a range on 0%–100% ([b]50%–70%[/b]): its opacity as the count starts, rising to the high end at the Perfect Opportunity window.
 [/list]
 
 [b]If the cue does not appear[/b]

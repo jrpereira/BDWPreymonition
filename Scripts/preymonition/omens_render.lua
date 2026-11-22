@@ -40,6 +40,13 @@ local arrowSize,skullScale,fit,tipDistance,paintParts
 local construct=Widgets.construct
 local function hold(object,name) return Widgets.hold(object,'cue',name) end
 local M={ARROWS=ARROWS}
+-- The screen direction each arrow travels in, by name, matching ARROWS: the way the
+-- arrow points on screen, so the game's LeftArrow is 'right' (preymonition.countdown
+-- names it).
+M.SCREEN_DIRECTIONS={}
+for index,out in ipairs(OUTWARD) do
+    M.SCREEN_DIRECTIONS[index]=out.Y<0 and 'up' or out.Y>0 and 'down' or out.X>0 and 'right' or 'left'
+end
 
 -- A pass is one entry from the game: an attack event or an animation frame. Within it each cue's widgets resolve once; the wrappers are
 -- never read once the pass is over.
@@ -157,11 +164,14 @@ function M.phases(settings)
 end
 
 -- A range setting as shares, 0 to 1: {low, high}. MCT gives it as {low, high} percent.
+-- A range setting {low, high} in percent as shares 0 to 1, or low and high
+-- (percent) when it is not one. Equal ends are a fixed value.
 local function share(span,low,high)
     if type(span)=='table' and type(span[1])=='number' and type(span[2])=='number' then low,high=span[1],span[2] end
     local function clamp(value) return math.max(0,math.min(1,value/100)) end
     return {clamp(low),clamp(high)}
 end
+M.share=share
 
 -- The cue settings: percentages of the current look, and choices.
 local function config(settings)

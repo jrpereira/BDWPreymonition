@@ -232,14 +232,25 @@ sound.
 
 ## Countdown
 
-The Countdown template builds a time, centred above a thin bar, in its layer. At
+The Countdown template builds a time, centred above a thin bar, in its layer;
+Style Bar only builds the bar and its outline alone, Label only the time alone. At
 the default Size (10%) the bar is 20% of the screen height wide and its bottom
 sits 77.5%, 55% or 32.5% of the height down for Below, Middle and Above, its own
 places, not the omens'. Size scales the bar by 1+2*(s-10)/90 (three times at 100%)
 and the time's line linearly from 3.5% of the height at 10% to 70% at 100% (below
 10% it shrinks with the bar), keeping the font at 4/7 of the line; the box widens
-to a time wider than the bar. Another Size keeps the box's vertical centre where
-the 10% box has it for its Position, then moves it inside the screen. Its requests (`preymonition/countdown.lua`) time the
+to a time wider than the bar. Another Size or Style keeps the box's vertical centre
+where the full 10% box has it for its Position, then moves it inside the screen.
+
+Size and Opacity are ranges whose low end is the countdown as the count starts and
+whose high end is the countdown as it reaches the Perfect Opportunity window, where it
+stays through the window; in between both follow the share of the count run down.
+The countdown is built at Size's high end; while the ends differ, the time and the
+bar each take the size between them by render scale and translation, the time's top
+and the bar's bottom where the layout at that size puts them, so no font size is set
+again as it grows. Opacity is the render opacity of the box's content, so it fades
+the time, the bar and the outline together and multiplies with the box's own render
+opacity, which shows and hides the countdown. Equal ends hold either still. Its requests (`preymonition/countdown.lua`) time the
 attack and its renderer (`preymonition/countdown_render.lua`) draws it, stepping
 every frame only while something moves. Each frame looks up the HUD once and reuses
 the widgets built in it while it lives; while the game is paused its clock stands
@@ -261,7 +272,9 @@ checked.
 The time shows in tenths, rounded up, and the bar runs down from full; the
 outline and the remaining bar are half see-through and the elapsed part is not
 drawn. A count that runs out first holds at 0.0s. NOW comes only from the
-critical request: the time reads NOW, everything turns red and the red bar runs
+critical request: the time reads NOW (or, with Show direction in label on, the
+attack's direction: UP, DOWN, LEFT or RIGHT, the way the Omens' arrow points on screen,
+so the game's left arrow reads RIGHT; NOW when the direction is unknown), everything turns red and the red bar runs
 down, then holds empty. A resolve, or
 combat end, hides it. The arrow showing again for the same attack keeps its
 count; a critical request for an attack not counted says NOW at once.

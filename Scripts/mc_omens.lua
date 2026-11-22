@@ -41,18 +41,18 @@ local template={
             -- 1 unit of the screen height (0%) to 10 (100%).
             {id='.Size', label='Size', type='range',
                 description='The size when it appears, and the size it grows to.',
-                values={min=0,max=100,step=10,suffix='%',delta={10}}, default={30,80}},
+                values={min=0,max=100,step=10,suffix='%',delta={0}}, default={30,80}},
             -- Opacity: the arrow's own opacity as it appears (low) and once it has
             -- travelled (high), animated over the travel; the cue adds none of its own.
             {id='.Opacity', label='Opacity', type='range',
                 description='The opacity when it appears, and the opacity it reaches as it travels.',
-                values={min=0,max=100,step=10,suffix='%',delta={10}}, default={50,70}},
+                values={min=0,max=100,step=10,suffix='%',delta={0}}, default={50,70}},
             -- Travel: where the arrow's tip appears (low) and stops
             -- (high), as a share of the space the arrow has: 0% puts its back edge,
             -- at its starting size, on the cue's centre; 100% its tip on the screen edge.
             {id='.Travel', label='Travel', type='range',
                 description='Where the arrow appears and how far it travels: 0% from the center, 100% to the screen edge.',
-                values={min=0,max=100,step=5,suffix='%'}, default={40,60}},
+                values={min=0,max=100,step=5,suffix='%',delta={0}}, default={40,60}},
             -- The arrow's two phases (preymonition.omens_render's phases): the yellow
             -- arrow before the Perfect Opportunity window, then the red arrow taking over.
             {id='.Incoming', label='Attack Incoming',
@@ -73,12 +73,12 @@ local template={
             -- 5% of the screen height (0%) to the full screen height (100%).
             {id='.Size', label='Size', type='range',
                 description='The size when it appears, and the size it grows to.',
-                values={min=0,max=100,step=10,suffix='%'}, default={60,100}},
+                values={min=0,max=100,step=10,suffix='%',delta={0}}, default={60,100}},
             -- Opacity: the picture's opacity as it appears (low) and once grown
             -- (high), animated with Size.
             {id='.Opacity', label='Opacity', type='range',
                 description='The opacity when it appears, and the opacity it reaches as it grows.',
-                values={min=0,max=100,step=10,suffix='%',delta={10}}, default={50,80}},
+                values={min=0,max=100,step=10,suffix='%',delta={0}}, default={50,80}},
         }},
     },
 }
