@@ -1,5 +1,9 @@
 [size=5][b]Combat Preymonition[/b][/size]
 
+[center][b]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/b]
+[size=4][b]Tested for The Blood of Dawnwalker 1.2[/b][/size]
+[b]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/b][/center]
+
 [i]You see them coming. They won't.[/i]
 
 Keep incoming attack directions in sight with animated cues near the center of your screen. Spend less time hunting for the warning—and more time getting hit in the face like a pro that saw it coming.
