@@ -1,29 +1,47 @@
 # Changelog
 
-## Unreleased
+## v1.6.0
 
+- New Parry & Block Indicator → Opacity, a range (50%–70% by default): each arrow appears
+  at the low end and reaches the high end as it travels. It replaces the fixed 50% the
+  arrows had.
 - Parry & Block Indicator → Movement from Center is now Travel, just below Opacity.
+- New Unblockable Attack Indicator → Opacity, a range (50%–80% by default): the picture
+  appears at the low end and reaches the high end as it grows. It replaces the fixed 50%.
 - The Countdown is no longer marked as a work in progress.
-- The Countdown's time is centred over its bar instead of at its right end.
-- The Countdown has positions of its own instead of following the Omens' arrows, each a
-  little higher on the screen.
-- New Countdown → Size, a range on 5% to 100% (10%–10% by default, the size so far):
-  the size as the count starts and as it reaches the Perfect Opportunity window, growing
-  as it runs down. At 100% the bar is three times its size and the time most of the
-  screen height tall; the countdown stays centred at its Position and on screen.
 - New Countdown → Style, first on its page: Full (the time above the bar), Bar only or
   Label only.
 - New Countdown → Show direction in label (Off by default): in the Perfect Opportunity
   window the label shows the attack's direction, UP, DOWN, LEFT or RIGHT, the way the
   Omens' arrow points, instead of NOW. Hidden with Style Bar only.
+- New Countdown → Size, a range on 5% to 100% (10%–10% by default, the size so far):
+  the size as the count starts and as it reaches the Perfect Opportunity window, growing
+  as it runs down. At 100% the bar is three times its size and the time most of the
+  screen height tall; the countdown stays centred at its Position and on screen.
 - New Countdown → Opacity, a range (50%–70% by default): the countdown appears at the low
   end and reaches the high end at the Perfect Opportunity window. It replaces the fixed
   full opacity.
+- The Countdown's time is centred over its bar instead of at its right end.
+- The Countdown has positions of its own instead of following the Omens' arrows, each a
+  little higher on the screen.
 - Every Size, Opacity and Travel range accepts equal ends, which hold the value still.
+- Solid is redrawn level with Chevron, and Chevron is a little wider.
+- The Omens, Edges Flash and Countdown follow a resolution, window size or UI scale
+  change made mid-session, from the next loading screen or combat start.
+- An attack the game reports on two indicators in the same direction keeps its edge glow
+  and its countdown until both resolve, instead of the glow going out early or the count
+  restarting.
+- An attack shows its Perfect Opportunity window even when its arrow is no longer red,
+  and a repeated report no longer turns an arrow red early.
+- The Omens and Countdown turned on during a fight take the difficulty's timing at once.
+- A missing arrow or unblockable picture is reported in the log once, when the cue
+  attaches, instead of on every attack.
+- Settings are saved per part in `9_ModCore_Preymonition/config.ini`, under
+  `[Preymonition.Omens]`, `[Preymonition.Audio]`, `[Preymonition.Edges]` and
+  `[Preymonition.Countdown]`. Settings saved by 1.5.1 are not read: they start at their
+  defaults once.
 - Log levels no longer come from `log_level.txt`. With the UE4SS Lua Log Bridge installed they
   are set on its Logs page or under `[Levels]` in its `config.ini`; without it, WARN and above.
-- New Unblockable Attack Indicator → Opacity, a range (50%–80% by default): the picture
-  appears at the low end and reaches the high end as it grows. It replaces the fixed 50%.
 
 ## v1.5.1
 
